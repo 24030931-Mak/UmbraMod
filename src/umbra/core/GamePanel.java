@@ -1,5 +1,6 @@
 package umbra.core;
 
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -7,6 +8,7 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.Stroke;
 import java.awt.Toolkit;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
@@ -22,6 +24,7 @@ import javax.swing.Timer;
 
 import umbra.entities.LightSource;
 import umbra.entities.Player;
+import umbra.graphics.Background;
 import umbra.graphics.Camera;
 import umbra.graphics.ParticleSystem;
 import umbra.graphics.ShadowCaster;
@@ -44,6 +47,8 @@ public class GamePanel extends JPanel {
 
     private static final Color BACKGROUND = new Color(8, 8, 16);
     private static final Color SHADOW_COLOR = new Color(40, 20, 70, 220);
+    private static final Color SHADOW_EDGE = new Color(150, 110, 225, 110);
+    private static final Stroke SHADOW_EDGE_STROKE = new BasicStroke(2f);
     private static final Font HUD_FONT = new Font(Font.MONOSPACED, Font.PLAIN, 14);
     private static final Font BIG_FONT = new Font(Font.SANS_SERIF, Font.BOLD, 32);
 
@@ -60,6 +65,7 @@ public class GamePanel extends JPanel {
     private Player player;
     private LightSource light;
     private Camera camera;
+    private Background background;
     private Vec2 checkpoint;   // dónde reaparece si se cae: la última repisa firme que pisó
     private List<Path2D> shadows = new ArrayList<>();
     private boolean levelComplete;
@@ -109,6 +115,7 @@ public class GamePanel extends JPanel {
         level = newLevel;
         player = new Player(level.getSpawn());
         camera = new Camera(level.getWidth());
+        background = new Background(level.getWidth(), 7L);   // semilla fija: la cueva siempre igual
         checkpoint = level.getSpawn();
         light = new LightSource(input.getMouseX(), input.getMouseY());
         levelComplete = false;
@@ -154,6 +161,7 @@ public class GamePanel extends JPanel {
 
         // ---- Mundo y jugador ----
         level.update(dt);
+        background.update(dt);   // niebla y esporas
 
         if (!levelComplete && player.isDead()) {
             // Se desmoronó: espera un momento y reaparece en la última repisa firme
@@ -225,20 +233,26 @@ public class GamePanel extends JPanel {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 
-        // El mundo se dibuja con la matriz de vista de la cámara (mundo -> pantalla).
-        // El orden importa: lo que se dibuja después queda encima
+        // El orden importa: lo que se dibuja después queda encima.
+        // 0. Fondo de la cueva: cada capa con su propio parallax (coordenadas de pantalla)
+        double camX = camera.getX();
+        background.drawBack(g2, camX);
+
+        // El mundo se dibuja con la matriz de vista de la cámara (mundo -> pantalla)
         AffineTransform screen = g2.getTransform();
         g2.transform(camera.getViewMatrix().toAffineTransform());
-        light.drawGlow(g2);       // 1. halo de luz sobre el fondo
-        drawShadows(g2);          // 2. sombras (el refugio de Candil)
-        level.draw(g2);           // 3. repisas, bloques y salida
-        particles.draw(g2);       // 4. partículas [FINAL]
-        player.draw(g2);          // 5. jugador
-        light.drawCore(g2);       // 6. punto brillante de la luz
+        light.drawGlow(g2);              // 1. halo de luz sobre el fondo
+        drawShadows(g2);                 // 2. sombras (el refugio de Candil)
+        level.draw(g2);                  // 3. repisas, bloques y salida
+        background.drawSpores(g2, camX); // 4. esporas flotando
+        particles.draw(g2);              // 5. partículas [FINAL]
+        player.draw(g2);                 // 6. jugador
+        light.drawCore(g2);              // 7. punto brillante de la luz
 
-        // El HUD no se desplaza: se dibuja en coordenadas de pantalla
+        // Lo demás no usa la matriz de vista: se dibuja en coordenadas de pantalla
         g2.setTransform(screen);
-        drawHud(g2);              // 7. textos
+        background.drawFront(g2, camX);  // 8. neblina del abismo, primer plano y viñeta
+        drawHud(g2);                     // 9. textos
 
         g2.dispose();
         countFps();
@@ -268,6 +282,14 @@ public class GamePanel extends JPanel {
         for (Path2D shadow : shadows) {
             g.fill(shadow);
         }
+        // Borde tenue: con el fondo de cueva, ayuda a ver dónde termina el refugio
+        Stroke old = g.getStroke();
+        g.setStroke(SHADOW_EDGE_STROKE);
+        g.setColor(SHADOW_EDGE);
+        for (Path2D shadow : shadows) {
+            g.draw(shadow);
+        }
+        g.setStroke(old);
     }
 
     private void drawHud(Graphics2D g) {
