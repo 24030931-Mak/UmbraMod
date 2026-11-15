@@ -15,7 +15,7 @@ import java.util.Random;
  *
  * Efectos de Candil:
  *   emit         chispas al aterrizar
- *   emitTrail    rastro de luz al moverse (violeta dentro de la sombra)
+ *   emitVapor    estela de vapor al moverse (violeta dentro de la sombra)
  *   emitDust     polvo de luz que suelta mientras pierde vida fuera de la sombra
  *   emitCrumble  fragmentos cuando se desmorona
  */
@@ -45,11 +45,15 @@ public class ParticleSystem {
         }
     }
 
-    /** Una partícula del rastro de luz. Dentro de la sombra es violeta, como "sumergida". */
-    public void emitTrail(double x, double y, boolean inShadow) {
-        Color c = inShadow ? new Color(175, 140, 255) : new Color(170, 230, 255);
-        add(x + rand(-4, 4), y + rand(-7, 7), rand(-12, 12), rand(-20, 4), rand(0.35, 0.55),
-                rand(2.5, 4), 0, c, true);
+    /**
+     * Una bocanada de la estela de vapor de Candil: niebla translúcida (el alfa del color es su
+     * opacidad máxima) que sube despacio y se deshace. Dentro de la sombra es violeta, como
+     * "sumergida".
+     */
+    public void emitVapor(double x, double y, boolean inShadow) {
+        Color c = inShadow ? new Color(170, 150, 235, 120) : new Color(185, 200, 228, 130);
+        add(x + rand(-5, 5), y + rand(-6, 6), rand(-14, 14), rand(-26, -6), rand(0.45, 0.8),
+                rand(2.5, 4), -10, c, true);
     }
 
     /** Polvo de luz que se desprende de Candil y sube mientras pierde vida. */
@@ -58,15 +62,26 @@ public class ParticleSystem {
                 rand(1.2, 2.2), -20, new Color(190, 220, 245), false);
     }
 
-    /** Candil se desmorona: fragmentos que caen y algunas brasas que suben. */
+    /**
+     * Candil se desmorona en 40 partículas: se deshace en niebla (bocanadas translúcidas que
+     * suben y se dispersan) y ceniza (copos grises que caen despacio). Sus dos ojos se quedan
+     * quietos donde estaban y son lo último en apagarse.
+     */
     public void emitCrumble(Rectangle2D body) {
-        for (int i = 0; i < 40; i++) {
+        double eyeX = body.getCenterX(), eyeY = body.getY() + 9;
+        Color eye = new Color(235, 245, 255);
+        add(eyeX - 2.5, eyeY, 0, 0, 1.2, 1.6, 0, eye, true);
+        add(eyeX + 2.5, eyeY, 0, 0, 1.2, 1.6, 0, eye, true);
+        for (int i = 0; i < 38; i++) {
             double px = body.getX() + rnd.nextDouble() * body.getWidth();
             double py = body.getY() + rnd.nextDouble() * body.getHeight();
-            boolean ember = i % 4 == 0;
-            add(px, py, rand(-90, 90), ember ? rand(-90, -30) : rand(-140, 20), rand(0.6, 1.2),
-                    ember ? rand(1.5, 2.5) : rand(2, 4), ember ? -40 : 520,
-                    ember ? new Color(255, 225, 160) : new Color(210, 235, 255), ember);
+            if (i % 3 == 0) {   // ceniza
+                add(px, py, rand(-60, 60), rand(-90, -20), rand(0.7, 1.15), rand(1, 1.8), 220,
+                        new Color(122, 118, 120), false);
+            } else {            // niebla
+                add(px, py, rand(-70, 70), rand(-80, 10), rand(0.6, 1.1), rand(2.5, 4.5), -40,
+                        new Color(170, 186, 214, 150), true);
+            }
         }
     }
 
@@ -84,6 +99,7 @@ public class ParticleSystem {
         for (Particle p : particles) {
             double t = p.life / p.maxLife;   // 1 al nacer, 0 al morir
             int alpha = (int) (255 * t * t); // se desvanece, más rápido al final
+            alpha = alpha * p.color.getAlpha() / 255;   // [v1.0] el alfa del color es su opacidad máxima (el vapor)
             if (p.halo) {
                 double h = p.size * 2.4;
                 g.setColor(withAlpha(p.color, alpha / 4));

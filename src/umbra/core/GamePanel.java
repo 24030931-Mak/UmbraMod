@@ -401,6 +401,8 @@ public class GamePanel extends JPanel {
             }
         } else if (!levelComplete) {
             boolean wasOnGround = player.isOnGround();
+            // Candil se asusta si Logi está cerca: le decimos a qué distancia está
+            player.setLogiDistance(Math.hypot(light.getX() - player.getCenterX(), light.getY() - player.getCenterY()));
             player.update(dt, input, level, shadows);
             // Candil vivo: lo que queda a menos de 180 px se marca como recorrido (para el mapa)
             if (!player.isDead()) {
@@ -461,9 +463,10 @@ public class GamePanel extends JPanel {
     }
 
     /**
-     * Partículas de Candil [v1.0]: fragmentos si se acaba de desmoronar; si no, un rastro de
-     * luz cuando se mueve y polvo de luz fuera de la sombra (más entre menos vida le queda).
-     * Los acumuladores hacen que salgan a un ritmo fijo por segundo, sin importar los FPS.
+     * Partículas de Candil [v1.0]: niebla y ceniza si se acaba de desmoronar; si no, una
+     * estela de vapor que suelta su capa cuando se mueve, y polvo de luz fuera de la sombra
+     * (más entre menos vida le queda). Los acumuladores hacen que salgan a un ritmo fijo por
+     * segundo, sin importar los FPS.
      */
     private void emitPlayerEffects(double dt) {
         if (player.isDead()) {
@@ -476,7 +479,7 @@ public class GamePanel extends JPanel {
         trailTimer = moving ? trailTimer + dt * TRAIL_RATE : 0;
         while (trailTimer >= 1) {
             trailTimer -= 1;
-            particles.emitTrail(cx, cy, player.isInShadow());
+            particles.emitVapor(cx, cy + 6, player.isInShadow());   // de la parte baja de la capa
         }
         dustTimer = player.isInShadow() ? 0 : dustTimer + dt * DUST_RATE * (1 - player.getLife());
         while (dustTimer >= 1) {
