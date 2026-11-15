@@ -1,0 +1,26 @@
+# Archivos compilados
+out/
+bin/
+build/
+dist/
+*.class
+*.jar
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# NetBeans
+nbproject/private/
+
+# VS Code
+.vscode/
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
