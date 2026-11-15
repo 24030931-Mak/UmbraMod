@@ -20,8 +20,6 @@ import umbra.math.Vec2;
  */
 public class Level {
 
-    private static final Color PLATFORM_FILL = new Color(36, 36, 52);
-    private static final Color PLATFORM_TOP = new Color(110, 110, 140);
     private static final Color BRIDGE = new Color(255, 255, 255, 50);
 
     private final String name;
@@ -153,14 +151,11 @@ public class Level {
 
     // ---- Dibujo ----
 
+    /**
+     * Dibuja la salida (y el puente provisional, si lo hay). Las repisas y los bloques
+     * los dibuja graphics.LevelArt, con su aspecto de roca y piedra tallada.
+     */
     public void draw(Graphics2D g) {
-        for (Rectangle2D p : platforms) {
-            g.setColor(PLATFORM_FILL);
-            g.fill(p);
-            g.setColor(PLATFORM_TOP);
-            g.fill(new Rectangle2D.Double(p.getX(), p.getY(), p.getWidth(), 3));
-        }
-
         if (tempBridge != null) {
             Stroke old = g.getStroke();
             g.setColor(BRIDGE);
@@ -169,11 +164,6 @@ public class Level {
             g.draw(tempBridge);
             g.setStroke(old);
         }
-
-        for (Block b : blocks) {
-            b.draw(g);
-        }
-
         drawPortal(g);
     }
 
@@ -224,6 +214,7 @@ public class Level {
     public String getName() { return name; }
     public double getWidth() { return width; }
     public Vec2 getSpawn() { return spawn; }
+    public List<Rectangle2D> getPlatforms() { return Collections.unmodifiableList(platforms); }
     public List<Block> getBlocks() { return Collections.unmodifiableList(blocks); }
     public List<Rectangle2D> getSolids() { return Collections.unmodifiableList(solids); }
 }

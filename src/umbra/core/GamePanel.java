@@ -27,6 +27,7 @@ import umbra.entities.LightSource;
 import umbra.entities.Player;
 import umbra.graphics.Background;
 import umbra.graphics.Camera;
+import umbra.graphics.LevelArt;
 import umbra.graphics.ParticleSystem;
 import umbra.graphics.ShadowCaster;
 import umbra.math.Vec2;
@@ -68,6 +69,7 @@ public class GamePanel extends JPanel {
     private LightSource light;
     private Camera camera;
     private Background background;
+    private LevelArt levelArt;
     private Vec2 checkpoint;   // dónde reaparece si se cae: la última repisa firme que pisó
     private List<Path2D> shadows = new ArrayList<>();
     private boolean levelComplete;
@@ -119,6 +121,7 @@ public class GamePanel extends JPanel {
         player = new Player(level.getSpawn());
         camera = new Camera(level.getWidth());
         background = new Background(level.getWidth(), 7L);   // semilla fija: la cueva siempre igual
+        levelArt = new LevelArt(level, 11L);                 // roca, musgo, hongos y runas
         checkpoint = level.getSpawn();
         light = new LightSource(input.getMouseX(), input.getMouseY());
         levelComplete = false;
@@ -167,6 +170,7 @@ public class GamePanel extends JPanel {
         // ---- Mundo y jugador ----
         level.update(dt);
         background.update(dt);   // niebla y esporas
+        levelArt.update(dt);     // pulso de los hongos y las runas
 
         if (!levelComplete && player.isDead()) {
             // Se desmoronó: espera un momento y reaparece en la última repisa firme
@@ -247,8 +251,10 @@ public class GamePanel extends JPanel {
         AffineTransform screen = g2.getTransform();
         g2.transform(camera.getViewMatrix().toAffineTransform());
         light.drawGlow(g2);              // 1. halo de luz sobre el fondo
+        levelArt.drawBehind(g2, camX);   //    columnas rotas (decoración)
         drawShadows(g2);                 // 2. sombras (el refugio de Candil)
-        level.draw(g2);                  // 3. repisas, bloques y salida
+        levelArt.drawFront(g2, camX, light); // 3. repisas de roca, hongos, losas y runas
+        level.draw(g2);                  //    salida
         background.drawSpores(g2, camX); // 4. esporas flotando
         particles.draw(g2);              // 5. partículas [FINAL]
         player.draw(g2);                 // 6. jugador

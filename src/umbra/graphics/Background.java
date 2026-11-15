@@ -173,14 +173,14 @@ public class Background {
         return (int) Math.ceil(Config.WIDTH + (worldWidth - Config.WIDTH) * depth) + 2;
     }
 
-    private static Graphics2D smooth(BufferedImage img) {
+    static Graphics2D smooth(BufferedImage img) {
         Graphics2D g = img.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
         return g;
     }
 
-    private static BufferedImage newImage(int w, int h) {
+    static BufferedImage newImage(int w, int h) {
         return new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB_PRE);
     }
 
@@ -460,7 +460,7 @@ public class Background {
     }
 
     /** Columna con capitel, o rota en la parte de arriba. */
-    private static Path2D column(double cx, double base, double w, double h, Random rnd, boolean broken) {
+    static Path2D column(double cx, double base, double w, double h, Random rnd, boolean broken) {
         Path2D p = new Path2D.Double();
         double left = cx - w / 2, right = cx + w / 2, top = base - h;
         p.moveTo(left - 6, base);
@@ -498,7 +498,7 @@ public class Background {
         return p;
     }
 
-    private static Color alpha(Color c, int a) {
+    static Color alpha(Color c, int a) {
         return new Color(c.getRed(), c.getGreen(), c.getBlue(), a);
     }
 }
