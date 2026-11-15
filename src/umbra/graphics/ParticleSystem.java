@@ -121,6 +121,36 @@ public class ParticleSystem {
         particles.clear();
     }
 
+    /**
+     * [v1.0] Una chispa de Logi: sale de la llama y flota hacia arriba (la gravedad negativa la
+     * acelera un poco hacia arriba) mientras se desvanece y se apaga.
+     */
+    public void emitSpark(double x, double y) {
+        add(x + rand(-6, 6), y + rand(-10, 2), rand(-18, 18), rand(-45, -20), rand(0.9, 1.5),
+                rand(1.1, 1.9), -30, new Color(255, 215, 120), true);
+    }
+
+    /**
+     * [v1.0] Ceniza de la cola de Logi. (vx, vy) es la velocidad de Logi: la ceniza sale detrás de
+     * ella y se va quedando atrás, despacio. Con d = v / |v| (hacia donde va) y n = (-d.y, d.x)
+     * (perpendicular a d), sale en
+     *     p = (x, y) - d·(4 a 24) + n·(-5 a 5)     con velocidad     -d·(30 a 90) + n·(-30 a 30).
+     * Al azar, una de cada tres es una brasa naranja que brilla y flota; las demás, ceniza gris que
+     * cae despacio.
+     */
+    public void emitAsh(double x, double y, double vx, double vy) {
+        double speed = Math.hypot(vx, vy);
+        double dx = speed > 0 ? vx / speed : 0, dy = speed > 0 ? vy / speed : 0;
+        double nx = -dy, ny = dx;
+        double back = rand(4, 24), side = rand(-5, 5);
+        double drift = rand(30, 90), spread = rand(-30, 30);
+        boolean ember = rnd.nextInt(3) == 0;
+        add(x - dx * back + nx * side, y - dy * back + ny * side,
+                -dx * drift + nx * spread, -dy * drift + ny * spread, rand(0.5, 0.9),
+                ember ? rand(1.2, 2) : rand(1.4, 2.4), ember ? -15 : 50,
+                ember ? new Color(255, 150, 60) : new Color(125, 110, 100), ember);
+    }
+
     private void add(double x, double y, double vx, double vy, double life, double size,
                      double gravity, Color color, boolean halo) {
         if (particles.size() >= MAX_PARTICLES) return;

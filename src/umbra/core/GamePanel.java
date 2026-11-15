@@ -81,6 +81,8 @@ public class GamePanel extends JPanel {
     private static final double EXPLORE_RADIUS = 180;
     /** Segundos entre tocar la salida y pasar a la pantalla final. */
     private static final double VICTORY_DELAY = 1.0;
+    /** Partículas de Logi por segundo: chispas mientras está fija (o sube rápido) y ceniza si va rápido. */
+    private static final double SPARK_RATE = 12, ASH_RATE = 30;
 
     private final Input input = new Input();
     private final Timer timer;
@@ -93,6 +95,7 @@ public class GamePanel extends JPanel {
     private final MapView mapView = new MapView();
     private final MiniMap miniMap = new MiniMap();
     private final Victory victory = new Victory(Resources.readLines("/umbra/res/final.txt"));
+    /** Logi del menú y de la pantalla final: etérea, sigue al ratón en coordenadas de pantalla. */
     private final LightSource menuLight = new LightSource(Config.WIDTH / 2.0, Config.HEIGHT / 3.0);
 
     private final World world = World.createDefault();
@@ -114,6 +117,7 @@ public class GamePanel extends JPanel {
     private double trailTimer, dustTimer;   // acumuladores de partículas
     private double playTime;                // tiempo jugado en este intento (s)
     private int deaths;                     // veces que Candil se desmoronó en este intento
+    private double sparkTimer, ashTimer;    // acumuladores de las partículas de Logi
 
     // Pantallas y fundido a negro
     private Screen screen = Config.SHOW_INTRO ? Screen.MENU : Screen.PLAYING;
@@ -156,6 +160,7 @@ public class GamePanel extends JPanel {
         }
         loadLevel(0);
         if (screen == Screen.PLAYING) levelTitle.show(level.getNumber(), level.getName());
+        menuLight.setEthereal(true);   // en el menú y en la pantalla final, Logi es fuego etéreo
 
         // El Timer "despierta" cada 10 ms. Si se le pidieran 16 ms (1000 / 60), Windows los
         // redondea a ~30 ms por la resolución de su reloj, y el juego se veía a ~34 FPS.
@@ -285,6 +290,8 @@ public class GamePanel extends JPanel {
         background.update(dt);        // la niebla y las esporas siguen moviéndose
         levelArt.update(dt, null);    // las plantas se mecen con el aire
         particles.update(dt);
+        menuLight.setTarget(input.getMouseX(), input.getMouseY());   // Logi, etérea, sigue al ratón
+        menuLight.update(dt);
         if (leaving) return;
 
         boolean confirm = input.wasPressed(KeyEvent.VK_ENTER) || input.wasPressed(KeyEvent.VK_SPACE)
@@ -381,8 +388,10 @@ public class GamePanel extends JPanel {
         // la cámara convierte de una a otra con la inversa de su matriz de vista.
         if (input.wasClicked()) light.togglePinned();
         Vec2 mouse = camera.screenToWorld(input.getMouseX(), input.getMouseY());
+        light.setCandil(player.getCenterX(), player.getCenterY());   // lo mira, y se agita si está cerca
         light.setTarget(mouse.x, mouse.y);
         light.update(dt);
+        emitLogiEffects(dt);   // chispas si está fija; ceniza si va rápido
 
         // ---- Sombras ----
         shadows = shadowCaster.computeShadows(light, level.getBlocks());
@@ -494,6 +503,28 @@ public class GamePanel extends JPanel {
         for (int i = 0; i < world.size(); i++) world.exploration(i).markAllShown();
     }
 
+    /**
+     * Partículas de Logi [v1.0]: chispas que flotan mientras está fija (y al subir rápido, como
+     * en la hoja de Logi) y ceniza que se queda atrás de la cola cuando va rápido (CHASE o RISING).
+     * Mismos acumuladores que emitPlayerEffects: salen a un ritmo fijo por segundo, sin importar
+     * los FPS.
+     */
+    private void emitLogiEffects(double dt) {
+        LightSource.Form form = light.getForm();
+        boolean sparks = light.isPinned() || form == LightSource.Form.RISING;
+        boolean fast = form == LightSource.Form.CHASE || form == LightSource.Form.RISING;
+        sparkTimer = sparks ? sparkTimer + dt * SPARK_RATE : 0;
+        while (sparkTimer >= 1) {
+            sparkTimer -= 1;
+            particles.emitSpark(light.getX(), light.getY());
+        }
+        ashTimer = fast ? ashTimer + dt * ASH_RATE : 0;
+        while (ashTimer >= 1) {
+            ashTimer -= 1;
+            particles.emitAsh(light.getX(), light.getY(), light.getVx(), light.getVy());
+        }
+    }
+
     private void restart() {
         player.respawn(level.getSpawn());
         checkpoint = level.getSpawn();
@@ -524,6 +555,7 @@ public class GamePanel extends JPanel {
                 mapView.draw(g2, world, new Vec2(player.getCenterX(), player.getCenterY()), light.getPosition());
             } else {
                 victory.draw(g2);
+                menuLight.drawCore(g2);   // Logi etérea sigue al ratón, encima del velo
             }
         }
 
@@ -545,9 +577,9 @@ public class GamePanel extends JPanel {
         background.drawSpores(g2, camX);
         g2.setTransform(onScreen);
         menuLight.drawGlow(g2);
-        menuLight.drawCore(g2);
         background.drawFront(g2, camX);
         menu.draw(g2);
+        menuLight.drawCore(g2);   // Logi etérea, encima del velo (igual que en la pantalla final)
     }
 
     /** El nivel: fondo con parallax, sombras, roca, Candil, partículas y primer plano. */
@@ -568,7 +600,7 @@ public class GamePanel extends JPanel {
         background.drawSpores(g2, camX); // 4. esporas flotando
         particles.draw(g2);              // 5. partículas
         player.draw(g2);                 // 6. jugador
-        light.drawCore(g2);              // 7. punto brillante de la luz
+        if (screen == Screen.PLAYING) light.drawCore(g2);   // 7. Logi (en la pantalla final, la etérea)
 
         // Lo demás no usa la matriz de vista: se dibuja en coordenadas de pantalla
         g2.setTransform(onScreen);
