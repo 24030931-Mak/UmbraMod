@@ -1,5 +1,7 @@
 package umbra.math;
 
+import java.awt.geom.AffineTransform;
+
 /**
  * Matriz 3x3 para transformaciones 2D en coordenadas homogéneas.
  *
@@ -70,5 +72,14 @@ public final class Mat3 {
         return new Vec2(
             m[0] * p.x + m[1] * p.y + m[2],
             m[3] * p.x + m[4] * p.y + m[5]);
+    }
+
+    /**
+     * La misma matriz en el formato de Java2D, para dibujar con ella:
+     * Graphics2D.transform(matriz.toAffineTransform()).
+     * AffineTransform pide los valores por columnas: (a, c, b, d, tx, ty).
+     */
+    public AffineTransform toAffineTransform() {
+        return new AffineTransform(m[0], m[3], m[1], m[4], m[2], m[5]);
     }
 }

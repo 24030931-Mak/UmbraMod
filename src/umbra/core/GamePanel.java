@@ -11,6 +11,7 @@ import java.awt.Toolkit;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Path2D;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,8 +21,10 @@ import javax.swing.Timer;
 
 import umbra.entities.LightSource;
 import umbra.entities.Player;
+import umbra.graphics.Camera;
 import umbra.graphics.ParticleSystem;
 import umbra.graphics.ShadowCaster;
+import umbra.math.Vec2;
 import umbra.world.Level;
 
 /**
@@ -52,6 +55,7 @@ public class GamePanel extends JPanel {
     private Level level;
     private Player player;
     private LightSource light;
+    private Camera camera;
     private List<Path2D> shadows = new ArrayList<>();
     private boolean levelComplete;
     private boolean debug = true;
@@ -95,6 +99,7 @@ public class GamePanel extends JPanel {
     private void loadLevel(Level newLevel) {
         level = newLevel;
         player = new Player(level.getSpawn());
+        camera = new Camera(level.getWidth());
         light = new LightSource(input.getMouseX(), input.getMouseY());
         levelComplete = false;
     }
@@ -127,7 +132,10 @@ public class GamePanel extends JPanel {
         if (input.wasPressed(KeyEvent.VK_F3)) debug = !debug;
 
         // ---- Luz: sigue al ratón suavemente ----
-        light.setTarget(input.getMouseX(), input.getMouseY());
+        // El ratón está en coordenadas de pantalla y la luz vive en el mundo:
+        // la cámara convierte de una a otra con la inversa de su matriz de vista.
+        Vec2 mouse = camera.screenToWorld(input.getMouseX(), input.getMouseY());
+        light.setTarget(mouse.x, mouse.y);
         light.update(dt);
 
         // ---- Sombras [AVANCE 70%] ----
@@ -156,6 +164,9 @@ public class GamePanel extends JPanel {
             }
         }
 
+        // ---- Cámara: avanza cuando el jugador avanza ----
+        camera.follow(player.getCenterX(), dt);
+
         particles.update(dt);
     }
 
@@ -175,13 +186,19 @@ public class GamePanel extends JPanel {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 
+        // El mundo se dibuja con la matriz de vista de la cámara (mundo -> pantalla).
         // El orden importa: lo que se dibuja después queda encima
+        AffineTransform screen = g2.getTransform();
+        g2.transform(camera.getViewMatrix().toAffineTransform());
         light.drawGlow(g2);       // 1. halo de luz sobre el fondo
         drawShadows(g2);          // 2. sombras (plataformas) [70%]
         level.draw(g2);           // 3. repisas, bloques y salida
         particles.draw(g2);       // 4. partículas [FINAL]
         player.draw(g2);          // 5. jugador
         light.drawCore(g2);       // 6. punto brillante de la luz
+
+        // El HUD no se desplaza: se dibuja en coordenadas de pantalla
+        g2.setTransform(screen);
         drawHud(g2);              // 7. textos
 
         g2.dispose();
@@ -205,7 +222,8 @@ public class GamePanel extends JPanel {
         if (debug) {
             int y = Config.HEIGHT - 60;
             g.setColor(new Color(120, 255, 160));
-            g.drawString("FPS: " + fps, 16, y);
+            g.drawString(String.format("FPS: %d   camara: %.0f de %.0f", fps,
+                    camera.getX(), level.getWidth() - Config.WIDTH), 16, y);
             g.drawString(String.format("Jugador: (%.0f, %.0f)  en suelo: %b",
                     player.getX(), player.getY(), player.isOnGround()), 16, y + 18);
             g.drawString(String.format("Luz: (%.0f, %.0f)  sombras: %d",

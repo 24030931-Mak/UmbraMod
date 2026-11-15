@@ -76,7 +76,7 @@ public class Player {
         List<Rectangle2D> solids = level.getSolids();
 
         x += vx * dt;
-        x = Math.max(0, Math.min(x, Config.WIDTH - W));   // no salir de la pantalla
+        x = Math.max(0, Math.min(x, level.getWidth() - W));   // no salir del nivel
         for (Rectangle2D r : solids) {
             if (overlaps(r)) {
                 if (stepOnto(r, solids)) continue;      // escalón bajo: lo sube y sigue

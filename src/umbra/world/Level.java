@@ -25,6 +25,7 @@ public class Level {
     private static final Color BRIDGE = new Color(255, 255, 255, 50);
 
     private final String name;
+    private final double width;   // ancho del mundo en px; puede ser mayor que la ventana
     private final Vec2 spawn;
     private final Rectangle2D exit;
     private final List<Rectangle2D> platforms = new ArrayList<>();
@@ -36,23 +37,23 @@ public class Level {
 
     private double portalAngle;
 
-    public Level(String name, Vec2 spawn, Rectangle2D exit) {
+    public Level(String name, double width, Vec2 spawn, Rectangle2D exit) {
         this.name = name;
+        this.width = width;
         this.spawn = spawn;
         this.exit = exit;
     }
 
     /**
-     * Nivel de prueba para el avance 30%.
+     * Nivel de prueba del avance 30%, de una sola pantalla.
      *
      *   [inicio]         bloques flotantes          [salida]
      *   ########   - - - puente temporal - - -      ########
      *
-     * En el 70% el puente desaparece (Config.TEMP_BRIDGE = false) y el jugador
-     * tendrá que cruzar usando las sombras de los bloques.
+     * El puente solo aparece si Config.TEMP_BRIDGE es true.
      */
     public static Level createTestLevel() {
-        Level lvl = new Level("Nivel de prueba",
+        Level lvl = new Level("Nivel de prueba", Config.WIDTH,
             new Vec2(80, 500),
             new Rectangle2D.Double(1150, 480, 60, 80));
 
@@ -173,6 +174,7 @@ public class Level {
     // ---- Getters ----
 
     public String getName() { return name; }
+    public double getWidth() { return width; }
     public Vec2 getSpawn() { return spawn; }
     public List<Block> getBlocks() { return Collections.unmodifiableList(blocks); }
     public List<Rectangle2D> getSolids() { return Collections.unmodifiableList(solids); }
