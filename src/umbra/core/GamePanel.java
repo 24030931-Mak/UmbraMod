@@ -90,7 +90,10 @@ public class GamePanel extends JPanel {
 
         loadLevel(Level.createLevel1());
 
-        timer = new Timer(1000 / Config.UPS, e -> tick());
+        // El Timer "despierta" cada 10 ms. Si se le pidieran 16 ms (1000 / 60), Windows los
+        // redondea a ~30 ms por la resolución de su reloj, y el juego se veía a ~34 FPS.
+        // La lógica no cambia: el acumulador de tick() sigue haciendo pasos fijos de 1/60 s.
+        timer = new Timer(10, e -> tick());
         timer.setCoalesce(true);
     }
 
