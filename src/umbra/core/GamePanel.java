@@ -13,6 +13,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Path2D;
+import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -52,10 +53,14 @@ public class GamePanel extends JPanel {
     private final ShadowCaster shadowCaster = new ShadowCaster();
     private final ParticleSystem particles = new ParticleSystem();
 
+    /** Al reaparecer, qué tan lejos de la orilla de la repisa se coloca al jugador (px). */
+    private static final double RESPAWN_MARGIN = 12;
+
     private Level level;
     private Player player;
     private LightSource light;
     private Camera camera;
+    private Vec2 checkpoint;   // dónde reaparece si se cae: la última repisa firme que pisó
     private List<Path2D> shadows = new ArrayList<>();
     private boolean levelComplete;
     private boolean debug = true;
@@ -82,7 +87,7 @@ public class GamePanel extends JPanel {
             public void mousePressed(MouseEvent e) { requestFocusInWindow(); }
         });
 
-        loadLevel(Level.createTestLevel());
+        loadLevel(Level.createLevel1());
 
         timer = new Timer(1000 / Config.UPS, e -> tick());
         timer.setCoalesce(true);
@@ -100,6 +105,7 @@ public class GamePanel extends JPanel {
         level = newLevel;
         player = new Player(level.getSpawn());
         camera = new Camera(level.getWidth());
+        checkpoint = level.getSpawn();
         light = new LightSource(input.getMouseX(), input.getMouseY());
         levelComplete = false;
     }
@@ -154,9 +160,18 @@ public class GamePanel extends JPanel {
                 particles.emit(player.getCenterX(), player.getBottom(), 12);
             }
 
-            // Se cayó al vacío: de vuelta al inicio
+            // Recuerda la última repisa firme que pisó, para reaparecer ahí
+            Rectangle2D ground = level.getPlatformUnder(player.getBounds());
+            if (ground != null) {
+                double minX = ground.getMinX() + RESPAWN_MARGIN;
+                double maxX = ground.getMaxX() - Player.W - RESPAWN_MARGIN;
+                double x = Math.max(minX, Math.min(player.getX(), maxX));
+                checkpoint = new Vec2(x, ground.getMinY() - Player.H);
+            }
+
+            // Se cayó al vacío: de vuelta a esa repisa
             if (player.getY() > Config.HEIGHT + 100) {
-                player.respawn(level.getSpawn());
+                player.respawn(checkpoint);
             }
 
             if (level.isAtExit(player.getBounds())) {
@@ -173,6 +188,7 @@ public class GamePanel extends JPanel {
 
     private void restart() {
         player.respawn(level.getSpawn());
+        checkpoint = level.getSpawn();
         light.setPinned(false);
         levelComplete = false;
     }

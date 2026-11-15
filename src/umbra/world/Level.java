@@ -45,6 +45,40 @@ public class Level {
     }
 
     /**
+     * [AVANCE 70%] Nivel 1: un recorrido de tres pantallas de ancho (3840 px) que solo
+     * se puede cruzar usando las sombras. Cada tramo enseña una forma de usar la luz:
+     *
+     *   1. El puente: hueco de 450 px. Luz a la izquierda del bloque: su sombra se
+     *      estira a la derecha y sirve de puente.
+     *   2. La rampa: pared de 220 px. Luz abajo a la izquierda del bloque: la sombra
+     *      sube hasta lo alto de la pared.
+     *   3. La sombra hacia atrás: el bloque está del otro lado del hueco. Luz a la
+     *      derecha del bloque: la sombra viene hacia el jugador.
+     *   4. La carpa: foso de 700 px con un bloque flotando en medio. Luz justo encima
+     *      del bloque: la sombra baja por los dos lados como una montaña.
+     *
+     * Ningún hueco se puede saltar: el salto alcanza unos 100 px de alto y 200 de largo.
+     */
+    public static Level createLevel1() {
+        Level lvl = new Level("Nivel 1", 3840,
+            new Vec2(80, 530),
+            new Rectangle2D.Double(3680, 400, 60, 80));
+
+        //              x     y    ancho alto
+        lvl.addPlatform(0,    560, 230,  160);   // A: inicio
+        lvl.addPlatform(680,  560, 560,  160);   // B: después del puente
+        lvl.addPlatform(1240, 340, 460,  380);   // C: la pared alta
+        lvl.addPlatform(2060, 440, 440,  280);   // D: después del segundo hueco
+        lvl.addPlatform(3200, 480, 640,  240);   // E: salida
+
+        lvl.addBlock(new Block(290,  520, 120, 40));   // tramo 1: el puente
+        lvl.addBlock(new Block(900,  470, 100, 40));   // tramo 2: la rampa
+        lvl.addBlock(new Block(2000, 300, 80,  40));   // tramo 3: la sombra hacia atrás
+        lvl.addBlock(new Block(2780, 300, 140, 40));   // tramo 4: la carpa
+        return lvl;
+    }
+
+    /**
      * Nivel de prueba del avance 30%, de una sola pantalla.
      *
      *   [inicio]         bloques flotantes          [salida]
@@ -101,6 +135,20 @@ public class Level {
 
     public boolean isAtExit(Rectangle2D playerBounds) {
         return exit.intersects(playerBounds);
+    }
+
+    /**
+     * La repisa sobre la que está parado el jugador, o null si no pisa ninguna
+     * (está en el aire, sobre un bloque o sobre una sombra).
+     * Sirve para que, si se cae, reaparezca en la última repisa firme que pisó.
+     */
+    public Rectangle2D getPlatformUnder(Rectangle2D playerBounds) {
+        for (Rectangle2D p : platforms) {
+            boolean touching = Math.abs(playerBounds.getMaxY() - p.getMinY()) < 0.01;
+            boolean above = playerBounds.getMaxX() > p.getMinX() && playerBounds.getMinX() < p.getMaxX();
+            if (touching && above) return p;
+        }
+        return null;
     }
 
     // ---- Dibujo ----
