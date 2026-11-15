@@ -229,7 +229,7 @@ public class GamePanel extends JPanel {
         menuTime += dt;
         menu.update(dt);
         background.update(dt);
-        menuLight.setTarget(input.getMouseX(), input.getMouseY());   // la Lumbre sigue al ratón
+        menuLight.setTarget(input.getMouseX(), input.getMouseY());   // Logi sigue al ratón
         menuLight.update(dt);
         if (leaving) return;
 
@@ -327,7 +327,7 @@ public class GamePanel extends JPanel {
                 particles.emit(player.getCenterX(), player.getBottom(), 12);
             }
 
-            // Demasiado cerca de la Lumbre: se desmorona [v1.0].
+            // Demasiado cerca de Logi: se desmorona [v1.0].
             // Se comparan distancias al cuadrado para no calcular la raíz.
             double dx = light.getX() - player.getCenterX();
             double dy = light.getY() - player.getCenterY();
@@ -438,7 +438,7 @@ public class GamePanel extends JPanel {
         countFps();
     }
 
-    /** El menú: la cueva moviéndose despacio, la Lumbre que sigue al ratón, el título y la historia. */
+    /** El menú: la cueva moviéndose despacio, Logi siguiendo al ratón, el título y la historia. */
     private void drawMenu(Graphics2D g2) {
         double camX = 300 + 250 * Math.sin(menuTime * 0.05);
         background.drawBack(g2, camX);
@@ -516,11 +516,11 @@ public class GamePanel extends JPanel {
         g.setColor(new Color(220, 220, 235));
         g.drawString(Config.TITLE + " " + Config.VERSION, 16, 24);
         g.setColor(new Color(150, 150, 170));
-        g.drawString("A/D: mover   W/Espacio: saltar o subir   S: bajar   Mouse: la luz   Clic: fijarla"
-                + "   R: reiniciar   M: música   Esc: menú", 16, 44);
+        g.drawString("A/D: mover   W/Espacio: saltar o subir   S: bajar   Mouse: Logi   Clic: fijarla"
+                + "   R: reiniciar   M: m\u00fasica   Esc: men\u00fa", 16, 44);
         if (light.isPinned()) {
             g.setColor(new Color(255, 230, 150));
-            g.drawString("Luz fija (clic para soltarla)", 16, 64);
+            g.drawString("Logi est\u00e1 fija (clic para soltarla)", 16, 64);
         }
         drawLifeBar(g);
 

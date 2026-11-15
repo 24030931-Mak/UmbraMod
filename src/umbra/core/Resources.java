@@ -38,7 +38,7 @@ public final class Resources {
         List<String> lines = new ArrayList<>();
         try (BufferedReader r = new BufferedReader(new InputStreamReader(open(path), StandardCharsets.UTF_8))) {
             for (String line; (line = r.readLine()) != null; ) {
-                line = line.replace("﻿", "").trim();   // el Bloc de notas a veces agrega una marca BOM al inicio
+                line = line.replace("\ufeff", "").trim();   // el Bloc de notas a veces agrega una marca BOM al inicio
                 if (!line.isEmpty() && !line.startsWith("#")) lines.add(line);
             }
         } catch (IOException e) {

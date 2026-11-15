@@ -1,16 +1,16 @@
 # Umbra
 
-Juego de plataformas 2D en Java donde **la sombra es el único refugio**. Con el ratón mueves una luz; las sombras que proyecta son el camino.
+Juego de plataformas 2D en Java donde **la sombra es el único refugio**. Con el ratón mueves a **Logi**, una pequeña llama; las sombras que proyecta son el camino.
 
 ## La historia
 
 Bajo la tierra existió un mundo de cavernas iluminado por el **Gran Farol**. Una noche el Farol se apagó y su luz se rompió en mil pedazos. La oscuridad llenó todo y se llamó **Umbra**.
 
-De la última chispa nacieron dos: **Candil**, un pequeño fantasma que puede andar pero apenas brilla, y **la Lumbre**, una luz que alumbra lejos pero no puede andar. Solos no llegan a ningún lado. Juntos tienen una oportunidad.
+De la última chispa nacieron dos: **Candil**, un pequeño fantasma que puede andar pero apenas brilla, y **Logi**, una llama que alumbra lejos pero no puede andar. Solos no llegan a ningún lado. Juntos tienen una oportunidad.
 
-Pero Candil es frágil. El vacío lo apaga poco a poco, y la luz directa lo deshace: si la Lumbre se le acerca demasiado, se desmorona. Solo la sombra lo abriga. Cuando la Lumbre ilumina las cosas nacen sombras, y dentro de ellas Candil flota a salvo.
+Pero Candil es frágil. El vacío lo apaga poco a poco, y la luz directa lo deshace: si Logi se le acerca demasiado, se desmorona. Solo la sombra lo abriga. Cuando Logi ilumina las cosas nacen sombras, y dentro de ellas Candil flota a salvo.
 
-Así avanzan juntos, caverna por caverna: la Lumbre abre caminos de sombra y Candil los recorre, buscando el Gran Farol para volver a encenderlo. En las losas antiguas todavía quedan runas del Farol, y despiertan cuando la Lumbre pasa cerca.
+Así avanzan juntos, caverna por caverna: Logi abre caminos de sombra y Candil los recorre, buscando el Gran Farol para volver a encenderlo. En las losas antiguas todavía quedan runas del Farol, y despiertan cuando Logi pasa cerca.
 
 ---
 
@@ -24,8 +24,8 @@ Proyecto final de **Graficación**.
 
 - **Dentro de una sombra** Candil está a salvo: flota sin gravedad (W o Espacio para subir, S para bajar) y recupera vida.
 - **Fuera de la sombra** camina y salta, pero pierde vida (la barra de arriba a la derecha) y se va deshaciendo en polvo de luz.
-- **Si la Lumbre se acerca demasiado**, Candil se desmorona.
-- Mueve la Lumbre con el ratón y **haz clic para fijarla**: así no se mueve mientras avanzas. Otro clic la suelta.
+- **Si Logi se acerca demasiado**, Candil se desmorona.
+- Mueve a Logi con el ratón y **haz clic para fijarla**: así no se mueve mientras avanzas. Otro clic la suelta.
 - Si sales de una sombra nadando hacia arriba, **sales de un salto**: sirve para alcanzar repisas altas.
 - Si te desmoronas o caes al vacío, reapareces en la última repisa firme que pisaste.
 
@@ -53,8 +53,8 @@ Requisitos: **Java 8 o superior** (recomendado 17 o 21). No usa librerías exter
 | A / D o flechas | Moverse |
 | W, Espacio o flecha arriba | Saltar; dentro de la sombra, subir |
 | S o flecha abajo | Bajar dentro de la sombra |
-| Ratón | Mover la Lumbre |
-| Clic | Fijar o soltar la Lumbre |
+| Ratón | Mover a Logi |
+| Clic | Fijar o soltar a Logi |
 | R | Reiniciar el nivel |
 | M | Silenciar o encender la música |
 | F3 | Mostrar u ocultar los datos de depuración |
@@ -83,7 +83,7 @@ src/umbra/
 │   └── Input.java            Estado del teclado y del ratón
 ├── entities/
 │   ├── Player.java           Candil: física, vida, flotar en la sombra y animación
-│   ├── LightSource.java      La Lumbre: sigue al ratón con interpolación; se fija con un clic
+│   ├── LightSource.java      Logi: sigue al ratón con interpolación; se fija con un clic
 │   └── Block.java            Objetos que proyectan sombra
 ├── graphics/
 │   ├── Background.java       Cueva por capas (parallax), niebla, esporas y viñeta

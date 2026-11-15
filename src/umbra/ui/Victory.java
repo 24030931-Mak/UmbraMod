@@ -29,7 +29,7 @@ public class Victory {
     public void show(double seconds, int deaths) {
         time = 0;
         int s = (int) Math.round(seconds);
-        stats = String.format("Tiempo: %d:%02d          Candil se desmoronó %d %s",
+        stats = String.format("Tiempo: %d:%02d          Candil se desmoron\u00f3 %d %s",
                 s / 60, s % 60, deaths, deaths == 1 ? "vez" : "veces");
     }
 
@@ -74,7 +74,7 @@ public class Victory {
 
         if (isReady()) {
             double pulse = 0.6 + 0.4 * Math.sin(time * 3);
-            Text.centered(g, "Enter o clic: jugar de nuevo            Esc: menú", cx, Config.HEIGHT - 86,
+            Text.centered(g, "Enter o clic: jugar de nuevo            Esc: men\u00fa", cx, Config.HEIGHT - 86,
                     Text.BRIGHT, pulse, 1.2);
         }
     }

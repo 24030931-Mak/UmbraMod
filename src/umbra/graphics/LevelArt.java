@@ -33,7 +33,7 @@ import umbra.world.Level;
 
 /**
  * [v1.0] El aspecto del nivel: repisas de roca con musgo, plantas que se mecen, hongos que
- * brillan, bloques como losas de piedra con una runa que se enciende cuando la Lumbre se
+ * brillan, bloques como losas de piedra con una runa que se enciende cuando Logi se
  * acerca, y columnas rotas.
  *
  * Lo que no se mueve (roca, musgo, losas, columnas) se dibuja una sola vez al cargar el
@@ -70,7 +70,7 @@ public class LevelArt {
     private static final int SIDE = 14;       // margen a los lados de cada repisa (musgo que cuelga)
     private static final int TOP = 26;        // margen arriba (musgo sobre la orilla)
     private static final double RUNE_SIZE = 9;
-    private static final double RUNE_NEAR = 80, RUNE_FAR = 420;   // distancias a la Lumbre (px)
+    private static final double RUNE_NEAR = 80, RUNE_FAR = 420;   // distancias a Logi (px)
 
     // ---- Resorte de las plantas: aceleración angular = K * (meta - ángulo) - C * velocidad ----
     private static final double STIFFNESS = 70;   // K: qué tan fuerte regresa a su posición
@@ -177,7 +177,7 @@ public class LevelArt {
         drawSprites(g, props, camX);
     }
 
-    /** Repisas, plantas, hongos, losas y runas. La Lumbre enciende las runas cercanas. */
+    /** Repisas, plantas, hongos, losas y runas. Logi enciende las runas cercanas. */
     public void drawFront(Graphics2D g, double camX, LightSource light) {
         drawSprites(g, platforms, camX);
 
@@ -200,7 +200,7 @@ public class LevelArt {
 
         drawSprites(g, blocks, camX);
         for (Rune r : runes) {
-            // Entre más cerca está la Lumbre, más brilla: 1 a RUNE_NEAR px o menos, 0 a RUNE_FAR o más
+            // Entre más cerca está Logi, más brilla: 1 a RUNE_NEAR px o menos, 0 a RUNE_FAR o más
             double d = Math.hypot(light.getX() - r.x, light.getY() - r.y);
             double near = Math.max(0, Math.min(1, (RUNE_FAR - d) / (RUNE_FAR - RUNE_NEAR)));
             if (near < 0.01) continue;
@@ -518,7 +518,7 @@ public class LevelArt {
         return img;
     }
 
-    /** La runa encendida: un halo cálido con el trazo de la runa en color de la Lumbre. */
+    /** La runa encendida: un halo cálido con el trazo de la runa en color de Logi. */
     private static BufferedImage renderRuneGlow() {
         int s = 48;
         BufferedImage img = Background.newImage(s, s);
