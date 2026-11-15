@@ -28,12 +28,12 @@ public class Player {
     private static final double EPS = 0.001;
 
     /**
-     * Lo más que se sube al jugador para sacarlo de una sombra (px). Es el escalón más
-     * alto que puede subir caminando sobre una sombra. Tiene que ser mayor que lo que baja
-     * en un cuadro a velocidad máxima (MAX_FALL_SPEED / UPS = 900 / 60 = 15 px);
-     * si no, al caer rápido atravesaría las sombras.
+     * El escalón más alto que puede subir caminando (px), sea de sombra o de un sólido.
+     * También es lo más que se le sube para sacarlo de una sombra. Tiene que ser mayor
+     * que lo que baja en un cuadro a velocidad máxima (MAX_FALL_SPEED / UPS = 900 / 60
+     * = 15 px); si no, al caer rápido atravesaría las sombras.
      */
-    private static final int MAX_SHADOW_STEP = 20;
+    private static final int MAX_STEP = 20;
 
     private double x, y;      // esquina superior izquierda
     private double vx, vy;    // velocidad en px/s
@@ -79,6 +79,7 @@ public class Player {
         x = Math.max(0, Math.min(x, Config.WIDTH - W));   // no salir de la pantalla
         for (Rectangle2D r : solids) {
             if (overlaps(r)) {
+                if (stepOnto(r, solids)) continue;      // escalón bajo: lo sube y sigue
                 if (vx > 0)      x = r.getMinX() - W;   // choca con una pared a la derecha
                 else if (vx < 0) x = r.getMaxX();       // choca con una pared a la izquierda
             }
@@ -109,6 +110,27 @@ public class Player {
     }
 
     /**
+     * Escalón: si al caminar choca con un sólido cuya cara de arriba queda a MAX_STEP px
+     * o menos sobre sus pies, lo sube en lugar de detenerlo. Sin esto se atoraría al
+     * pasar de una rampa de sombra a su bloque, porque la rampa nace en la esquina
+     * del bloque y los pies llegan unos píxeles abajo de ella.
+     */
+    private boolean stepOnto(Rectangle2D r, List<Rectangle2D> solids) {
+        double step = getBottom() - r.getMinY();
+        if (vx == 0 || step <= 0 || step > MAX_STEP) return false;
+
+        double oldY = y;
+        y = r.getMinY() - H;
+        for (Rectangle2D other : solids) {
+            if (overlaps(other)) {      // arriba no cabe (hay un techo): no sube
+                y = oldY;
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * Saca al jugador de la sombra hacia arriba y lo deja parado justo en su borde.
      * Solo se revisa el punto de los pies: (centro, abajo).
      */
@@ -117,11 +139,11 @@ public class Player {
         double inside = getBottom();   // altura de los pies: está dentro de la sombra
         double outside = inside;
 
-        // a) Subir de 1 en 1 px hasta que los pies salgan. Si después de MAX_SHADOW_STEP
+        // a) Subir de 1 en 1 px hasta que los pies salgan. Si después de MAX_STEP
         //    siguen adentro, el jugador está metido en la sombra, no encima de ella:
         //    no es suelo y sigue cayendo.
         for (int step = 0; inShadow(shadows, cx, outside); step++) {
-            if (step == MAX_SHADOW_STEP) return;
+            if (step == MAX_STEP) return;
             inside = outside;
             outside -= 1;
         }
