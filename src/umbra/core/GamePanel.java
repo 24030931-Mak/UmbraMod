@@ -33,6 +33,7 @@ import umbra.math.Mat3;
 import umbra.math.Vec2;
 import umbra.ui.LevelTitle;
 import umbra.ui.MapView;
+import umbra.ui.MiniMap;
 import umbra.ui.Menu;
 import umbra.ui.Victory;
 import umbra.world.Level;
@@ -90,6 +91,7 @@ public class GamePanel extends JPanel {
     private final Menu menu = new Menu(Resources.readLines("/umbra/res/historia.txt"));
     private final LevelTitle levelTitle = new LevelTitle();
     private final MapView mapView = new MapView();
+    private final MiniMap miniMap = new MiniMap();
     private final Victory victory = new Victory(Resources.readLines("/umbra/res/final.txt"));
     private final LightSource menuLight = new LightSource(Config.WIDTH / 2.0, Config.HEIGHT / 3.0);
 
@@ -570,10 +572,10 @@ public class GamePanel extends JPanel {
         background.drawFront(g2, camX);  // 8. neblina del abismo, primer plano y viñeta
     }
 
-    /** Barra de vida arriba a la derecha: el color pasa de rojo (vacía) a azul claro (llena). */
+    /** Barra de vida a la derecha, justo debajo del círculo del mapa: el color pasa de rojo (vacía) a azul claro (llena). */
     private void drawLifeBar(Graphics2D g) {
         int w = 200, h = 10;
-        int x = Config.WIDTH - w - 16, y = 16;
+        int x = Config.WIDTH - w - 16, y = MiniMap.MARGIN + MiniMap.DIAMETER + 14;
         double life = player.getLife();
 
         g.setColor(new Color(220, 220, 235));
@@ -616,6 +618,10 @@ public class GamePanel extends JPanel {
             g.drawString("Logi est\u00e1 fija (clic para soltarla)", 16, 64);
         }
         drawLifeBar(g);
+        if (!mapView.isOpen()) {   // el círculo se ve siempre al jugar, menos con el mapa grande
+            miniMap.draw(g, level, world.exploration(world.currentIndex()),
+                    new Vec2(player.getCenterX(), player.getCenterY()), light.getPosition(), playTime);
+        }
 
         if (debug) {
             int y = Config.HEIGHT - 60;

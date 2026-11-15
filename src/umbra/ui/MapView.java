@@ -3,14 +3,12 @@ package umbra.ui;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
-import java.awt.RenderingHints;
 import java.awt.Shape;
 import java.awt.Stroke;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
-import java.awt.image.BufferedImage;
 
 import umbra.core.Config;
 import umbra.entities.Block;
@@ -28,24 +26,19 @@ import umbra.world.World;
  * todos los niveles juntos miden "ancho total" px y se escalan para caber en MAP_WIDTH.
  *     pantalla = T(margen, y0) * S(s) * mundo,   s = MAP_WIDTH / ancho total
  *
- * Máscara de zonas: la oscuridad y el brillo cálido son dos imágenes de cols x rows píxeles
- * (un píxel por zona). Al dibujarlas escaladas con interpolación bilineal, cada píxel de
- * pantalla mezcla las 4 zonas más cercanas, y por eso las orillas de lo recorrido salen
- * suaves en lugar de cuadradas.
+ * Lo no recorrido lo tapa del todo la neblina (MapFog, la misma del círculo de la esquina),
+ * con máscara bilineal de zonas: las orillas de lo recorrido salen suaves, no cuadradas.
  */
 public class MapView {
 
     private static final double MAP_WIDTH = 1160;
     /** Segundos que tardan en encenderse las zonas descubiertas desde la última vez. */
     private static final double LIGHT_UP = 0.6;
-    private static final int DARK_ALPHA = 238, GLOW_ALPHA = 95;
 
     private static final Color BACKDROP = new Color(5, 7, 14);
     private static final Color LEVEL_BG = new Color(18, 22, 38);
     private static final Color ROCK = new Color(120, 130, 160);
     private static final Color BLOCK = new Color(150, 120, 190);
-    private static final Color DARKNESS = new Color(3, 4, 9);
-    private static final Color GLOW = new Color(255, 200, 110);
     private static final Color FRAME = new Color(90, 105, 140);
     private static final Color CANDIL = new Color(150, 225, 255);
     private static final Color LOGI = new Color(255, 190, 80);
@@ -80,7 +73,6 @@ public class MapView {
 
         AffineTransform onScreen = g.getTransform();
         Stroke oldStroke = g.getStroke();
-        Object oldInterp = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
         double offset = 0;   // dónde empieza el nivel i en el mapa (px del mundo)
         double light = smooth(time / LIGHT_UP);
         for (int i = 0; i < world.size(); i++) {
@@ -96,8 +88,6 @@ public class MapView {
             Text.centered(g, label, cx, y0 + height * s + 40, Text.STORY_COLOR, 1, 0);
             offset += level.getWidth();
         }
-        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, oldInterp != null ? oldInterp
-                : RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
         g.setStroke(oldStroke);
 
         g.setFont(Text.SMALL);
@@ -115,36 +105,17 @@ public class MapView {
         g.setColor(BLOCK);
         for (Block b : level.getBlocks()) g.fill(b.getBounds());
 
-        // Las dos imágenes cubren la cuadrícula completa (cols*CELL x rows*CELL), no solo el nivel;
+        // Las imágenes cubren la cuadrícula completa (cols*CELL x rows*CELL), no solo el nivel;
         // se recorta al rectángulo del nivel para que la última zona no se salga.
-        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
         Shape oldClip = g.getClip();
         g.clip(new Rectangle2D.Double(0, 0, w, height));
-        int gw = ex.cols() * Exploration.CELL, gh = ex.rows() * Exploration.CELL;
-        g.drawImage(mask(ex, GLOW, GLOW_ALPHA, light, false), 0, 0, gw, gh, null);
-        g.drawImage(mask(ex, DARKNESS, DARK_ALPHA, light, true), 0, 0, gw, gh, null);
+        MapFog.glow(g, ex, light);
+        MapFog.paint(g, ex, time, light);   // neblina opaca sobre lo no recorrido
         g.setClip(oldClip);
 
         g.setStroke(new BasicStroke(3f));   // en unidades del mundo: ~0.5 px en pantalla
         g.setColor(FRAME);
         g.draw(new Rectangle2D.Double(0, 0, w, height));
-    }
-
-    /**
-     * La imagen de cols x rows píxeles: un píxel por zona. 'lit' es qué tan encendida está la
-     * zona: 1 si ya se mostró, 'light' (0 a 1) si es nueva, 0 si no se ha recorrido.
-     * La oscuridad es opaca donde lit = 0 y se desvanece al encender; el brillo, al revés.
-     */
-    private static BufferedImage mask(Exploration ex, Color c, int maxAlpha, double light, boolean dark) {
-        BufferedImage img = new BufferedImage(ex.cols(), ex.rows(), BufferedImage.TYPE_INT_ARGB);
-        for (int col = 0; col < ex.cols(); col++) {
-            for (int row = 0; row < ex.rows(); row++) {
-                double lit = ex.isShown(col, row) ? 1 : ex.isRevealed(col, row) ? light : 0;
-                int a = (int) Math.round(maxAlpha * (dark ? 1 - lit : lit));
-                img.setRGB(col, row, (a << 24) | (c.getRGB() & 0xFFFFFF));
-            }
-        }
-        return img;
     }
 
     /** Candil: un punto que brilla. Logi: una llamita. Tamaños en px de pantalla (se divide entre la escala). */
