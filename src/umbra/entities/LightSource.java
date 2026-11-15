@@ -26,6 +26,12 @@ public class LightSource {
         this.targetY = y;
     }
 
+    /** Coloca la luz de inmediato: posición y destino en el mismo punto (sin suavizado). */
+    public void snapTo(double x, double y) {
+        this.x = targetX = x;
+        this.y = targetY = y;
+    }
+
     /** Nuevo destino de la luz. Si está fija se ignora: se queda donde se le dejó. */
     public void setTarget(double tx, double ty) {
         if (pinned) return;

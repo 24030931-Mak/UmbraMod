@@ -16,13 +16,22 @@ public class LevelTitle {
 
     private String number = "";
     private String name = "";
+    private String caption;     // leyenda sobre el número ("Pasaste al nivel 2"); null = sin leyenda
     private double time = -1;   // < 0: no se muestra
 
     public void show(String number, String name) {
+        show(number, name, null);
+    }
+
+    /** 'caption' se dibuja arriba del número; null = sin leyenda. */
+    public void show(String number, String name, String caption) {
         this.number = number;
         this.name = name;
+        this.caption = caption;
         time = 0;
     }
+
+    public String getCaption() { return caption; }
 
     public void update(double dt) {
         if (time < 0) return;
@@ -40,6 +49,11 @@ public class LevelTitle {
         double a = time < IN ? time / IN : time < IN + HOLD ? 1 : 1 - (time - IN - HOLD) / OUT;
         Text.smooth(g);
         double cx = Config.WIDTH / 2.0;
+
+        if (caption != null) {
+            g.setFont(Text.HINT);
+            Text.centered(g, caption, cx, 140, Text.HINT_COLOR, a, 1);
+        }
 
         g.setFont(Text.CHAPTER);
         Text.centered(g, number, cx, 176, Text.HINT_COLOR, a, 0);

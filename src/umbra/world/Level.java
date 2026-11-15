@@ -2,8 +2,10 @@ package umbra.world;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.GradientPaint;
 import java.awt.Graphics2D;
 import java.awt.Stroke;
+import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
@@ -22,6 +24,7 @@ public class Level {
 
     private static final Color BRIDGE = new Color(255, 255, 255, 50);
 
+    private final String number;  // numeral romano del título ("I", "II"); "" si no tiene
     private final String name;
     private final double width;   // ancho del mundo en px; puede ser mayor que la ventana
     private final Vec2 spawn;
@@ -35,11 +38,40 @@ public class Level {
 
     private double portalAngle;
 
-    public Level(String name, double width, Vec2 spawn, Rectangle2D exit) {
+    // Pasos hacia los niveles vecinos [mundo conectado]: dónde aparece Candil al llegar
+    // por ese lado. null = no hay paso de ese lado.
+    private Vec2 leftEntry, rightEntry;
+
+    /** 'exit' es el portal que lleva a la pantalla final; null si el nivel no tiene. */
+    public Level(String number, String name, double width, Vec2 spawn, Rectangle2D exit) {
+        this.number = number;
         this.name = name;
         this.width = width;
         this.spawn = spawn;
         this.exit = exit;
+    }
+
+    public Level(String name, double width, Vec2 spawn, Rectangle2D exit) {
+        this("", name, width, spawn, exit);
+    }
+
+    /**
+     * Abre los pasos a los niveles vecinos. Cada argumento es la posición (esquina superior
+     * izquierda de Candil) donde aparece quien llega por ese lado; null = sin paso.
+     */
+    public void connect(Vec2 leftEntry, Vec2 rightEntry) {
+        this.leftEntry = leftEntry;
+        this.rightEntry = rightEntry;
+    }
+
+    /**
+     * Si el jugador toca una orilla con paso: -1 = la izquierda (minX <= 1), +1 = la derecha
+     * (maxX >= ancho - 1), 0 = ninguna. Es solo una comparación de coordenadas con el borde.
+     */
+    public int passageAt(Rectangle2D playerBounds) {
+        if (leftEntry != null && playerBounds.getMinX() <= 1) return -1;
+        if (rightEntry != null && playerBounds.getMaxX() >= width - 1) return 1;
+        return 0;
     }
 
     /**
@@ -58,9 +90,9 @@ public class Level {
      * Ningún hueco se puede saltar: el salto alcanza unos 100 px de alto y 200 de largo.
      */
     public static Level createLevel1() {
-        Level lvl = new Level("Las Ra\u00edces", 3840,
-            new Vec2(80, 530),
-            new Rectangle2D.Double(3680, 400, 60, 80));
+        Level lvl = new Level("I", "Las Ra\u00edces", 3840,
+            new Vec2(80, 530), null);   // sin portal: su salida es el paso de la orilla derecha
+        lvl.connect(null, new Vec2(3758, 450));
 
         //              x     y    ancho alto
         lvl.addPlatform(0,    560, 230,  160);   // A: inicio
@@ -73,6 +105,19 @@ public class Level {
         lvl.addBlock(new Block(900,  470, 100, 40));   // tramo 2: la rampa
         lvl.addBlock(new Block(2000, 300, 80,  40));   // tramo 3: la sombra hacia atrás
         lvl.addBlock(new Block(2780, 300, 140, 40));   // tramo 4: la carpa
+        return lvl;
+    }
+
+    /**
+     * Nivel 2 (provisional): una repisa larga con el portal al final. Su entrada izquierda
+     * conecta con la salida del nivel 1. El diseño real de las Galerías va en otra tarea.
+     */
+    public static Level createLevel2() {
+        Level lvl = new Level("II", "Las Galer\u00edas", 3840,
+            new Vec2(80, 530),
+            new Rectangle2D.Double(3680, 400, 60, 80));
+        lvl.addPlatform(0, 560, 3840, 160);
+        lvl.connect(new Vec2(80, 530), null);
         return lvl;
     }
 
@@ -132,7 +177,7 @@ public class Level {
     }
 
     public boolean isAtExit(Rectangle2D playerBounds) {
-        return exit.intersects(playerBounds);
+        return exit != null && exit.intersects(playerBounds);
     }
 
     /**
@@ -164,7 +209,29 @@ public class Level {
             g.draw(tempBridge);
             g.setStroke(old);
         }
-        drawPortal(g);
+        if (exit != null) drawPortal(g);
+        if (leftEntry != null) drawPassage(g, 0, 1);
+        if (rightEntry != null) drawPassage(g, width, -1);
+    }
+
+    /**
+     * Un paso hacia otro nivel: una abertura oscura en la orilla del mundo, con neblina que
+     * sale de ella. 'dir' apunta hacia dentro del nivel (+1 en la izquierda, -1 en la derecha).
+     */
+    private void drawPassage(Graphics2D g, double edgeX, int dir) {
+        Vec2 entry = dir > 0 ? leftEntry : rightEntry;
+        double floor = entry.y + 30;   // la repisa donde aparece Candil
+        double x0 = edgeX, x1 = edgeX + dir * 70;
+        g.setPaint(new GradientPaint((float) x0, 0, new Color(2, 2, 6, 235),
+                (float) x1, 0, new Color(2, 2, 6, 0)));
+        g.fill(new Rectangle2D.Double(Math.min(x0, x1), floor - 90, 70, 90));
+        for (int i = 0; i < 3; i++) {   // neblina que se mece al salir
+            double wave = Math.sin(portalAngle + i * 2.1);
+            double cx = edgeX + dir * (20 + 16 * i + 6 * wave);
+            double cy = floor - 22 - 24 * i;
+            g.setColor(new Color(150, 170, 205, 36));
+            g.fill(new Ellipse2D.Double(cx - 22, cy - 14, 44, 28));
+        }
     }
 
     /**
@@ -211,7 +278,11 @@ public class Level {
 
     // ---- Getters ----
 
+    public String getNumber() { return number; }
     public String getName() { return name; }
+    public Rectangle2D getExit() { return exit; }
+    public Vec2 getLeftEntry() { return leftEntry; }
+    public Vec2 getRightEntry() { return rightEntry; }
     public double getWidth() { return width; }
     public Vec2 getSpawn() { return spawn; }
     public List<Rectangle2D> getPlatforms() { return Collections.unmodifiableList(platforms); }

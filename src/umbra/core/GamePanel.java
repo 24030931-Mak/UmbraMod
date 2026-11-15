@@ -35,6 +35,7 @@ import umbra.ui.LevelTitle;
 import umbra.ui.Menu;
 import umbra.ui.Victory;
 import umbra.world.Level;
+import umbra.world.World;
 
 /**
  * Corazón del juego: contiene el game loop, actualiza la lógica y dibuja todo.
@@ -68,10 +69,14 @@ public class GamePanel extends JPanel {
     private static final double TRAIL_RATE = 40, DUST_RATE = 30;
     /** Segundos para oscurecer (o aclarar) la pantalla al cambiar de pantalla. */
     private static final double FADE_TIME = 0.6;
+    /** El fundido, más corto, al cruzar el paso entre dos niveles. */
+    private static final double PASSAGE_FADE_TIME = 0.4;
+    /** Al llegar a otro nivel, Logi no puede quedar más cerca que esto de Candil (si no, lo desmorona). */
+    private static final double ARRIVAL_SAFE_DISTANCE = 140;
+    /** Cuánto se sube Logi si quedó demasiado cerca. */
+    private static final double ARRIVAL_LIFT = 220;
     /** Segundos entre tocar la salida y pasar a la pantalla final. */
     private static final double VICTORY_DELAY = 1.0;
-    /** Número del nivel en el título ("I · Las Raíces"). */
-    private static final String LEVEL_NUMBER = "I";
 
     private final Input input = new Input();
     private final Timer timer;
@@ -84,7 +89,12 @@ public class GamePanel extends JPanel {
     private final Victory victory = new Victory(Resources.readLines("/umbra/res/final.txt"));
     private final LightSource menuLight = new LightSource(Config.WIDTH / 2.0, Config.HEIGHT / 3.0);
 
-    private Level level;
+    private final World world = World.createDefault();
+    // Fondo y decoración de cada nivel: se generan una sola vez al abrir el juego
+    private final Background[] backgrounds = new Background[world.size()];
+    private final LevelArt[] arts = new LevelArt[world.size()];
+
+    private Level level;        // el nivel actual (world.current())
     private Player player;
     private LightSource light;
     private Camera camera;
@@ -102,6 +112,7 @@ public class GamePanel extends JPanel {
     // Pantallas y fundido a negro
     private Screen screen = Config.SHOW_INTRO ? Screen.MENU : Screen.PLAYING;
     private double fade;        // 0 = se ve todo; 1 = negro
+    private double fadeTime = FADE_TIME;   // segundos que dura el fundido en curso
     private int fadeDir;        // +1 oscureciendo, -1 aclarando, 0 quieto
     private Runnable onBlack;   // qué hacer cuando la pantalla quede negra
     private double menuTime;    // para mover despacio la cueva del menú
@@ -130,8 +141,14 @@ public class GamePanel extends JPanel {
             public void mousePressed(MouseEvent e) { requestFocusInWindow(); }
         });
 
-        loadLevel(Level.createLevel1());
-        if (screen == Screen.PLAYING) levelTitle.show(LEVEL_NUMBER, level.getName());
+        // Semillas fijas: cada cueva siempre es igual (7 y 11 el nivel 1; 23 y 29 el nivel 2)
+        long[][] seeds = { { 7, 11 }, { 23, 29 } };
+        for (int i = 0; i < world.size(); i++) {
+            backgrounds[i] = new Background(world.get(i).getWidth(), seeds[i][0]);
+            arts[i] = new LevelArt(world.get(i), seeds[i][1]);   // roca, musgo, hongos y runas
+        }
+        loadLevel(0);
+        if (screen == Screen.PLAYING) levelTitle.show(level.getNumber(), level.getName());
 
         // El Timer "despierta" cada 10 ms. Si se le pidieran 16 ms (1000 / 60), Windows los
         // redondea a ~30 ms por la resolución de su reloj, y el juego se veía a ~34 FPS.
@@ -149,15 +166,22 @@ public class GamePanel extends JPanel {
         timer.start();
     }
 
-    private void loadLevel(Level newLevel) {
-        level = newLevel;
+    /** Carga el nivel 'index' del mundo desde su inicio, con un jugador nuevo. */
+    private void loadLevel(int index) {
+        world.enter(index);
+        useCurrentLevel();
         player = new Player(level.getSpawn());
-        camera = new Camera(level.getWidth());
-        background = new Background(level.getWidth(), 7L);   // semilla fija: la cueva siempre igual
-        levelArt = new LevelArt(level, 11L);                 // roca, musgo, hongos y runas
         checkpoint = level.getSpawn();
         light = new LightSource(input.getMouseX(), input.getMouseY());
         levelComplete = false;
+    }
+
+    /** Apunta level, fondo, decoración y cámara al nivel actual del mundo. */
+    private void useCurrentLevel() {
+        level = world.current();
+        background = backgrounds[world.currentIndex()];
+        levelArt = arts[world.currentIndex()];
+        camera = new Camera(level.getWidth());
     }
 
     // =========================================================
@@ -204,14 +228,20 @@ public class GamePanel extends JPanel {
 
     /** Pide un cambio de pantalla: oscurece, hace 'action' cuando ya no se ve nada, y aclara. */
     private void fadeTo(Runnable action) {
+        fadeTo(action, FADE_TIME);
+    }
+
+    /** Igual, pero el fundido (cada mitad) dura 'seconds'. */
+    private void fadeTo(Runnable action, double seconds) {
         if (onBlack != null) return;   // ya hay un cambio en camino
         onBlack = action;
+        fadeTime = seconds;
         fadeDir = 1;
     }
 
     private void updateFade(double dt) {
         if (fadeDir == 0) return;
-        fade += fadeDir * dt / FADE_TIME;
+        fade += fadeDir * dt / fadeTime;
         if (fade >= 1) {
             fade = 1;
             fadeDir = -1;
@@ -263,13 +293,45 @@ public class GamePanel extends JPanel {
 
     /** Empieza el nivel desde el principio (desde el menú o al jugar de nuevo). */
     private void startGame() {
+        world.reset();
+        useCurrentLevel();
         restart();
-        camera = new Camera(level.getWidth());
         particles.clear();
         playTime = 0;
         deaths = 0;
         screen = Screen.PLAYING;
-        levelTitle.show(LEVEL_NUMBER, level.getName());
+        levelTitle.show(level.getNumber(), level.getName());
+    }
+
+    /**
+     * Cruza el paso de una orilla: dir = -1 va al nivel anterior, +1 al siguiente. Se llama
+     * con la pantalla en negro. Candil aparece en la entrada del nivel al que llega y
+     * conserva su vida; esa entrada es ahora su punto de reaparición.
+     *
+     * Logi se suelta y va a donde apunta el ratón (en el mundo del nivel nuevo). Si ahí
+     * quedara a menos de 140 px de Candil lo desmoronaría al instante, así que se sube 220 px.
+     */
+    private void changeLevel(int dir) {
+        int target = world.currentIndex() + dir;
+        if (target < 0 || target >= world.size()) return;
+
+        boolean first = world.enter(target);
+        useCurrentLevel();
+        Vec2 entry = dir > 0 ? level.getLeftEntry() : level.getRightEntry();
+        player.moveTo(entry);
+        camera.snapTo(player.getCenterX());
+        checkpoint = entry;
+
+        light.setPinned(false);
+        Vec2 mouse = camera.screenToWorld(input.getMouseX(), input.getMouseY());
+        double lx = mouse.x, ly = mouse.y;
+        double dx = lx - player.getCenterX(), dy = ly - player.getCenterY();
+        if (dx * dx + dy * dy < ARRIVAL_SAFE_DISTANCE * ARRIVAL_SAFE_DISTANCE) ly -= ARRIVAL_LIFT;
+        light.snapTo(lx, ly);
+
+        particles.clear();
+        String caption = first ? "Pasaste al nivel " + (target + 1) : null;
+        levelTitle.show(level.getNumber(), level.getName(), caption);
     }
 
     private void backToMenu() {
@@ -354,7 +416,10 @@ public class GamePanel extends JPanel {
 
             if (level.isAtExit(player.getBounds())) {
                 levelComplete = true;
-                // TODO (v1.1): cuando haya más niveles, pasar al siguiente en lugar de terminar
+            } else if (!player.isDead() && onBlack == null) {
+                // Tocar la orilla con paso: fundido corto y cambio de nivel (vivo y sin otro fundido)
+                int dir = level.passageAt(player.getBounds());
+                if (dir != 0) fadeTo(() -> changeLevel(dir), PASSAGE_FADE_TIME);
             }
         }
 

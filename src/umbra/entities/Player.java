@@ -73,6 +73,15 @@ public class Player {
         lean = 0;
     }
 
+    /** Lo coloca en 'position' y lo frena, sin tocar su vida (al pasar a otro nivel). */
+    public void moveTo(Vec2 position) {
+        x = position.x;
+        y = position.y;
+        vx = 0;
+        vy = 0;
+        onGround = false;
+    }
+
     public void update(double dt, Input in, Level level, List<Path2D> shadows) {
         if (dead) return;
         boolean wasOnGround = onGround;

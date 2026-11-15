@@ -46,6 +46,15 @@ public class Camera {
         x += (goal - x) * t;
     }
 
+    /**
+     * Coloca la cámara de inmediato, sin suavizado (al cambiar de nivel): la misma meta
+     * que sigue 'follow', pero alcanzada de un salto. Respeta los límites del nivel.
+     */
+    public void snapTo(double targetX) {
+        double goal = targetX - LEFT;   // el jugador queda en el borde de la zona libre
+        x = Math.max(0, Math.min(goal, maxX));
+    }
+
     /** Matriz de vista: convierte coordenadas del mundo a coordenadas de pantalla. */
     public Mat3 getViewMatrix() {
         return Mat3.translation(-pixelX(), 0);
