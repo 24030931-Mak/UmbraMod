@@ -10,7 +10,7 @@ public final class Config {
 
     public static final String TITLE = "Umbra";
     /** Cámbiala en cada entrega: v0.3 (30%), v0.7 (70%), v1.0 (final). */
-    public static final String VERSION = "v0.3";
+    public static final String VERSION = "v0.7";
 
     // ---- Ventana ----
     public static final int WIDTH = 1280;

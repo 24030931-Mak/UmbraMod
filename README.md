@@ -4,6 +4,8 @@ Juego de plataformas 2D en Java donde **las sombras son el suelo**.
 
 Controlas una pequeña criatura de luz atrapada en un mundo oscuro. No puedes caminar sobre el vacío, pero sí sobre las sombras que proyectan los objetos. Mueves una fuente de luz con el ratón y, según dónde la pongas, las sombras cambian de forma y se convierten en los caminos que te llevan a la salida.
 
+El nivel es un recorrido de tres pantallas de ancho: la cámara avanza conforme avanzas.
+
 Proyecto final de **Graficación**.
 
 - **Autor:** Raul Omar Jurado Camargo
@@ -31,8 +33,22 @@ Requisitos: **JDK 8 o superior** (recomendado 17 o 21). No usa librerías extern
 | A / D o flechas | Moverse |
 | Espacio, W o flecha arriba | Saltar |
 | Ratón | Mover la fuente de luz |
+| Clic | Fijar o soltar la luz (fija, no se mueve aunque avance la pantalla) |
 | R | Reiniciar el nivel |
 | F3 | Mostrar/ocultar datos de depuración |
+
+Si te caes, reapareces en la última repisa firme que pisaste.
+
+## Cómo pasar el Nivel 1
+
+Ningún hueco se puede cruzar saltando: hay que usar las sombras. En cada tramo pon la luz donde se indica, haz clic para fijarla y camina sobre la sombra.
+
+| Tramo | Obstáculo | Dónde va la luz |
+|---|---|---|
+| 1. El puente | Hueco de 450 px | A la izquierda del bloque, a la altura de su cara de arriba: la sombra se estira como puente |
+| 2. La rampa | Pared de 220 px | Abajo a la izquierda del bloque: la sombra sube hasta lo alto de la pared |
+| 3. Hacia atrás | Hueco con el bloque del otro lado | A la derecha del bloque: la sombra viene hacia ti (salta desde la pared para subirte) |
+| 4. La carpa | Foso de 700 px con un bloque flotando | Justo encima del bloque: la sombra baja por los dos lados como una montaña |
 
 ## Estructura del proyecto
 
@@ -44,17 +60,18 @@ src/umbra/
 │   ├── GamePanel.java        Game loop, update y render
 │   └── Input.java            Estado del teclado y del ratón
 ├── entities/
-│   ├── Player.java           Criatura de luz: física y colisiones
-│   ├── LightSource.java      Luz que sigue al ratón con interpolación
+│   ├── Player.java           Criatura de luz: física, colisiones y sombras sólidas
+│   ├── LightSource.java      Luz que sigue al ratón con interpolación; se fija con un clic
 │   └── Block.java            Objetos que proyectan sombra
 ├── graphics/
-│   ├── ShadowCaster.java     [70%] Cálculo de sombras
+│   ├── Camera.java           Cámara que avanza con el jugador (matriz de vista)
+│   ├── ShadowCaster.java     Proyección de sombras (envolvente convexa)
 │   └── ParticleSystem.java   [Final] Partículas
 ├── math/
 │   ├── Vec2.java             Vector 2D
 │   └── Mat3.java             Matriz 3x3 (traslación, rotación, escala)
 └── world/
-    └── Level.java            Repisas, bloques, inicio y salida
+    └── Level.java            Nivel 1 (tres pantallas) y nivel de prueba
 ```
 
 ## Avances
@@ -68,10 +85,12 @@ src/umbra/
 - [x] Nivel de prueba con puente temporal
 
 ### v0.7 — Avance 70%: la mecánica central
-- [ ] Implementar `ShadowCaster.computeShadows` (proyección de sombras)
-- [ ] Sombras sólidas en `Player.update` (paso 5)
-- [ ] Quitar el puente temporal (`Config.TEMP_BRIDGE = false`)
-- [ ] Un nivel completo que solo se pueda cruzar usando las sombras
+- [x] Implementar `ShadowCaster.computeShadows` (proyección de sombras)
+- [x] Sombras sólidas en `Player.update` (paso 5)
+- [x] Quitar el puente temporal (`Config.TEMP_BRIDGE = false`)
+- [x] Un nivel completo que solo se pueda cruzar usando las sombras
+- [x] Cámara con desplazamiento horizontal: el nivel mide tres pantallas
+- [x] Luz que se fija con un clic, escalón para subir bordes bajos y reaparición en la última repisa
 
 ### v1.0 — Entrega final
 - [ ] Sistema de partículas (chispas al aterrizar, rastro de luz)
@@ -80,7 +99,7 @@ src/umbra/
 - [ ] (Opcional) Zonas de luz directa que "disuelven" al jugador
 - [ ] Capturas de pantalla en este README
 
-Tip: busca `TODO (v0.7)` y `TODO (v1.0)` en el código para ver exactamente qué falta en cada fase.
+Tip: busca `TODO (v1.0)` en el código para ver exactamente qué falta para la entrega final.
 
 ## Técnicas de graficación
 
@@ -90,6 +109,9 @@ Tip: busca `TODO (v0.7)` y `TODO (v1.0)` en el código para ver exactamente qué
 | Interpolación lineal / suavizado exponencial | `LightSource.update()` |
 | Degradado radial (iluminación) | `LightSource.drawGlow()` |
 | Transformaciones 2D con matrices homogéneas | `Mat3`, `Level.drawPortal()` |
+| Cámara: matriz de vista y su inversa (mundo ↔ pantalla) | `Camera` |
 | Detección y respuesta de colisiones AABB | `Player.update()` |
-| Proyección de sombras desde una luz puntual | `ShadowCaster` (v0.7) |
+| Proyección de sombras desde una luz puntual | `ShadowCaster.computeShadows()` |
+| Envolvente convexa (monotone chain de Andrew) | `ShadowCaster.convexHull()` |
+| Punto dentro de polígono y búsqueda binaria del borde | `Player.standOnShadow()` |
 | Sistema de partículas | `ParticleSystem` (v1.0) |
