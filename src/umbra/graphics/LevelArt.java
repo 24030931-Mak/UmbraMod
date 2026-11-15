@@ -9,11 +9,13 @@ import java.awt.Graphics2D;
 import java.awt.RadialGradientPaint;
 import java.awt.Shape;
 import java.awt.Stroke;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Arc2D;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Line2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
+import java.awt.geom.QuadCurve2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
@@ -24,16 +26,21 @@ import java.util.Random;
 import umbra.core.Config;
 import umbra.entities.Block;
 import umbra.entities.LightSource;
+import umbra.entities.Player;
+import umbra.math.Mat3;
+import umbra.math.Vec2;
 import umbra.world.Level;
 
 /**
- * [v1.0] El aspecto del nivel: repisas de roca con musgo y hongos que brillan, bloques como
- * losas de piedra con una runa que se enciende cuando la Lumbre se acerca, y columnas rotas.
+ * [v1.0] El aspecto del nivel: repisas de roca con musgo, plantas que se mecen, hongos que
+ * brillan, bloques como losas de piedra con una runa que se enciende cuando la Lumbre se
+ * acerca, y columnas rotas.
  *
- * Todo se genera con código a partir de la geometría del nivel, una sola vez al cargarlo,
- * y se guarda en imágenes (pre-renderizado). Las colisiones no cambian: siguen siendo los
- * mismos rectángulos. Regla visual: lo que tiene borde claro arriba se puede pisar; las
- * columnas son oscuras y sin borde porque son solo decoración.
+ * Lo que no se mueve (roca, musgo, losas, columnas) se dibuja una sola vez al cargar el
+ * nivel y se guarda en imágenes (pre-renderizado). Las plantas y los hongos se dibujan en
+ * cada cuadro porque se mecen. Las colisiones no cambian: siguen siendo los mismos
+ * rectángulos. Regla visual: lo que tiene borde claro arriba se puede pisar; las columnas
+ * son oscuras y sin borde porque son solo decoración.
  */
 public class LevelArt {
 
@@ -57,12 +64,18 @@ public class LevelArt {
     private static final Color STEM = new Color(150, 170, 190);
     private static final Color CAP_TEAL = new Color(80, 215, 205);
     private static final Color CAP_BLUE = new Color(130, 190, 255);
+    private static final Color CAP_SHINE = new Color(235, 255, 255, 190);
     private static final Color RUNE = new Color(255, 215, 140);
 
     private static final int SIDE = 14;       // margen a los lados de cada repisa (musgo que cuelga)
-    private static final int TOP = 26;        // margen arriba (musgo y hongos sobre la orilla)
+    private static final int TOP = 26;        // margen arriba (musgo sobre la orilla)
     private static final double RUNE_SIZE = 9;
     private static final double RUNE_NEAR = 80, RUNE_FAR = 420;   // distancias a la Lumbre (px)
+
+    // ---- Resorte de las plantas: aceleración angular = K * (meta - ángulo) - C * velocidad ----
+    private static final double STIFFNESS = 70;   // K: qué tan fuerte regresa a su posición
+    private static final double DAMPING = 7;      // C: qué tan rápido se calma el bamboleo
+    private static final Stroke BLADE_STROKE = new BasicStroke(1.1f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
 
     /** Una imagen ya dibujada y su posición en el mundo. */
     private static class Sprite {
@@ -71,20 +84,42 @@ public class LevelArt {
         Sprite(BufferedImage img, double x, double y) { this.img = img; this.x = x; this.y = y; }
     }
 
-    /** Brillo de un grupo de hongos, o de una runa. */
-    private static class Glow {
+    /** Algo que se mece: su base (x, y) está fija sobre la orilla de una repisa. */
+    private static class Plant {
+        double x, y;          // base, en coordenadas del mundo
+        double height;        // qué tan alta es (para saber si Candil la toca)
+        double maxBend;       // cuánto se dobla como máximo (radianes)
+        double angle, speed;  // ángulo actual (0 = derecha hacia arriba; > 0 = hacia la derecha) y su velocidad
+        double phase;         // para el vaivén del aire
+    }
+
+    /** Hongo: tallo y sombrero que giran juntos alrededor de la base. Su brillo pulsa. */
+    private static class Mushroom extends Plant {
+        double capW;
+        Color cap;
+        BufferedImage glow;
+    }
+
+    /** Mata de briznas: cada brizna se dobla más en la punta que en la base. */
+    private static class Tuft extends Plant {
+        double[] dx, heights, offsets;
+        Color color;
+    }
+
+    /** Brillo de una runa. */
+    private static class Rune {
         final double x, y, phase;
-        final BufferedImage img;
-        Glow(double x, double y, double phase, BufferedImage img) { this.x = x; this.y = y; this.phase = phase; this.img = img; }
+        Rune(double x, double y, double phase) { this.x = x; this.y = y; this.phase = phase; }
     }
 
     private final List<Sprite> props = new ArrayList<>();
     private final List<Sprite> platforms = new ArrayList<>();
     private final List<Sprite> blocks = new ArrayList<>();
-    private final List<Glow> mushroomGlows = new ArrayList<>();
-    private final List<Glow> runes = new ArrayList<>();
-    private final BufferedImage glowTeal = renderGlow(CAP_TEAL, 28);
-    private final BufferedImage glowBlue = renderGlow(CAP_BLUE, 28);
+    private final List<Mushroom> mushrooms = new ArrayList<>();
+    private final List<Tuft> tufts = new ArrayList<>();
+    private final List<Rune> runes = new ArrayList<>();
+    private final BufferedImage glowTeal = renderGlow(CAP_TEAL, 22);
+    private final BufferedImage glowBlue = renderGlow(CAP_BLUE, 22);
     private final BufferedImage runeGlow = renderRuneGlow();
     private double time;
 
@@ -98,12 +133,43 @@ public class LevelArt {
         for (Block b : level.getBlocks()) {
             Rectangle2D r = b.getBounds();
             blocks.add(renderBlock(r, rnd));
-            runes.add(new Glow(r.getCenterX(), r.getCenterY(), rnd.nextDouble() * Math.PI * 2, runeGlow));
+            runes.add(new Rune(r.getCenterX(), r.getCenterY(), rnd.nextDouble() * Math.PI * 2));
         }
     }
 
-    public void update(double dt) {
+    /** Avanza el tiempo y mece las plantas: Candil las empuja al pasar y luego regresan solas. */
+    public void update(double dt, Player player) {
         time += dt;
+        for (Plant p : mushrooms) sway(p, player, dt);
+        for (Plant p : tufts) sway(p, player, dt);
+    }
+
+    /**
+     * Resorte amortiguado (oscilador armónico) integrado con Euler semi-implícito:
+     *   velocidad += (K * (meta - ángulo) - C * velocidad) * dt
+     *   ángulo    += velocidad * dt
+     * Sin Candil, la meta es un vaivén suave de "aire". Si Candil la toca, la meta es doblarse
+     * hacia donde él camina (o hacia afuera, si está quieto encima). Cuando se va, el resorte
+     * la regresa con un pequeño bamboleo.
+     */
+    private void sway(Plant p, Player player, double dt) {
+        double target = 0.05 * Math.sin(time * 1.4 + p.phase) + 0.03 * Math.sin(time * 0.6 + p.phase * 1.7);
+        if (touches(player, p)) {
+            double vx = player.getVx();
+            target = vx != 0
+                    ? Math.max(-1, Math.min(1, vx / Config.MOVE_SPEED)) * p.maxBend
+                    : Math.signum(p.x - player.getCenterX()) * p.maxBend * 0.6;
+        }
+        p.speed += (STIFFNESS * (target - p.angle) - DAMPING * p.speed) * dt;
+        p.angle += p.speed * dt;
+    }
+
+    /** ¿El cuerpo de Candil (con 6 px de holgura a los lados) toca la planta? */
+    private static boolean touches(Player player, Plant p) {
+        if (player == null || player.isDead()) return false;
+        Rectangle2D b = player.getBounds();
+        return p.x > b.getMinX() - 6 && p.x < b.getMaxX() + 6
+            && b.getMaxY() > p.y - p.height - 4 && b.getMinY() < p.y + 2;
     }
 
     /** Decoración que va detrás de las sombras: columnas rotas. */
@@ -111,30 +177,46 @@ public class LevelArt {
         drawSprites(g, props, camX);
     }
 
-    /** Repisas, hongos, losas y runas. La Lumbre enciende las runas cercanas. */
+    /** Repisas, plantas, hongos, losas y runas. La Lumbre enciende las runas cercanas. */
     public void drawFront(Graphics2D g, double camX, LightSource light) {
         drawSprites(g, platforms, camX);
-        Composite old = g.getComposite();
-        for (Glow m : mushroomGlows) {
-            if (m.x < camX - 40 || m.x > camX + Config.WIDTH + 40) continue;
-            float a = (float) (0.55 + 0.3 * Math.sin(time * 1.3 + m.phase));   // pulso lento
-            drawCentered(g, m, a);
+
+        Stroke oldStroke = g.getStroke();
+        g.setStroke(BLADE_STROKE);
+        for (Tuft t : tufts) {
+            if (visible(t.x, camX)) drawTuft(g, t);
         }
+        g.setStroke(oldStroke);
+
+        Composite old = g.getComposite();
+        for (Mushroom m : mushrooms) {
+            if (!visible(m.x, camX)) continue;
+            Vec2 cap = drawMushroom(g, m);
+            float a = (float) (0.55 + 0.3 * Math.sin(time * 1.3 + m.phase));   // pulso lento
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, a));
+            drawCentered(g, m.glow, cap.x, cap.y);
+            g.setComposite(old);
+        }
+
         drawSprites(g, blocks, camX);
-        for (Glow r : runes) {
+        for (Rune r : runes) {
             // Entre más cerca está la Lumbre, más brilla: 1 a RUNE_NEAR px o menos, 0 a RUNE_FAR o más
             double d = Math.hypot(light.getX() - r.x, light.getY() - r.y);
             double near = Math.max(0, Math.min(1, (RUNE_FAR - d) / (RUNE_FAR - RUNE_NEAR)));
             if (near < 0.01) continue;
-            drawCentered(g, r, (float) (near * (0.8 + 0.2 * Math.sin(time * 2.4 + r.phase))));
+            float a = (float) (near * (0.8 + 0.2 * Math.sin(time * 2.4 + r.phase)));
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, a));
+            drawCentered(g, runeGlow, r.x, r.y);
         }
         g.setComposite(old);
     }
 
-    private static void drawCentered(Graphics2D g, Glow glow, float alpha) {
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-        g.drawImage(glow.img, (int) Math.round(glow.x - glow.img.getWidth() / 2.0),
-                (int) Math.round(glow.y - glow.img.getHeight() / 2.0), null);
+    private static boolean visible(double x, double camX) {
+        return x > camX - 40 && x < camX + Config.WIDTH + 40;
+    }
+
+    private static void drawCentered(Graphics2D g, BufferedImage img, double x, double y) {
+        g.drawImage(img, (int) Math.round(x - img.getWidth() / 2.0), (int) Math.round(y - img.getHeight() / 2.0), null);
     }
 
     private static void drawSprites(Graphics2D g, List<Sprite> sprites, double camX) {
@@ -145,7 +227,41 @@ public class LevelArt {
     }
 
     // =========================================================
-    //  REPISAS DE ROCA
+    //  PLANTAS (se dibujan en cada cuadro)
+    // =========================================================
+
+    /**
+     * Hongo girado alrededor de la base de su tallo: T(base) * R(ángulo) * T(-base).
+     * Regresa dónde quedó el sombrero, para dibujar ahí su brillo.
+     */
+    private static Vec2 drawMushroom(Graphics2D g, Mushroom m) {
+        Mat3 rot = Mat3.translation(m.x, m.y).multiply(Mat3.rotation(m.angle)).multiply(Mat3.translation(-m.x, -m.y));
+        AffineTransform old = g.getTransform();
+        g.transform(rot.toAffineTransform());
+        double stem = m.height, cw = m.capW;
+        g.setColor(STEM);
+        g.fill(new RoundRectangle2D.Double(m.x - 1.2, m.y - stem, 2.4, stem + 3, 2, 2));
+        g.setColor(m.cap);
+        g.fill(new Arc2D.Double(m.x - cw / 2, m.y - stem - cw * 0.35, cw, cw * 0.7, 0, 180, Arc2D.CHORD));
+        g.setColor(CAP_SHINE);
+        g.fill(new Ellipse2D.Double(m.x - cw * 0.15, m.y - stem - cw * 0.28, cw * 0.3, cw * 0.14));
+        g.setTransform(old);
+        return rot.apply(new Vec2(m.x, m.y - stem));
+    }
+
+    /** Cada brizna es una curva: la punta gira el ángulo completo y el punto de control solo 40%. */
+    private static void drawTuft(Graphics2D g, Tuft t) {
+        g.setColor(t.color);
+        for (int i = 0; i < t.heights.length; i++) {
+            double a = t.angle + t.offsets[i], h = t.heights[i];
+            double bx = t.x + t.dx[i], by = t.y + 1;
+            double cx = bx + Math.sin(a * 0.4) * h * 0.55, cy = by - Math.cos(a * 0.4) * h * 0.55;
+            g.draw(new QuadCurve2D.Double(bx, by, cx, cy, bx + Math.sin(a) * h, by - Math.cos(a) * h));
+        }
+    }
+
+    // =========================================================
+    //  REPISAS DE ROCA (imágenes que se dibujan una sola vez)
     // =========================================================
 
     private Sprite renderPlatform(Rectangle2D r, Random rnd, boolean teal) {
@@ -194,9 +310,9 @@ public class LevelArt {
         g.setStroke(new BasicStroke(2f));
         g.draw(new Line2D.Double(left[0] + 4, 1, w - right[0] - 4, 1));
 
-        drawMoss(g, rnd, w, left[0], right[0]);
+        drawMoss(g, rnd, r, left[0], right[0]);
         for (double x = 26 + rnd.nextDouble() * 60; x < w - 20; x += 110 + rnd.nextDouble() * 120) {
-            drawMushrooms(g, rnd, x, r, teal);
+            addMushrooms(rnd, r, x, teal);
         }
         g.dispose();
         return new Sprite(img, r.getX() - SIDE, r.getY() - TOP);
@@ -241,19 +357,22 @@ public class LevelArt {
         g.draw(p);
     }
 
-    /** Musgo en manchas sobre la orilla (con huecos para que se vea el borde) y hebras que cuelgan. */
-    private static void drawMoss(Graphics2D g, Random rnd, double w, double left0, double right0) {
+    /**
+     * Musgo en manchas sobre la orilla (con huecos para que se vea el borde), matas de briznas
+     * que se mecen sobre las manchas, y hebras que cuelgan por los lados.
+     */
+    private void drawMoss(Graphics2D g, Random rnd, Rectangle2D r, double left0, double right0) {
+        double w = r.getWidth();
         for (double x = left0 + 2; x < w - right0 - 6; ) {
             double patch = 20 + rnd.nextDouble() * 60;
-            for (double px = x; px < Math.min(x + patch, w - right0 - 2); px += 3 + rnd.nextDouble() * 4) {
+            double end = Math.min(x + patch, w - right0 - 2);
+            for (double px = x; px < end; px += 3 + rnd.nextDouble() * 4) {
                 double mw = 5 + rnd.nextDouble() * 8, mh = 2 + rnd.nextDouble() * 4;
                 g.setColor(mix(MOSS_DARK, MOSS_LIGHT, rnd.nextDouble() * 0.5));
                 g.fill(new Ellipse2D.Double(px - mw / 2, -mh, mw, mh + 5));
-                if (rnd.nextDouble() < 0.5) {   // briznas claras
-                    g.setColor(Background.alpha(MOSS_LIGHT, 170));
-                    g.setStroke(new BasicStroke(1f));
-                    g.draw(new Line2D.Double(px, 0, px + rnd.nextDouble() * 2 - 1, -3 - rnd.nextDouble() * 5));
-                }
+            }
+            for (double px = x + 4 + rnd.nextDouble() * 8; px < end - 2; px += 14 + rnd.nextDouble() * 16) {
+                addTuft(rnd, r.getX() + px, r.getY());
             }
             x += patch + 10 + rnd.nextDouble() * 50;
         }
@@ -275,24 +394,41 @@ public class LevelArt {
         g.setStroke(old);
     }
 
-    /** Un grupo de 1 a 3 hongos con sombrero luminoso. Su brillo se dibuja aparte, con pulso. */
-    private void drawMushrooms(Graphics2D g, Random rnd, double cx, Rectangle2D r, boolean teal) {
-        int n = 1 + rnd.nextInt(3);
-        Color cap = teal ? CAP_TEAL : CAP_BLUE;
-        double tallest = 0;
-        for (int k = 0; k < n; k++) {
-            double x = cx + (k - (n - 1) / 2.0) * (7 + rnd.nextDouble() * 4);
-            double stem = 5 + rnd.nextDouble() * 11, cw = 6 + rnd.nextDouble() * 7;
-            tallest = Math.max(tallest, stem);
-            g.setColor(STEM);
-            g.fill(new RoundRectangle2D.Double(x - 1.2, -stem, 2.4, stem + 3, 2, 2));
-            g.setColor(cap);
-            g.fill(new Arc2D.Double(x - cw / 2, -stem - cw * 0.35, cw, cw * 0.7, 0, 180, Arc2D.CHORD));
-            g.setColor(new Color(235, 255, 255, 190));
-            g.fill(new Ellipse2D.Double(x - cw * 0.15, -stem - cw * 0.28, cw * 0.3, cw * 0.14));
+    private void addTuft(Random rnd, double x, double y) {
+        Tuft t = new Tuft();
+        int n = 3 + rnd.nextInt(3);
+        t.x = x;
+        t.y = y;
+        t.dx = new double[n];
+        t.heights = new double[n];
+        t.offsets = new double[n];
+        for (int i = 0; i < n; i++) {
+            t.dx[i] = (rnd.nextDouble() - 0.5) * 6;
+            t.heights[i] = 4 + rnd.nextDouble() * 7;
+            t.offsets[i] = (rnd.nextDouble() - 0.5) * 0.7;
+            t.height = Math.max(t.height, t.heights[i]);
         }
-        mushroomGlows.add(new Glow(r.getX() + cx, r.getY() - tallest, rnd.nextDouble() * Math.PI * 2,
-                teal ? glowTeal : glowBlue));
+        t.maxBend = 0.8;
+        t.phase = rnd.nextDouble() * Math.PI * 2;
+        t.color = mix(MOSS_DARK, MOSS_LIGHT, 0.55 + rnd.nextDouble() * 0.45);
+        tufts.add(t);
+    }
+
+    /** Un grupo de 1 a 3 hongos con sombrero luminoso. */
+    private void addMushrooms(Random rnd, Rectangle2D r, double cx, boolean teal) {
+        int n = 1 + rnd.nextInt(3);
+        for (int k = 0; k < n; k++) {
+            Mushroom m = new Mushroom();
+            m.x = r.getX() + cx + (k - (n - 1) / 2.0) * (7 + rnd.nextDouble() * 4);
+            m.y = r.getY();
+            m.height = 5 + rnd.nextDouble() * 11;
+            m.capW = 6 + rnd.nextDouble() * 7;
+            m.maxBend = 0.45;
+            m.phase = rnd.nextDouble() * Math.PI * 2;
+            m.cap = teal ? CAP_TEAL : CAP_BLUE;
+            m.glow = teal ? glowTeal : glowBlue;
+            mushrooms.add(m);
+        }
     }
 
     // =========================================================

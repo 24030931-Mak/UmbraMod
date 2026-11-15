@@ -174,7 +174,7 @@ public class GamePanel extends JPanel {
         // ---- Mundo y jugador ----
         level.update(dt);
         background.update(dt);   // niebla y esporas
-        levelArt.update(dt);     // pulso de los hongos y las runas
+        levelArt.update(dt, player);   // plantas que se mecen, hongos y runas
 
         if (!levelComplete && player.isDead()) {
             // Se desmoronó: espera un momento y reaparece en la última repisa firme
