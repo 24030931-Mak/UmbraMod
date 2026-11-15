@@ -1,26 +1,46 @@
 # Umbra
 
-Juego de plataformas 2D en Java donde **las sombras son el suelo**.
+Juego de plataformas 2D en Java donde **la sombra es el único refugio**. Con el ratón mueves una luz; las sombras que proyecta son el camino.
 
-Controlas una pequeña criatura de luz atrapada en un mundo oscuro. No puedes caminar sobre el vacío, pero sí sobre las sombras que proyectan los objetos. Mueves una fuente de luz con el ratón y, según dónde la pongas, las sombras cambian de forma y se convierten en los caminos que te llevan a la salida.
+## La historia
 
-El nivel es un recorrido de tres pantallas de ancho: la cámara avanza conforme avanzas.
+Bajo la tierra existió un mundo de cavernas iluminado por el **Gran Farol**. Una noche el Farol se apagó y su luz se rompió en mil pedazos. La oscuridad llenó todo y se llamó **Umbra**.
 
-Proyecto final de **Graficación**.
+De la última chispa nacieron dos: **Candil**, un pequeño fantasma que puede andar pero apenas brilla, y **la Lumbre**, una luz que alumbra lejos pero no puede andar. Solos no llegan a ningún lado. Juntos tienen una oportunidad.
 
-- **Autor:** Raul Omar Jurado Camargo
-- **Coautor:** Maria Magdalena Rivera Ramirez
+Pero Candil es frágil. El vacío lo apaga poco a poco, y la luz directa lo deshace: si la Lumbre se le acerca demasiado, se desmorona. Solo la sombra lo abriga. Cuando la Lumbre ilumina las cosas nacen sombras, y dentro de ellas Candil flota a salvo.
+
+Así avanzan juntos, caverna por caverna: la Lumbre abre caminos de sombra y Candil los recorre, buscando el Gran Farol para volver a encenderlo. En las losas antiguas todavía quedan runas del Farol, y despiertan cuando la Lumbre pasa cerca.
 
 ---
 
+Proyecto final de **Graficación**.
+
+- **Autores:** Maria Magdalena Rivera Ramirez y Raul Omar Jurado Camargo
+
+---
+
+## Cómo se juega
+
+- **Dentro de una sombra** Candil está a salvo: flota sin gravedad (W o Espacio para subir, S para bajar) y recupera vida.
+- **Fuera de la sombra** camina y salta, pero pierde vida (la barra de arriba a la derecha) y se va deshaciendo en polvo de luz.
+- **Si la Lumbre se acerca demasiado**, Candil se desmorona.
+- Mueve la Lumbre con el ratón y **haz clic para fijarla**: así no se mueve mientras avanzas. Otro clic la suelta.
+- Si sales de una sombra nadando hacia arriba, **sales de un salto**: sirve para alcanzar repisas altas.
+- Si te desmoronas o caes al vacío, reapareces en la última repisa firme que pisaste.
+
+El nivel es un recorrido de tres pantallas de ancho: la cámara avanza conforme avanzas.
+
 ## Cómo ejecutarlo
 
-Requisitos: **JDK 8 o superior** (recomendado 17 o 21). No usa librerías externas, solo Java2D (Swing).
+Requisitos: **Java 8 o superior** (recomendado 17 o 21). No usa librerías externas, solo Java2D (Swing) y `javax.sound` para la música.
+
+**Rápido:** descarga el `.jar` de la versión más reciente en [Releases](https://github.com/TecnoLector/Umbra/releases) y ábrelo con doble clic, o con `java -jar Umbra-vX.jar`.
 
 **Desde un IDE**
-- **IntelliJ IDEA:** `File > Open` y elige la carpeta `umbra`. Si no detecta el código, clic derecho en `src` > `Mark Directory as > Sources Root`. Ejecuta `umbra.Main`.
+- **IntelliJ IDEA:** `File > Open` y elige la carpeta del proyecto. Si no detecta el código, clic derecho en `src` > `Mark Directory as > Sources Root`. Ejecuta `umbra.Main`.
 - **NetBeans:** `File > New Project > Java with Ant > Java Project with Existing Sources`, agrega la carpeta `src`. Ejecuta `umbra.Main`.
-- **VS Code** (con *Extension Pack for Java*): abre la carpeta `umbra` y ejecuta `Main.java`.
+- **VS Code** (con *Extension Pack for Java*): abre la carpeta del proyecto y ejecuta `Main.java`.
 
 **Desde la terminal**
 - Windows: doble clic en `run.bat`
@@ -31,45 +51,51 @@ Requisitos: **JDK 8 o superior** (recomendado 17 o 21). No usa librerías extern
 | Tecla | Acción |
 |---|---|
 | A / D o flechas | Moverse |
-| Espacio, W o flecha arriba | Saltar |
-| Ratón | Mover la fuente de luz |
-| Clic | Fijar o soltar la luz (fija, no se mueve aunque avance la pantalla) |
+| W, Espacio o flecha arriba | Saltar; dentro de la sombra, subir |
+| S o flecha abajo | Bajar dentro de la sombra |
+| Ratón | Mover la Lumbre |
+| Clic | Fijar o soltar la Lumbre |
 | R | Reiniciar el nivel |
-| F3 | Mostrar/ocultar datos de depuración |
-
-Si te caes, reapareces en la última repisa firme que pisaste.
+| M | Silenciar o encender la música |
+| F3 | Mostrar u ocultar los datos de depuración |
 
 ## Cómo pasar el Nivel 1
 
-Ningún hueco se puede cruzar saltando: hay que usar las sombras. En cada tramo pon la luz donde se indica, haz clic para fijarla y camina sobre la sombra.
+Ningún hueco se puede cruzar saltando: hay que usar las sombras. En cada tramo pon la luz donde se indica, haz clic para fijarla, métete a la sombra y avanza flotando (**D + W**). Al llegar arriba, sigue subiendo y Candil sale de un salto.
 
 | Tramo | Obstáculo | Dónde va la luz |
 |---|---|---|
-| 1. El puente | Hueco de 450 px | A la izquierda del bloque, a la altura de su cara de arriba: la sombra se estira como puente |
+| 1. El puente | Hueco de 450 px | A la izquierda del bloque, a la altura de su cara de arriba: la sombra se estira como un puente |
 | 2. La rampa | Pared de 220 px | Abajo a la izquierda del bloque: la sombra sube hasta lo alto de la pared |
-| 3. Hacia atrás | Hueco con el bloque del otro lado | A la derecha del bloque: la sombra viene hacia ti (salta desde la pared para subirte) |
-| 4. La carpa | Foso de 700 px con un bloque flotando | Justo encima del bloque: la sombra baja por los dos lados como una montaña |
+| 3. Hacia atrás | Hueco con el bloque del otro lado | A la derecha del bloque: la sombra viene hacia ti; salta desde la pared para entrar en ella |
+| 4. La carpa | Foso de 700 px con un bloque flotando | Justo encima del bloque: la sombra baja por los dos lados como una montaña; crúzala por dentro |
 
 ## Estructura del proyecto
 
 ```
 src/umbra/
 ├── Main.java                 Crea la ventana y arranca el juego
+├── audio/
+│   └── Music.java            Música de ambiente en bucle (entrada suave, tecla M)
 ├── core/
-│   ├── Config.java           Constantes (tamaño, gravedad, velocidad, versión)
+│   ├── Config.java           Constantes: física, vida, música, versión
 │   ├── GamePanel.java        Game loop, update y render
 │   └── Input.java            Estado del teclado y del ratón
 ├── entities/
-│   ├── Player.java           Criatura de luz: física, colisiones y sombras sólidas
-│   ├── LightSource.java      Luz que sigue al ratón con interpolación; se fija con un clic
+│   ├── Player.java           Candil: física, vida, flotar en la sombra y animación
+│   ├── LightSource.java      La Lumbre: sigue al ratón con interpolación; se fija con un clic
 │   └── Block.java            Objetos que proyectan sombra
 ├── graphics/
-│   ├── Camera.java           Cámara que avanza con el jugador (matriz de vista)
-│   ├── ShadowCaster.java     Proyección de sombras (envolvente convexa)
-│   └── ParticleSystem.java   [Final] Partículas
+│   ├── Background.java       Cueva por capas (parallax), niebla, esporas y viñeta
+│   ├── Camera.java           Cámara que avanza con Candil (matriz de vista)
+│   ├── LevelArt.java         Roca, musgo, plantas que se mecen, hongos, losas con runas
+│   ├── ParticleSystem.java   Rastro de luz, chispas, polvo y fragmentos
+│   └── ShadowCaster.java     Proyección de sombras (envolvente convexa)
 ├── math/
 │   ├── Vec2.java             Vector 2D
 │   └── Mat3.java             Matriz 3x3 (traslación, rotación, escala)
+├── res/
+│   └── ambiente.wav          Música
 └── world/
     └── Level.java            Nivel 1 (tres pantallas) y nivel de prueba
 ```
@@ -92,26 +118,52 @@ src/umbra/
 - [x] Cámara con desplazamiento horizontal: el nivel mide tres pantallas
 - [x] Luz que se fija con un clic, escalón para subir bordes bajos y reaparición en la última repisa
 
-### v1.0 — Entrega final
-- [ ] Sistema de partículas (chispas al aterrizar, rastro de luz)
-- [ ] 3 niveles y cambio de nivel al llegar a la salida
-- [ ] Menú principal y pantalla de victoria
-- [ ] (Opcional) Zonas de luz directa que "disuelven" al jugador
+### v1.0 — Entrega en la materia (en desarrollo)
+- [x] Mecánica de la sombra: Candil flota dentro, pierde vida fuera y se desmorona cerca de la luz
+- [x] Ambiente de cueva: fondo por capas con parallax, niebla, esporas y viñeta
+- [x] Decoraciones: repisas de roca con musgo, hongos que brillan, losas con runas y columnas rotas
+- [x] Candil animado: flota, parpadea, se estira al saltar y se aplasta al caer
+- [x] Partículas: rastro de luz, chispas, polvo al perder vida y fragmentos al desmoronarse
+- [x] Plantas que se mecen al pasar Candil
+- [x] Música de ambiente
+- [x] 60 FPS en Windows
+- [ ] Menú con la historia, título del nivel y pantalla de victoria
 - [ ] Capturas de pantalla en este README
 
-Tip: busca `TODO (v1.0)` en el código para ver exactamente qué falta para la entrega final.
+### Después (v1.1 en adelante)
+La v1.0 no es la versión final: el juego sigue creciendo.
+- [ ] Más niveles y cambio de nivel al llegar a la salida
+- [ ] Luces que se mueven solas
+- [ ] Enemigos: polillas de ceniza que persiguen la luz
+- [ ] Fragmentos del Gran Farol para coleccionar
+- [ ] Efectos de sonido
+
+Tip: busca `TODO (v1.0)` en el código para ver qué falta.
 
 ## Técnicas de graficación
 
 | Técnica | Dónde |
 |---|---|
 | Game loop con paso de tiempo fijo | `GamePanel.tick()` |
-| Interpolación lineal / suavizado exponencial | `LightSource.update()` |
+| Interpolación lineal y suavizado exponencial | `LightSource.update()`, `Camera.follow()` |
 | Degradado radial (iluminación) | `LightSource.drawGlow()` |
 | Transformaciones 2D con matrices homogéneas | `Mat3`, `Level.drawPortal()` |
+| Escala y rotación alrededor de un punto: `T · R · S · T⁻¹` | `Player.draw()`, `LevelArt.drawMushroom()` |
 | Cámara: matriz de vista y su inversa (mundo ↔ pantalla) | `Camera` |
+| Parallax: cada capa con `T(−camX · profundidad, 0)` | `Background.drawLayer()` |
+| Terreno fractal por desplazamiento del punto medio | `Background.midpointDisplacement()` |
+| Perspectiva atmosférica y viñeta | `Background` |
+| Composición alfa (`DST_IN`) y pre-renderizado en imágenes | `Background`, `LevelArt` |
+| Curvas de Bézier (la silueta de Candil) | `Player.ghostShape()` |
 | Detección y respuesta de colisiones AABB | `Player.update()` |
 | Proyección de sombras desde una luz puntual | `ShadowCaster.computeShadows()` |
 | Envolvente convexa (monotone chain de Andrew) | `ShadowCaster.convexHull()` |
-| Punto dentro de polígono y búsqueda binaria del borde | `Player.standOnShadow()` |
-| Sistema de partículas | `ParticleSystem` (v1.0) |
+| Punto dentro de polígono: ¿Candil está en la sombra? | `Player.inShadow()` |
+| Resorte amortiguado (plantas que se mecen) | `LevelArt.sway()` |
+| Sistema de partículas | `ParticleSystem` |
+
+## Música
+
+La música está en `src/umbra/res/ambiente.wav` y se repite sin fin (**M** la silencia). Para cambiarla, reemplaza ese archivo por otro **WAV** con el mismo nombre: de preferencia mono, de 22 050 o 44 100 Hz y de 3 minutos o menos. Java no lee MP3, así que hay que convertirla antes.
+
+La pieza actual es de prueba: fue generada con código (síntesis aditiva), así que no tiene derechos de terceros. Si se usa otra, aquí deben ir su autor y su licencia.
