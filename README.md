@@ -6,11 +6,11 @@ Juego de plataformas 2D en Java donde **la sombra es el único refugio**. Con el
 
 Bajo la tierra existió un mundo de cavernas iluminado por el **Gran Farol**. Una noche el Farol se apagó y su luz se rompió en mil pedazos. La oscuridad llenó todo y se llamó **Umbra**.
 
-De la última chispa nacieron dos: **Candil**, un pequeño fantasma que puede andar pero apenas brilla, y **la Lumbre**, una luz que alumbra lejos pero no puede andar. Solos no llegan a ningún lado. Juntos tienen una oportunidad.
+De la última chispa nacieron dos: **Candil**, un pequeño fantasma que puede andar pero apenas brilla, y **la Llama(Logi)**, una luz que alumbra lejos pero no puede andar. Solos no llegan a ningún lado. Juntos tienen una oportunidad.
 
-Pero Candil es frágil. El vacío lo apaga poco a poco, y la luz directa lo deshace: si la Lumbre se le acerca demasiado, se desmorona. Solo la sombra lo abriga. Cuando la Lumbre ilumina las cosas nacen sombras, y dentro de ellas Candil flota a salvo.
+Pero Candil es frágil. El vacío lo apaga poco a poco, y la luz directa lo deshace: si la Llama(Logi) se le acerca demasiado, se desmorona. Solo la sombra lo abriga. Cuando la Llama(Logi) ilumina las cosas nacen sombras, y dentro de ellas Candil flota a salvo.
 
-Así avanzan juntos, caverna por caverna: la Lumbre abre caminos de sombra y Candil los recorre, buscando el Gran Farol para volver a encenderlo. En las losas antiguas todavía quedan runas del Farol, y despiertan cuando la Lumbre pasa cerca.
+Así avanzan juntos, caverna por caverna: la Llama(Logi) abre caminos de sombra y Candil los recorre, buscando el Gran Farol para volver a encenderlo. En las losas antiguas todavía quedan runas del Farol, y despiertan cuando la Llama(Logi) pasa cerca.
 
 ---
 
