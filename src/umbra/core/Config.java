@@ -38,6 +38,14 @@ public final class Config {
     /** Segundos que pasan entre que se desmorona y reaparece. */
     public static final double RESPAWN_DELAY = 0.8;
 
+    // ---- Música [v1.0] ----
+    /** Archivo de música (dentro de src). Para cambiar la música, reemplaza ese archivo. */
+    public static final String MUSIC_FILE = "/umbra/res/ambiente.wav";
+    /** Volumen de la música, de 0 (silencio) a 1 (volumen original del archivo). */
+    public static final double MUSIC_VOLUME = 0.6;
+    /** Segundos que tarda en subir el volumen al empezar (entrada suave). */
+    public static final double MUSIC_FADE_TIME = 3.0;
+
     // ---- Luz ----
     /** Qué tan rápido la luz alcanza al ratón (mayor = más rápido). */
     public static final double LIGHT_SMOOTHING = 8.0;

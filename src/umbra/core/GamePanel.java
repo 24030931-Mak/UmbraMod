@@ -22,6 +22,7 @@ import java.util.List;
 import javax.swing.JPanel;
 import javax.swing.Timer;
 
+import umbra.audio.Music;
 import umbra.entities.LightSource;
 import umbra.entities.Player;
 import umbra.graphics.Background;
@@ -57,6 +58,7 @@ public class GamePanel extends JPanel {
 
     private final ShadowCaster shadowCaster = new ShadowCaster();
     private final ParticleSystem particles = new ParticleSystem();
+    private final Music music = new Music(Config.MUSIC_FILE);
 
     /** Al reaparecer, qué tan lejos de la orilla de la repisa se coloca al jugador (px). */
     private static final double RESPAWN_MARGIN = 12;
@@ -106,6 +108,7 @@ public class GamePanel extends JPanel {
     /** Arranca el game loop. */
     public void start() {
         requestFocusInWindow();
+        music.play();
         lastTime = System.nanoTime();
         fpsTimer = lastTime;
         timer.start();
@@ -147,6 +150,8 @@ public class GamePanel extends JPanel {
         // ---- Teclas globales ----
         if (input.wasPressed(KeyEvent.VK_R)) restart();
         if (input.wasPressed(KeyEvent.VK_F3)) debug = !debug;
+        if (input.wasPressed(KeyEvent.VK_M)) music.toggleMute();
+        music.update(dt);   // entrada suave y silencio gradual
 
         // ---- Luz: sigue al ratón suavemente; con un clic se fija o se suelta ----
         // El ratón está en coordenadas de pantalla y la luz vive en el mundo:
@@ -298,7 +303,7 @@ public class GamePanel extends JPanel {
         g.drawString(Config.TITLE + " " + Config.VERSION, 16, 24);
         g.setColor(new Color(150, 150, 170));
         g.drawString("A/D: mover   W/Espacio: saltar o subir   S: bajar   Mouse: mover la luz"
-                + "   Clic: fijar/soltar la luz   R: reiniciar   F3: debug", 16, 44);
+                + "   Clic: fijar/soltar la luz   R: reiniciar   M: música   F3: debug", 16, 44);
         if (light.isPinned()) {
             g.setColor(new Color(255, 230, 150));
             g.drawString("Luz fija (clic para soltarla)", 16, 64);
