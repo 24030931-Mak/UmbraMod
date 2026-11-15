@@ -34,8 +34,8 @@ public final class Config {
 
     // ---- Avances ----
     /**
-     * Puente provisional para poder probar el movimiento en el avance 30%.
-     * En el avance 70%, cuando las sombras ya sean sólidas, ponlo en false.
+     * Puente provisional del nivel de prueba, para probar el movimiento en el avance 30%.
+     * Desde el avance 70% está en false: las sombras ya son sólidas.
      */
-    public static final boolean TEMP_BRIDGE = true;
+    public static final boolean TEMP_BRIDGE = false;
 }
