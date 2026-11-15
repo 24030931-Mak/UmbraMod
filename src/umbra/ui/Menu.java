@@ -90,7 +90,7 @@ public class Menu {
                     Text.BRIGHT, fadeIn * pulse, 1.2);
             g.setFont(Text.SMALL);
             Text.centered(g, "A/D: moverse   \u00b7   W/S: subir y bajar dentro de la sombra   \u00b7   "
-                    + "Rat\u00f3n: mover a Logi   \u00b7   Clic: fijarla   \u00b7   M: m\u00fasica",
+                    + "Rat\u00f3n: mover a Logi   \u00b7   Clic: fijarla   \u00b7   Tab: mapa   \u00b7   M: m\u00fasica",
                     cx, Config.HEIGHT - 50, Text.HINT_COLOR, fadeIn * 0.8, 0);
         } else {
             g.setFont(Text.SMALL);

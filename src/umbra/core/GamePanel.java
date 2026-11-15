@@ -32,6 +32,7 @@ import umbra.graphics.ShadowCaster;
 import umbra.math.Mat3;
 import umbra.math.Vec2;
 import umbra.ui.LevelTitle;
+import umbra.ui.MapView;
 import umbra.ui.Menu;
 import umbra.ui.Victory;
 import umbra.world.Level;
@@ -75,6 +76,8 @@ public class GamePanel extends JPanel {
     private static final double ARRIVAL_SAFE_DISTANCE = 140;
     /** Cuánto se sube Logi si quedó demasiado cerca. */
     private static final double ARRIVAL_LIFT = 220;
+    /** Qué tan cerca de Candil (px) deben quedar las zonas del nivel para contar como recorridas. */
+    private static final double EXPLORE_RADIUS = 180;
     /** Segundos entre tocar la salida y pasar a la pantalla final. */
     private static final double VICTORY_DELAY = 1.0;
 
@@ -86,6 +89,7 @@ public class GamePanel extends JPanel {
     private final Music music = new Music(Config.MUSIC_FILE);
     private final Menu menu = new Menu(Resources.readLines("/umbra/res/historia.txt"));
     private final LevelTitle levelTitle = new LevelTitle();
+    private final MapView mapView = new MapView();
     private final Victory victory = new Victory(Resources.readLines("/umbra/res/final.txt"));
     private final LightSource menuLight = new LightSource(Config.WIDTH / 2.0, Config.HEIGHT / 3.0);
 
@@ -131,6 +135,7 @@ public class GamePanel extends JPanel {
         setBackground(BACKGROUND);
         setDoubleBuffered(true);
         setFocusable(true);
+        setFocusTraversalKeysEnabled(false);   // Swing se queda con Tab para cambiar el foco; el juego lo necesita
 
         addKeyListener(input);
         addMouseListener(input);
@@ -350,6 +355,18 @@ public class GamePanel extends JPanel {
 
     private void updateGame(double dt, boolean leaving) {
         if (leaving) return;   // oscureciendo: el nivel se queda quieto
+
+        // ---- El mapa: pausa el juego; Tab o Esc lo cierran (Esc no va al menú) ----
+        if (mapView.isOpen()) {
+            mapView.update(dt);
+            if (input.wasPressed(KeyEvent.VK_TAB) || input.wasPressed(KeyEvent.VK_ESCAPE)) closeMap();
+            return;
+        }
+        // Solo se abre jugando de verdad: no durante un fundido ni con el nivel ya terminado
+        if (input.wasPressed(KeyEvent.VK_TAB) && fadeDir == 0 && !levelComplete) {
+            mapView.open();
+            return;
+        }
         if (input.wasPressed(KeyEvent.VK_ESCAPE)) {
             fadeTo(this::backToMenu);
             return;
@@ -383,6 +400,10 @@ public class GamePanel extends JPanel {
         } else if (!levelComplete) {
             boolean wasOnGround = player.isOnGround();
             player.update(dt, input, level, shadows);
+            // Candil vivo: lo que queda a menos de 180 px se marca como recorrido (para el mapa)
+            if (!player.isDead()) {
+                world.exploration(world.currentIndex()).reveal(player.getCenterX(), player.getCenterY(), EXPLORE_RADIUS);
+            }
 
             // Aterrizaje: chispas
             if (!wasOnGround && player.isOnGround()) {
@@ -462,6 +483,12 @@ public class GamePanel extends JPanel {
         }
     }
 
+    /** Cierra el mapa: lo que se iluminó ya no se vuelve a encender la próxima vez. */
+    private void closeMap() {
+        mapView.close();
+        for (int i = 0; i < world.size(); i++) world.exploration(i).markAllShown();
+    }
+
     private void restart() {
         player.respawn(level.getSpawn());
         checkpoint = level.getSpawn();
@@ -489,6 +516,7 @@ public class GamePanel extends JPanel {
             if (screen == Screen.PLAYING) {
                 drawHud(g2);
                 levelTitle.draw(g2);
+                mapView.draw(g2, world, new Vec2(player.getCenterX(), player.getCenterY()), light.getPosition());
             } else {
                 victory.draw(g2);
             }
@@ -582,7 +610,7 @@ public class GamePanel extends JPanel {
         g.drawString(Config.TITLE + " " + Config.VERSION, 16, 24);
         g.setColor(new Color(150, 150, 170));
         g.drawString("A/D: mover   W/Espacio: saltar o subir   S: bajar   Mouse: Logi   Clic: fijarla"
-                + "   R: reiniciar   M: m\u00fasica   Esc: men\u00fa", 16, 44);
+                + "   R: reiniciar   Tab: mapa   M: m\u00fasica   Esc: men\u00fa", 16, 44);
         if (light.isPinned()) {
             g.setColor(new Color(255, 230, 150));
             g.drawString("Logi est\u00e1 fija (clic para soltarla)", 16, 64);
