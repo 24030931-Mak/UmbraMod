@@ -1,0 +1,81 @@
+package umbra.ui;
+
+import java.awt.Color;
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
+import java.util.List;
+
+import umbra.core.Config;
+
+/**
+ * [v1.0] Pantalla final: el nivel se oscurece y aparece el cierre de la historia, línea por
+ * línea, con el tiempo y las veces que Candil se desmoronó. El final es abierto porque el
+ * juego sigue creciendo en las siguientes versiones.
+ */
+public class Victory {
+
+    private static final double LINE_GAP = 1.8;   // s entre una línea y la siguiente
+    private static final Color VEIL = new Color(3, 4, 10, 205);
+
+    private final List<String> lines;
+    private String stats = "";
+    private double time;
+
+    public Victory(List<String> lines) {
+        this.lines = lines;
+    }
+
+    /** @param seconds tiempo jugado; @param deaths veces que Candil se desmoronó */
+    public void show(double seconds, int deaths) {
+        time = 0;
+        int s = (int) Math.round(seconds);
+        stats = String.format("Tiempo: %d:%02d          Candil se desmoronó %d %s",
+                s / 60, s % 60, deaths, deaths == 1 ? "vez" : "veces");
+    }
+
+    public void update(double dt) {
+        time += dt;
+    }
+
+    private double statsAt() {
+        return 0.8 + lines.size() * LINE_GAP;
+    }
+
+    /** Ya se ve todo y se puede elegir: jugar de nuevo o volver al menú. */
+    public boolean isReady() {
+        return time >= statsAt() + 0.6;
+    }
+
+    /** Enter antes de tiempo: muestra todo de una vez. */
+    public void skip() {
+        time = Math.max(time, statsAt() + 0.6);
+    }
+
+    public void draw(Graphics2D g) {
+        Text.smooth(g);
+        Text.veil(g, VEIL, time / 1.0, Config.WIDTH, Config.HEIGHT);   // oscurece el nivel, que se queda quieto
+        double cx = Config.WIDTH / 2.0;
+
+        g.setFont(Text.STORY_BIG);
+        FontMetrics fm = g.getFontMetrics();
+        double y = 250;
+        for (int i = 0; i < lines.size(); i++) {
+            double alpha = (time - 0.8 - i * LINE_GAP) / 1.2;
+            boolean last = i == lines.size() - 1;
+            for (String row : Text.wrap(lines.get(i), fm, 900)) {
+                Text.centered(g, row, cx, y, last ? Text.BRIGHT : Text.STORY_COLOR, alpha, last ? 1.5 : 0);
+                y += 44;
+            }
+            y += 14;
+        }
+
+        g.setFont(Text.HINT);
+        Text.centered(g, stats, cx, y + 36, Text.HINT_COLOR, (time - statsAt()) / 0.8, 0);
+
+        if (isReady()) {
+            double pulse = 0.6 + 0.4 * Math.sin(time * 3);
+            Text.centered(g, "Enter o clic: jugar de nuevo            Esc: menú", cx, Config.HEIGHT - 86,
+                    Text.BRIGHT, pulse, 1.2);
+        }
+    }
+}

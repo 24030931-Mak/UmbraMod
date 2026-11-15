@@ -100,6 +100,11 @@ public class ParticleSystem {
         return particles.size();
     }
 
+    /** Quita todas (al empezar el nivel de nuevo). */
+    public void clear() {
+        particles.clear();
+    }
+
     private void add(double x, double y, double vx, double vy, double life, double size,
                      double gravity, Color color, boolean halo) {
         if (particles.size() >= MAX_PARTICLES) return;

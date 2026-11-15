@@ -12,6 +12,9 @@ public final class Config {
     /** Cámbiala en cada versión publicada: v0.3 (30%), v0.7 (70%), v1.0 (entrega en la materia)... */
     public static final String VERSION = "v0.7";
 
+    /** true: el juego empieza en el menú con la historia. Ponlo en false para entrar directo al nivel mientras pruebas. */
+    public static final boolean SHOW_INTRO = true;
+
     // ---- Ventana ----
     public static final int WIDTH = 1280;
     public static final int HEIGHT = 720;

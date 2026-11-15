@@ -58,7 +58,7 @@ public class Level {
      * Ningún hueco se puede saltar: el salto alcanza unos 100 px de alto y 200 de largo.
      */
     public static Level createLevel1() {
-        Level lvl = new Level("Nivel 1", 3840,
+        Level lvl = new Level("Las Raíces", 3840,
             new Vec2(80, 530),
             new Rectangle2D.Double(3680, 400, 60, 80));
 

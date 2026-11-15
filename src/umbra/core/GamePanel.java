@@ -4,7 +4,6 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -30,29 +29,49 @@ import umbra.graphics.Camera;
 import umbra.graphics.LevelArt;
 import umbra.graphics.ParticleSystem;
 import umbra.graphics.ShadowCaster;
+import umbra.math.Mat3;
 import umbra.math.Vec2;
+import umbra.ui.LevelTitle;
+import umbra.ui.Menu;
+import umbra.ui.Victory;
 import umbra.world.Level;
 
 /**
  * Corazón del juego: contiene el game loop, actualiza la lógica y dibuja todo.
  *
  * Game loop con paso de tiempo fijo:
- *   - Un Timer de Swing "despierta" unas 60 veces por segundo.
+ *   - Un Timer de Swing "despierta" cada 10 ms.
  *   - Se mide cuánto tiempo real pasó y se ejecutan tantos update(STEP) como hagan falta.
  *   - Así la física (saltos, gravedad) se comporta igual en cualquier computadora.
  * Todo corre en el hilo de Swing, así que no hay problemas de concurrencia.
+ *
+ * [v1.0] Pantallas (máquina de estados): MENU (título e historia) -> PLAYING (el nivel)
+ * -> VICTORY (cierre). Cada cambio pasa por un fundido a negro.
  */
 public class GamePanel extends JPanel {
 
     private static final long serialVersionUID = 1L;
     private static final double STEP = 1.0 / Config.UPS;
 
+    /** Las pantallas del juego. */
+    private enum Screen { MENU, PLAYING, VICTORY }
+
     private static final Color BACKGROUND = new Color(8, 8, 16);
     private static final Color SHADOW_COLOR = new Color(40, 20, 70, 220);
     private static final Color SHADOW_EDGE = new Color(150, 110, 225, 110);
     private static final Stroke SHADOW_EDGE_STROKE = new BasicStroke(2f);
     private static final Font HUD_FONT = new Font(Font.MONOSPACED, Font.PLAIN, 14);
-    private static final Font BIG_FONT = new Font(Font.SANS_SERIF, Font.BOLD, 32);
+
+    /** Al reaparecer, qué tan lejos de la orilla de la repisa se coloca al jugador (px). */
+    private static final double RESPAWN_MARGIN = 12;
+    /** Partículas por segundo: rastro al moverse y polvo con la vida en 0 (se reparte según la vida). */
+    private static final double TRAIL_RATE = 40, DUST_RATE = 30;
+    /** Segundos para oscurecer (o aclarar) la pantalla al cambiar de pantalla. */
+    private static final double FADE_TIME = 0.6;
+    /** Segundos entre tocar la salida y pasar a la pantalla final. */
+    private static final double VICTORY_DELAY = 1.0;
+    /** Número del nivel en el título ("I · Las Raíces"). */
+    private static final String LEVEL_NUMBER = "I";
 
     private final Input input = new Input();
     private final Timer timer;
@@ -60,9 +79,10 @@ public class GamePanel extends JPanel {
     private final ShadowCaster shadowCaster = new ShadowCaster();
     private final ParticleSystem particles = new ParticleSystem();
     private final Music music = new Music(Config.MUSIC_FILE);
-
-    /** Al reaparecer, qué tan lejos de la orilla de la repisa se coloca al jugador (px). */
-    private static final double RESPAWN_MARGIN = 12;
+    private final Menu menu = new Menu(Resources.readLines("/umbra/res/historia.txt"));
+    private final LevelTitle levelTitle = new LevelTitle();
+    private final Victory victory = new Victory(Resources.readLines("/umbra/res/final.txt"));
+    private final LightSource menuLight = new LightSource(Config.WIDTH / 2.0, Config.HEIGHT / 3.0);
 
     private Level level;
     private Player player;
@@ -73,12 +93,20 @@ public class GamePanel extends JPanel {
     private Vec2 checkpoint;   // dónde reaparece si se cae: la última repisa firme que pisó
     private List<Path2D> shadows = new ArrayList<>();
     private boolean levelComplete;
-    private double deathTimer;   // segundos desde que Candil se desmoronó
+    private double completeTimer;           // segundos desde que tocó la salida
+    private double deathTimer;              // segundos desde que Candil se desmoronó
     private double trailTimer, dustTimer;   // acumuladores de partículas
+    private double playTime;                // tiempo jugado en este intento (s)
+    private int deaths;                     // veces que Candil se desmoronó en este intento
 
-    /** Partículas por segundo: rastro al moverse y polvo con la vida en 0 (se reparte según la vida). */
-    private static final double TRAIL_RATE = 40, DUST_RATE = 30;
-    private boolean debug = true;
+    // Pantallas y fundido a negro
+    private Screen screen = Config.SHOW_INTRO ? Screen.MENU : Screen.PLAYING;
+    private double fade;        // 0 = se ve todo; 1 = negro
+    private int fadeDir;        // +1 oscureciendo, -1 aclarando, 0 quieto
+    private Runnable onBlack;   // qué hacer cuando la pantalla quede negra
+    private double menuTime;    // para mover despacio la cueva del menú
+
+    private boolean debug = false;
 
     // Tiempo y FPS
     private long lastTime;
@@ -103,6 +131,7 @@ public class GamePanel extends JPanel {
         });
 
         loadLevel(Level.createLevel1());
+        if (screen == Screen.PLAYING) levelTitle.show(LEVEL_NUMBER, level.getName());
 
         // El Timer "despierta" cada 10 ms. Si se le pidieran 16 ms (1000 / 60), Windows los
         // redondea a ~30 ms por la resolución de su reloj, y el juego se veía a ~34 FPS.
@@ -154,11 +183,117 @@ public class GamePanel extends JPanel {
     }
 
     private void update(double dt) {
-        // ---- Teclas globales ----
-        if (input.wasPressed(KeyEvent.VK_R)) restart();
+        // ---- Teclas que funcionan en todas las pantallas ----
         if (input.wasPressed(KeyEvent.VK_F3)) debug = !debug;
         if (input.wasPressed(KeyEvent.VK_M)) music.toggleMute();
         music.update(dt);   // entrada suave y silencio gradual
+
+        updateFade(dt);
+        boolean leaving = onBlack != null;   // oscureciendo para cambiar de pantalla: no se aceptan teclas
+
+        switch (screen) {
+            case MENU:    updateMenu(dt, leaving);    break;
+            case PLAYING: updateGame(dt, leaving);    break;
+            case VICTORY: updateVictory(dt, leaving); break;
+        }
+    }
+
+    // =========================================================
+    //  PANTALLAS Y FUNDIDO A NEGRO
+    // =========================================================
+
+    /** Pide un cambio de pantalla: oscurece, hace 'action' cuando ya no se ve nada, y aclara. */
+    private void fadeTo(Runnable action) {
+        if (onBlack != null) return;   // ya hay un cambio en camino
+        onBlack = action;
+        fadeDir = 1;
+    }
+
+    private void updateFade(double dt) {
+        if (fadeDir == 0) return;
+        fade += fadeDir * dt / FADE_TIME;
+        if (fade >= 1) {
+            fade = 1;
+            fadeDir = -1;
+            Runnable action = onBlack;
+            onBlack = null;
+            if (action != null) action.run();
+        } else if (fade <= 0) {
+            fade = 0;
+            fadeDir = 0;
+        }
+    }
+
+    /** Menú: la historia aparece sola; Enter o clic la completa y luego empieza el juego. */
+    private void updateMenu(double dt, boolean leaving) {
+        menuTime += dt;
+        menu.update(dt);
+        background.update(dt);
+        menuLight.setTarget(input.getMouseX(), input.getMouseY());   // la Lumbre sigue al ratón
+        menuLight.update(dt);
+        if (leaving) return;
+
+        boolean confirm = input.wasPressed(KeyEvent.VK_ENTER) || input.wasPressed(KeyEvent.VK_SPACE)
+                || input.wasClicked();
+        if (confirm && menu.confirm()) {
+            fadeTo(this::startGame);
+        } else if (input.wasPressed(KeyEvent.VK_ESCAPE)) {
+            System.exit(0);
+        }
+    }
+
+    /** Pantalla final: Enter juega de nuevo, Esc regresa al menú. */
+    private void updateVictory(double dt, boolean leaving) {
+        victory.update(dt);
+        background.update(dt);        // la niebla y las esporas siguen moviéndose
+        levelArt.update(dt, null);    // las plantas se mecen con el aire
+        particles.update(dt);
+        if (leaving) return;
+
+        boolean confirm = input.wasPressed(KeyEvent.VK_ENTER) || input.wasPressed(KeyEvent.VK_SPACE)
+                || input.wasClicked();
+        if (!victory.isReady()) {
+            if (confirm) victory.skip();   // muestra todo el texto de una vez
+        } else if (confirm) {
+            fadeTo(this::startGame);
+        } else if (input.wasPressed(KeyEvent.VK_ESCAPE)) {
+            fadeTo(this::backToMenu);
+        }
+    }
+
+    /** Empieza el nivel desde el principio (desde el menú o al jugar de nuevo). */
+    private void startGame() {
+        restart();
+        camera = new Camera(level.getWidth());
+        particles.clear();
+        playTime = 0;
+        deaths = 0;
+        screen = Screen.PLAYING;
+        levelTitle.show(LEVEL_NUMBER, level.getName());
+    }
+
+    private void backToMenu() {
+        screen = Screen.MENU;
+        menu.restart(false);   // la historia ya se vio: título y opciones de una vez
+    }
+
+    private void showVictory() {
+        screen = Screen.VICTORY;
+        victory.show(playTime, deaths);
+    }
+
+    // =========================================================
+    //  EL NIVEL
+    // =========================================================
+
+    private void updateGame(double dt, boolean leaving) {
+        if (leaving) return;   // oscureciendo: el nivel se queda quieto
+        if (input.wasPressed(KeyEvent.VK_ESCAPE)) {
+            fadeTo(this::backToMenu);
+            return;
+        }
+        if (input.wasPressed(KeyEvent.VK_R)) restart();
+        levelTitle.update(dt);
 
         // ---- Luz: sigue al ratón suavemente; con un clic se fija o se suelta ----
         // El ratón está en coordenadas de pantalla y la luz vive en el mundo:
@@ -168,12 +303,12 @@ public class GamePanel extends JPanel {
         light.setTarget(mouse.x, mouse.y);
         light.update(dt);
 
-        // ---- Sombras [AVANCE 70%] ----
+        // ---- Sombras ----
         shadows = shadowCaster.computeShadows(light, level.getBlocks());
 
         // ---- Mundo y jugador ----
         level.update(dt);
-        background.update(dt);   // niebla y esporas
+        background.update(dt);         // niebla y esporas
         levelArt.update(dt, player);   // plantas que se mecen, hongos y runas
 
         if (!levelComplete && player.isDead()) {
@@ -219,8 +354,16 @@ public class GamePanel extends JPanel {
 
             if (level.isAtExit(player.getBounds())) {
                 levelComplete = true;
-                // TODO (v1.0): pasar al siguiente nivel en lugar de solo mostrar el mensaje
+                // TODO (v1.1): cuando haya más niveles, pasar al siguiente en lugar de terminar
             }
+        }
+
+        // ---- La salida: un momento después, la pantalla final ----
+        if (levelComplete) {
+            completeTimer += dt;
+            if (completeTimer >= VICTORY_DELAY) fadeTo(this::showVictory);
+        } else {
+            playTime += dt;
         }
 
         // ---- Cámara: avanza cuando el jugador avanza ----
@@ -237,6 +380,7 @@ public class GamePanel extends JPanel {
     private void emitPlayerEffects(double dt) {
         if (player.isDead()) {
             particles.emitCrumble(player.getBounds());
+            deaths++;
             return;
         }
         double cx = player.getCenterX(), cy = player.getCenterY();
@@ -259,6 +403,7 @@ public class GamePanel extends JPanel {
         light.setPinned(false);
         deathTimer = 0;
         levelComplete = false;
+        completeTimer = 0;
     }
 
     // =========================================================
@@ -272,13 +417,50 @@ public class GamePanel extends JPanel {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 
+        if (screen == Screen.MENU) {
+            drawMenu(g2);
+        } else {
+            drawWorld(g2);
+            if (screen == Screen.PLAYING) {
+                drawHud(g2);
+                levelTitle.draw(g2);
+            } else {
+                victory.draw(g2);
+            }
+        }
+
+        if (fade > 0) {   // fundido a negro entre pantallas
+            g2.setColor(new Color(0, 0, 0, (int) Math.round(255 * fade)));
+            g2.fillRect(0, 0, Config.WIDTH, Config.HEIGHT);
+        }
+
+        g2.dispose();
+        countFps();
+    }
+
+    /** El menú: la cueva moviéndose despacio, la Lumbre que sigue al ratón, el título y la historia. */
+    private void drawMenu(Graphics2D g2) {
+        double camX = 300 + 250 * Math.sin(menuTime * 0.05);
+        background.drawBack(g2, camX);
+        AffineTransform onScreen = g2.getTransform();
+        g2.transform(Mat3.translation(-Math.round(camX), 0).toAffineTransform());
+        background.drawSpores(g2, camX);
+        g2.setTransform(onScreen);
+        menuLight.drawGlow(g2);
+        menuLight.drawCore(g2);
+        background.drawFront(g2, camX);
+        menu.draw(g2);
+    }
+
+    /** El nivel: fondo con parallax, sombras, roca, Candil, partículas y primer plano. */
+    private void drawWorld(Graphics2D g2) {
         // El orden importa: lo que se dibuja después queda encima.
         // 0. Fondo de la cueva: cada capa con su propio parallax (coordenadas de pantalla)
         double camX = camera.getX();
         background.drawBack(g2, camX);
 
         // El mundo se dibuja con la matriz de vista de la cámara (mundo -> pantalla)
-        AffineTransform screen = g2.getTransform();
+        AffineTransform onScreen = g2.getTransform();
         g2.transform(camera.getViewMatrix().toAffineTransform());
         light.drawGlow(g2);              // 1. halo de luz sobre el fondo
         levelArt.drawBehind(g2, camX);   //    columnas rotas (decoración)
@@ -286,17 +468,13 @@ public class GamePanel extends JPanel {
         levelArt.drawFront(g2, camX, light); // 3. repisas de roca, hongos, losas y runas
         level.draw(g2);                  //    salida
         background.drawSpores(g2, camX); // 4. esporas flotando
-        particles.draw(g2);              // 5. partículas [FINAL]
+        particles.draw(g2);              // 5. partículas
         player.draw(g2);                 // 6. jugador
         light.drawCore(g2);              // 7. punto brillante de la luz
 
         // Lo demás no usa la matriz de vista: se dibuja en coordenadas de pantalla
-        g2.setTransform(screen);
+        g2.setTransform(onScreen);
         background.drawFront(g2, camX);  // 8. neblina del abismo, primer plano y viñeta
-        drawHud(g2);                     // 9. textos
-
-        g2.dispose();
-        countFps();
     }
 
     /** Barra de vida arriba a la derecha: el color pasa de rojo (vacía) a azul claro (llena). */
@@ -338,8 +516,8 @@ public class GamePanel extends JPanel {
         g.setColor(new Color(220, 220, 235));
         g.drawString(Config.TITLE + " " + Config.VERSION, 16, 24);
         g.setColor(new Color(150, 150, 170));
-        g.drawString("A/D: mover   W/Espacio: saltar o subir   S: bajar   Mouse: mover la luz"
-                + "   Clic: fijar/soltar la luz   R: reiniciar   M: música   F3: debug", 16, 44);
+        g.drawString("A/D: mover   W/Espacio: saltar o subir   S: bajar   Mouse: la luz   Clic: fijarla"
+                + "   R: reiniciar   M: música   Esc: menú", 16, 44);
         if (light.isPinned()) {
             g.setColor(new Color(255, 230, 150));
             g.drawString("Luz fija (clic para soltarla)", 16, 64);
@@ -356,19 +534,6 @@ public class GamePanel extends JPanel {
                     player.getLife() * 100), 16, y + 18);
             g.drawString(String.format("Luz: (%.0f, %.0f)  fija: %b  sombras: %d",
                     light.getX(), light.getY(), light.isPinned(), shadows.size()), 16, y + 36);
-        }
-
-        if (levelComplete) {
-            String msg = "¡Nivel completado!  (R para reiniciar)";
-            g.setFont(BIG_FONT);
-            FontMetrics fm = g.getFontMetrics();
-            int w = fm.stringWidth(msg);
-            int x = (Config.WIDTH - w) / 2;
-            int y = Config.HEIGHT / 2;
-            g.setColor(new Color(0, 0, 0, 170));
-            g.fillRoundRect(x - 24, y - 46, w + 48, 66, 20, 20);
-            g.setColor(new Color(255, 230, 150));
-            g.drawString(msg, x, y);
         }
     }
 
