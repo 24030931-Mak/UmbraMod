@@ -149,7 +149,7 @@ public class GamePanel extends JPanel {
         // Semillas fijas: cada cueva siempre es igual (7 y 11 el nivel 1; 23 y 29 el nivel 2)
         long[][] seeds = { { 7, 11 }, { 23, 29 } };
         for (int i = 0; i < world.size(); i++) {
-            backgrounds[i] = new Background(world.get(i).getWidth(), seeds[i][0]);
+            backgrounds[i] = new Background(world.get(i).getWidth(), seeds[i][0], i == 0 ? 1 : 1.5);   // nivel 2: ruinas más grandes
             arts[i] = new LevelArt(world.get(i), seeds[i][1]);   // roca, musgo, hongos y runas
         }
         loadLevel(0);

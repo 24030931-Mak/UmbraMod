@@ -109,15 +109,55 @@ public class Level {
     }
 
     /**
-     * Nivel 2 (provisional): una repisa larga con el portal al final. Su entrada izquierda
-     * conecta con la salida del nivel 1. El diseño real de las Galerías va en otra tarea.
+     * [v1.0] Nivel 2, "Las Galerías": tres pantallas de ancho (3840 px). Su entrada izquierda
+     * conecta con la salida del nivel 1 y el portal está al final, 300 px más arriba que la
+     * entrada. Cada tramo agrega una idea nueva sobre lo aprendido en el nivel 1:
+     *
+     *   1. El refugio: una losa sobre la entrada. Con Logi arriba de ella, por ejemplo en
+     *      (115, 300), la sombra baja como una carpa y cubre la entrada: Candil no pierde
+     *      vida mientras se acomoda a Logi para el tramo siguiente.
+     *   2. Dos sombras, un puente: hueco de 1000 px. Una sola sombra no alcanza: llega a
+     *      450 px de su bloque y el salto agrega unos 180. Con Logi a la izquierda de la
+     *      primera losa, a la altura de su cara de arriba (220, 462), las dos sombras salen
+     *      hacia la derecha y se enciman: la de la primera llega hasta la segunda losa y la
+     *      de la segunda, hasta la repisa B. Con D+W Candil va saltando por la orilla de
+     *      arriba de las sombras.
+     *   3. La chimenea: subida de 300 px por el pozo que queda entre dos losas apiladas y la
+     *      pared de la repisa C. Con Logi arriba a la izquierda (1300, 250), las sombras de
+     *      las losas caen una sobre otra dentro del pozo: Candil sube nadando (W) y, al salir
+     *      por arriba de la última, sale de un salto a lo alto de C. Las losas están a 135 px
+     *      una de la otra y la de abajo a 140 px del piso: sin sombra no sirven de escalera
+     *      (el salto sube 107 px y, con el escalón de 20 px que se sube solo, 127).
+     *   4. El pasillo bajo: un túnel de 70 px de alto (techo D) con un foso de 200 px. Con el
+     *      techo tan bajo el salto apenas sube 40 px: el foso no se puede saltar. Con Logi
+     *      fija lejos, atrás del túnel y un poco más arriba del dintel (1900, 170), la sombra
+     *      del dintel entra casi horizontal y llena el túnel: Candil cruza flotando y se va
+     *      alejando de ella. Dentro del túnel Logi no sirve: Candil tendría que pasar a menos
+     *      de 70 px de ella y se desmoronaría.
+     *   5. El portal: en la repisa alta del final (E).
+     *
+     * Ningún hueco se puede cruzar saltando sin sombras: la prueba lo comprueba con todos los
+     * saltos y caídas posibles, cada medio píxel.
      */
     public static Level createLevel2() {
         Level lvl = new Level("II", "Las Galer\u00edas", 3840,
             new Vec2(80, 530),
-            new Rectangle2D.Double(3680, 400, 60, 80));
-        lvl.addPlatform(0, 560, 3840, 160);
-        lvl.connect(new Vec2(80, 530), null);
+            new Rectangle2D.Double(3300, 180, 60, 80));   // el portal, parado sobre E
+        lvl.connect(new Vec2(80, 530), null);   // a la izquierda, el paso al nivel 1
+
+        //              x     y    ancho alto
+        lvl.addPlatform(0,    560, 380,  160);   // A: la entrada, con el refugio
+        lvl.addPlatform(1380, 560, 280,  160);   // B: después del puente, al pie de la chimenea
+        lvl.addPlatform(1660, 260, 790,  460);   // C: arriba de la chimenea; sigue dentro del túnel
+        lvl.addPlatform(2200, 0,   950,  190);   // D: el techo del pasillo bajo
+        lvl.addPlatform(2650, 260, 1190, 460);   // E: la repisa alta del portal
+
+        lvl.addBlock(new Block(40,   390, 150, 30));   // tramo 1: el techo del refugio
+        lvl.addBlock(new Block(440,  470, 120, 40));   // tramo 2: el puente, primera losa
+        lvl.addBlock(new Block(900,  470, 110, 40));   // tramo 2: el puente, segunda losa
+        lvl.addBlock(new Block(1500, 420, 60,  90));   // tramo 3: la chimenea, losa de abajo
+        lvl.addBlock(new Block(1500, 285, 60,  90));   // tramo 3: la chimenea, losa de arriba
+        lvl.addBlock(new Block(2200, 190, 60,  30));   // tramo 4: el dintel del pasillo
         return lvl;
     }
 

@@ -62,6 +62,7 @@ public class Background {
     private static final float[] SPORE_ALPHAS = { 0.15f, 0.3f, 0.45f, 0.6f, 0.75f };
 
     private final double worldWidth;
+    private final double ruinScale;   // tamaño de las ruinas de la capa media (1 = las del nivel 1)
     private final BufferedImage sky, far, mid, near, fogBack, fogPit, overlay;
     private final BufferedImage[][] sporeSprites;
     private final List<Shape> front = new ArrayList<>();
@@ -75,7 +76,16 @@ public class Background {
     }
 
     public Background(double worldWidth, long seed) {
+        this(worldWidth, seed, 1);
+    }
+
+    /**
+     * 'ruinScale' agranda las columnas y los arcos de la capa media: el nivel 2, "Las
+     * Galerías", tiene ruinas más grandes que el nivel 1 (1 = el tamaño del nivel 1).
+     */
+    public Background(double worldWidth, long seed, double ruinScale) {
         this.worldWidth = worldWidth;
+        this.ruinScale = ruinScale;
         Random rnd = new Random(seed);
         sky = renderSky();
         far = renderFar(rnd);
@@ -257,23 +267,33 @@ public class Background {
             g.fill(spike(x, heightAt(ceiling, w, 45, x) - 5, 14 + rnd.nextDouble() * 26, 50 + rnd.nextDouble() * 170, true));
         }
 
-        // Ruinas: pares de columnas, a veces unidas por un arco, a veces rotas
+        // Ruinas: pares de columnas, a veces unidas por un arco, a veces rotas. Cada ruina se
+        // escala desde el pie de su primera columna:  M = T(x, pie) * S(s) * T(-x, -pie),
+        // con s = ruinScale (con s = 1, M es la identidad). La segunda columna, ya escalada,
+        // queda en x + span * s; para que se pare en el suelo de ese punto, su pie se regresa
+        // a las coordenadas sin escalar: pie + (suelo - pie) / s.
         g.setStroke(new BasicStroke(16, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND));
+        AffineTransform plain = g.getTransform();
         for (double x = 80 + rnd.nextDouble() * 200; x < w - 200; x += 380 + rnd.nextDouble() * 420) {
             double span = 110 + rnd.nextDouble() * 90;
             double colW = 26 + rnd.nextDouble() * 14;
             double height = 160 + rnd.nextDouble() * 170;
             boolean arch = rnd.nextDouble() < 0.6;
+            double foot = heightAt(floor, w, 610, x) + 10;
+            g.transform(Mat3.translation(x, foot).multiply(Mat3.scale(ruinScale, ruinScale))
+                    .multiply(Mat3.translation(-x, -foot)).toAffineTransform());
             for (int k = 0; k < 2; k++) {
                 double cx = x + k * span;
-                double base = heightAt(floor, w, 610, cx) + 10;
+                double ground = heightAt(floor, w, 610, x + k * span * ruinScale) + 10;
+                double base = foot + (ground - foot) / ruinScale;
                 double h = arch ? height : height * (0.4 + rnd.nextDouble() * 0.6);
                 g.fill(column(cx, base, colW, h, rnd, !arch && rnd.nextDouble() < 0.7));
             }
             if (arch) {
-                double top = heightAt(floor, w, 610, x) + 10 - height;
+                double top = foot - height;
                 g.draw(new Arc2D.Double(x + colW / 2, top - span / 2, span, span, 0, 180, Arc2D.OPEN));
             }
+            g.setTransform(plain);
         }
         g.dispose();
         return img;
