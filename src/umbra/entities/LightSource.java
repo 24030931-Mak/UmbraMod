@@ -17,6 +17,7 @@ public class LightSource {
 
     private double x, y;
     private double targetX, targetY;
+    private boolean pinned;   // fija: se queda en su lugar del mundo y ya no sigue al ratón
 
     public LightSource(double x, double y) {
         this.x = x;
@@ -25,10 +26,20 @@ public class LightSource {
         this.targetY = y;
     }
 
+    /** Nuevo destino de la luz. Si está fija se ignora: se queda donde se le dejó. */
     public void setTarget(double tx, double ty) {
+        if (pinned) return;
         targetX = tx;
         targetY = ty;
     }
+
+    /**
+     * [AVANCE 70%] Fija o suelta la luz. Fija, se queda en su punto del mundo aunque
+     * la pantalla avance; así las sombras no cambian mientras el jugador camina sobre ellas.
+     */
+    public void togglePinned() { pinned = !pinned; }
+    public void setPinned(boolean pinned) { this.pinned = pinned; }
+    public boolean isPinned() { return pinned; }
 
     public void update(double dt) {
         // Suavizado exponencial: en cada update recorre una fracción 't' del camino restante.
@@ -59,6 +70,10 @@ public class LightSource {
         g.fill(new Ellipse2D.Double(x - 14, y - 14, 28, 28));
         g.setColor(new Color(255, 250, 230));
         g.fill(new Ellipse2D.Double(x - 6, y - 6, 12, 12));
+        if (pinned) {   // un anillo indica que está fija
+            g.setColor(new Color(255, 240, 200, 200));
+            g.draw(new Ellipse2D.Double(x - 19, y - 19, 38, 38));
+        }
     }
 
     public double getX() { return x; }

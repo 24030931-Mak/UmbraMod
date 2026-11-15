@@ -21,6 +21,12 @@ public class Input implements KeyListener, MouseListener, MouseMotionListener {
     private int mouseX = Config.WIDTH / 2;
     private int mouseY = Config.HEIGHT / 4;
     private boolean mouseDown;
+    private boolean clicked;   // solo el update en que se hizo clic
+
+    /** true solo en el update en que se presionó un botón del ratón (para fijar la luz). */
+    public boolean wasClicked() {
+        return clicked;
+    }
 
     /** true mientras la tecla esté presionada (para caminar). */
     public boolean isDown(int keyCode) {
@@ -35,6 +41,7 @@ public class Input implements KeyListener, MouseListener, MouseMotionListener {
     /** Se llama al final de cada update para "olvidar" las teclas recién presionadas. */
     public void endUpdate() {
         Arrays.fill(pressed, false);
+        clicked = false;
     }
 
     public int getMouseX() { return mouseX; }
@@ -67,7 +74,7 @@ public class Input implements KeyListener, MouseListener, MouseMotionListener {
 
     @Override public void mouseMoved(MouseEvent e)    { mouseX = e.getX(); mouseY = e.getY(); }
     @Override public void mouseDragged(MouseEvent e)  { mouseX = e.getX(); mouseY = e.getY(); }
-    @Override public void mousePressed(MouseEvent e)  { mouseDown = true; }
+    @Override public void mousePressed(MouseEvent e)  { if (!mouseDown) clicked = true; mouseDown = true; }
     @Override public void mouseReleased(MouseEvent e) { mouseDown = false; }
     @Override public void mouseClicked(MouseEvent e)  { }
     @Override public void mouseEntered(MouseEvent e)  { }

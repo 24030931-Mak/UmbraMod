@@ -131,9 +131,10 @@ public class GamePanel extends JPanel {
         if (input.wasPressed(KeyEvent.VK_R)) restart();
         if (input.wasPressed(KeyEvent.VK_F3)) debug = !debug;
 
-        // ---- Luz: sigue al ratón suavemente ----
+        // ---- Luz: sigue al ratón suavemente; con un clic se fija o se suelta ----
         // El ratón está en coordenadas de pantalla y la luz vive en el mundo:
         // la cámara convierte de una a otra con la inversa de su matriz de vista.
+        if (input.wasClicked()) light.togglePinned();
         Vec2 mouse = camera.screenToWorld(input.getMouseX(), input.getMouseY());
         light.setTarget(mouse.x, mouse.y);
         light.update(dt);
@@ -172,6 +173,7 @@ public class GamePanel extends JPanel {
 
     private void restart() {
         player.respawn(level.getSpawn());
+        light.setPinned(false);
         levelComplete = false;
     }
 
@@ -217,7 +219,12 @@ public class GamePanel extends JPanel {
         g.setColor(new Color(220, 220, 235));
         g.drawString(Config.TITLE + " " + Config.VERSION, 16, 24);
         g.setColor(new Color(150, 150, 170));
-        g.drawString("A/D: mover   Espacio: saltar   Mouse: mover la luz   R: reiniciar   F3: debug", 16, 44);
+        g.drawString("A/D: mover   Espacio: saltar   Mouse: mover la luz   Clic: fijar/soltar la luz"
+                + "   R: reiniciar   F3: debug", 16, 44);
+        if (light.isPinned()) {
+            g.setColor(new Color(255, 230, 150));
+            g.drawString("Luz fija (clic para soltarla)", 16, 64);
+        }
 
         if (debug) {
             int y = Config.HEIGHT - 60;
@@ -226,8 +233,8 @@ public class GamePanel extends JPanel {
                     camera.getX(), level.getWidth() - Config.WIDTH), 16, y);
             g.drawString(String.format("Jugador: (%.0f, %.0f)  en suelo: %b",
                     player.getX(), player.getY(), player.isOnGround()), 16, y + 18);
-            g.drawString(String.format("Luz: (%.0f, %.0f)  sombras: %d",
-                    light.getX(), light.getY(), shadows.size()), 16, y + 36);
+            g.drawString(String.format("Luz: (%.0f, %.0f)  fija: %b  sombras: %d",
+                    light.getX(), light.getY(), light.isPinned(), shadows.size()), 16, y + 36);
         }
 
         if (levelComplete) {
