@@ -19,12 +19,21 @@ import umbra.world.Level;
 /**
  * La criatura de luz que controla el jugador.
  * Física sencilla: velocidad + gravedad, y colisiones AABB (rectángulo contra rectángulo).
+ * Además puede pararse sobre las sombras que proyectan los bloques (paso 5 de update).
  */
 public class Player {
 
     public static final double W = 22;
     public static final double H = 30;
     private static final double EPS = 0.001;
+
+    /**
+     * Lo más que se sube al jugador para sacarlo de una sombra (px). Es el escalón más
+     * alto que puede subir caminando sobre una sombra. Tiene que ser mayor que lo que baja
+     * en un cuadro a velocidad máxima (MAX_FALL_SPEED / UPS = 900 / 60 = 15 px);
+     * si no, al caer rápido atravesaría las sombras.
+     */
+    private static final int MAX_SHADOW_STEP = 20;
 
     private double x, y;      // esquina superior izquierda
     private double vx, vy;    // velocidad en px/s
@@ -90,12 +99,64 @@ public class Player {
         }
 
         // 5. Sombras sólidas [AVANCE 70%]
-        // TODO (v0.7): si el jugador va cayendo (vy > 0) y sus pies, el punto
-        //   (getCenterX(), getBottom()), quedan dentro de alguna sombra
-        //   (shadow.contains(px, py)), súbelo hasta que ya no esté dentro
-        //   y marca onGround = true y vy = 0.
-        //   Pista: súbelo de 1 en 1 píxel con un límite (por ejemplo 20 px)
-        //   para que no se "teletransporte" si cae en medio de una sombra grande.
+        // Las sombras son plataformas "de un solo sentido": se atraviesan al ir subiendo
+        // (saltando) o desde los lados, pero sostienen al jugador cuando no va subiendo.
+        // Es vy >= 0 y no vy > 0 porque al pararse en una repisa o un bloque el paso 4
+        // deja vy = 0; así también puede subir a una rampa de sombra que empieza en el suelo.
+        if (vy >= 0 && inShadow(shadows, getCenterX(), getBottom())) {
+            standOnShadow(shadows, solids);
+        }
+    }
+
+    /**
+     * Saca al jugador de la sombra hacia arriba y lo deja parado justo en su borde.
+     * Solo se revisa el punto de los pies: (centro, abajo).
+     */
+    private void standOnShadow(List<Path2D> shadows, List<Rectangle2D> solids) {
+        double cx = getCenterX();
+        double inside = getBottom();   // altura de los pies: está dentro de la sombra
+        double outside = inside;
+
+        // a) Subir de 1 en 1 px hasta que los pies salgan. Si después de MAX_SHADOW_STEP
+        //    siguen adentro, el jugador está metido en la sombra, no encima de ella:
+        //    no es suelo y sigue cayendo.
+        for (int step = 0; inShadow(shadows, cx, outside); step++) {
+            if (step == MAX_SHADOW_STEP) return;
+            inside = outside;
+            outside -= 1;
+        }
+
+        // b) El borde está entre 'outside' (afuera) e 'inside' (adentro), a 1 px o menos.
+        //    Búsqueda binaria: cada vuelta parte el intervalo a la mitad (10 vueltas: ~0.001 px).
+        //    Si los pies quedaran hasta 1 px arriba del borde, en el siguiente cuadro la
+        //    gravedad (solo 0.5 px) no alcanzaría a meterlos otra vez: el jugador parpadearía
+        //    entre "en el aire" y "en el suelo" y a veces no podría saltar.
+        for (int i = 0; i < 10; i++) {
+            double mid = (inside + outside) / 2;
+            if (inShadow(shadows, cx, mid)) inside = mid;
+            else                            outside = mid;
+        }
+
+        // c) No subirlo si la cabeza quedaría metida en una repisa o un bloque;
+        //    si no, el paso 4 del siguiente cuadro lo "teletransportaría" encima de ese sólido.
+        double oldY = y;
+        y = outside - H;
+        for (Rectangle2D r : solids) {
+            if (overlaps(r)) {
+                y = oldY;
+                return;
+            }
+        }
+
+        vy = 0;
+        onGround = true;
+    }
+
+    private static boolean inShadow(List<Path2D> shadows, double px, double py) {
+        for (Path2D shadow : shadows) {
+            if (shadow.contains(px, py)) return true;
+        }
+        return false;
     }
 
     private boolean overlaps(Rectangle2D r) {
