@@ -63,6 +63,7 @@ public class GamePanel extends JPanel {
     private Vec2 checkpoint;   // dónde reaparece si se cae: la última repisa firme que pisó
     private List<Path2D> shadows = new ArrayList<>();
     private boolean levelComplete;
+    private double deathTimer;   // segundos desde que Candil se desmoronó
     private boolean debug = true;
 
     // Tiempo y FPS
@@ -151,13 +152,29 @@ public class GamePanel extends JPanel {
         // ---- Mundo y jugador ----
         level.update(dt);
 
-        if (!levelComplete) {
+        if (!levelComplete && player.isDead()) {
+            // Se desmoronó: espera un momento y reaparece en la última repisa firme
+            deathTimer += dt;
+            if (deathTimer >= Config.RESPAWN_DELAY) {
+                player.respawn(checkpoint);
+                deathTimer = 0;
+            }
+        } else if (!levelComplete) {
             boolean wasOnGround = player.isOnGround();
             player.update(dt, input, level, shadows);
 
             // Aterrizaje: chispas [ENTREGA FINAL]
             if (!wasOnGround && player.isOnGround()) {
                 particles.emit(player.getCenterX(), player.getBottom(), 12);
+            }
+
+            // Demasiado cerca de la Lumbre: se desmorona [v1.0].
+            // Se comparan distancias al cuadrado para no calcular la raíz.
+            double dx = light.getX() - player.getCenterX();
+            double dy = light.getY() - player.getCenterY();
+            if (dx * dx + dy * dy <= Config.CRUMBLE_RADIUS * Config.CRUMBLE_RADIUS) {
+                player.crumble();
+                light.setPinned(false);   // si estaba fija ahí, no lo deshace otra vez al reaparecer
             }
 
             // Recuerda la última repisa firme que pisó, para reaparecer ahí
@@ -190,6 +207,7 @@ public class GamePanel extends JPanel {
         player.respawn(level.getSpawn());
         checkpoint = level.getSpawn();
         light.setPinned(false);
+        deathTimer = 0;
         levelComplete = false;
     }
 
@@ -209,7 +227,7 @@ public class GamePanel extends JPanel {
         AffineTransform screen = g2.getTransform();
         g2.transform(camera.getViewMatrix().toAffineTransform());
         light.drawGlow(g2);       // 1. halo de luz sobre el fondo
-        drawShadows(g2);          // 2. sombras (plataformas) [70%]
+        drawShadows(g2);          // 2. sombras (el refugio de Candil)
         level.draw(g2);           // 3. repisas, bloques y salida
         particles.draw(g2);       // 4. partículas [FINAL]
         player.draw(g2);          // 5. jugador
@@ -221,6 +239,25 @@ public class GamePanel extends JPanel {
 
         g2.dispose();
         countFps();
+    }
+
+    /** Barra de vida arriba a la derecha: el color pasa de rojo (vacía) a azul claro (llena). */
+    private void drawLifeBar(Graphics2D g) {
+        int w = 200, h = 10;
+        int x = Config.WIDTH - w - 16, y = 16;
+        double life = player.getLife();
+
+        g.setColor(new Color(220, 220, 235));
+        g.drawString("Vida", x - 44, y + 10);
+        g.setColor(new Color(30, 30, 45));
+        g.fillRoundRect(x, y, w, h, h, h);
+        int r = (int) (230 + (150 - 230) * life);
+        int gr = (int) (70 + (225 - 70) * life);
+        int b = (int) (70 + (255 - 70) * life);
+        g.setColor(new Color(r, gr, b));
+        g.fillRoundRect(x, y, (int) Math.round(w * life), h, h, h);
+        g.setColor(new Color(150, 150, 170));
+        g.drawRoundRect(x, y, w, h, h, h);
     }
 
     private void drawShadows(Graphics2D g) {
@@ -235,20 +272,22 @@ public class GamePanel extends JPanel {
         g.setColor(new Color(220, 220, 235));
         g.drawString(Config.TITLE + " " + Config.VERSION, 16, 24);
         g.setColor(new Color(150, 150, 170));
-        g.drawString("A/D: mover   Espacio: saltar   Mouse: mover la luz   Clic: fijar/soltar la luz"
-                + "   R: reiniciar   F3: debug", 16, 44);
+        g.drawString("A/D: mover   W/Espacio: saltar o subir   S: bajar   Mouse: mover la luz"
+                + "   Clic: fijar/soltar la luz   R: reiniciar   F3: debug", 16, 44);
         if (light.isPinned()) {
             g.setColor(new Color(255, 230, 150));
             g.drawString("Luz fija (clic para soltarla)", 16, 64);
         }
+        drawLifeBar(g);
 
         if (debug) {
             int y = Config.HEIGHT - 60;
             g.setColor(new Color(120, 255, 160));
             g.drawString(String.format("FPS: %d   camara: %.0f de %.0f", fps,
                     camera.getX(), level.getWidth() - Config.WIDTH), 16, y);
-            g.drawString(String.format("Jugador: (%.0f, %.0f)  en suelo: %b",
-                    player.getX(), player.getY(), player.isOnGround()), 16, y + 18);
+            g.drawString(String.format("Jugador: (%.0f, %.0f)  en suelo: %b  en sombra: %b  vida: %.0f%%",
+                    player.getX(), player.getY(), player.isOnGround(), player.isInShadow(),
+                    player.getLife() * 100), 16, y + 18);
             g.drawString(String.format("Luz: (%.0f, %.0f)  fija: %b  sombras: %d",
                     light.getX(), light.getY(), light.isPinned(), shadows.size()), 16, y + 36);
         }

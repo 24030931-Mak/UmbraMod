@@ -17,9 +17,13 @@ import umbra.math.Vec2;
 import umbra.world.Level;
 
 /**
- * La criatura de luz que controla el jugador.
- * Física sencilla: velocidad + gravedad, y colisiones AABB (rectángulo contra rectángulo).
- * Además puede pararse sobre las sombras que proyectan los bloques (paso 5 de update).
+ * Candil, el fantasma de luz que controla el jugador.
+ *
+ * [v1.0] La sombra es el único lugar seguro:
+ *   - Dentro de una sombra flota sin gravedad (W o Espacio sube, S baja) y recupera vida.
+ *   - Fuera de la sombra cae con gravedad, camina y salta sobre repisas, pero pierde vida.
+ *   - Si la vida llega a 0, o si se acerca demasiado a la luz (crumble), se desmorona.
+ * Las colisiones con repisas y bloques son AABB (rectángulo contra rectángulo).
  */
 public class Player {
 
@@ -27,18 +31,20 @@ public class Player {
     public static final double H = 30;
     private static final double EPS = 0.001;
 
-    /**
-     * El escalón más alto que puede subir caminando (px), sea de sombra o de un sólido.
-     * También es lo más que se le sube para sacarlo de una sombra. Tiene que ser mayor
-     * que lo que baja en un cuadro a velocidad máxima (MAX_FALL_SPEED / UPS = 900 / 60
-     * = 15 px); si no, al caer rápido atravesaría las sombras.
-     */
+    /** El escalón más alto que puede subir caminando, sin saltar (px). */
     private static final int MAX_STEP = 20;
+
+    /** Qué tan rápido alcanza la velocidad deseada al flotar (mayor = más rápido). */
+    private static final double SWIM_RESPONSE = 10.0;
 
     private double x, y;      // esquina superior izquierda
     private double vx, vy;    // velocidad en px/s
     private boolean onGround;
     private int facing = 1;   // 1 = derecha, -1 = izquierda
+
+    private double life;      // de 0 (sin vida) a 1 (llena)
+    private boolean inShadow; // el centro del cuerpo está dentro de una sombra
+    private boolean dead;     // se desmoronó; GamePanel lo hace reaparecer
 
     public Player(Vec2 spawn) {
         respawn(spawn);
@@ -50,29 +56,46 @@ public class Player {
         vx = 0;
         vy = 0;
         onGround = false;
+        life = 1;
+        inShadow = false;
+        dead = false;
     }
 
     public void update(double dt, Input in, Level level, List<Path2D> shadows) {
-        // 1. Movimiento horizontal
+        if (dead) return;
+
+        // 1. Movimiento horizontal (igual dentro y fuera de la sombra)
         double dir = 0;
         if (in.isDown(KeyEvent.VK_A) || in.isDown(KeyEvent.VK_LEFT))  dir -= 1;
         if (in.isDown(KeyEvent.VK_D) || in.isDown(KeyEvent.VK_RIGHT)) dir += 1;
         vx = dir * Config.MOVE_SPEED;
         if (dir != 0) facing = (int) dir;
 
-        // 2. Salto (solo si está parado sobre algo)
-        boolean jump = in.wasPressed(KeyEvent.VK_SPACE)
-                    || in.wasPressed(KeyEvent.VK_W)
-                    || in.wasPressed(KeyEvent.VK_UP);
-        if (jump && onGround) {
-            vy = -Config.JUMP_SPEED;
-            onGround = false;
+        // 2. Movimiento vertical: depende de si está dentro de una sombra
+        boolean up = in.isDown(KeyEvent.VK_SPACE) || in.isDown(KeyEvent.VK_W) || in.isDown(KeyEvent.VK_UP);
+        boolean down = in.isDown(KeyEvent.VK_S) || in.isDown(KeyEvent.VK_DOWN);
+        boolean wasInShadow = inShadow(shadows, getCenterX(), getCenterY());
+
+        if (wasInShadow) {
+            // Flotar: no hay gravedad. La velocidad se acerca a la deseada con el mismo
+            // suavizado exponencial que usa la luz, para que no arranque ni frene en seco.
+            double target = 0;
+            if (up)   target -= Config.SWIM_SPEED;
+            if (down) target += Config.SWIM_SPEED;
+            vy += (target - vy) * (1 - Math.exp(-SWIM_RESPONSE * dt));
+        } else {
+            // Fuera de la sombra: salto (solo parado sobre algo) y gravedad
+            boolean jump = in.wasPressed(KeyEvent.VK_SPACE)
+                        || in.wasPressed(KeyEvent.VK_W)
+                        || in.wasPressed(KeyEvent.VK_UP);
+            if (jump && onGround) {
+                vy = -Config.JUMP_SPEED;
+                onGround = false;
+            }
+            vy = Math.min(vy + Config.GRAVITY * dt, Config.MAX_FALL_SPEED);
         }
 
-        // 3. Gravedad
-        vy = Math.min(vy + Config.GRAVITY * dt, Config.MAX_FALL_SPEED);
-
-        // 4. Mover y resolver colisiones, un eje a la vez
+        // 3. Mover y resolver colisiones con repisas y bloques, un eje a la vez
         List<Rectangle2D> solids = level.getSolids();
 
         x += vx * dt;
@@ -99,21 +122,28 @@ public class Player {
             }
         }
 
-        // 5. Sombras sólidas [AVANCE 70%]
-        // Las sombras son plataformas "de un solo sentido": se atraviesan al ir subiendo
-        // (saltando) o desde los lados, pero sostienen al jugador cuando no va subiendo.
-        // Es vy >= 0 y no vy > 0 porque al pararse en una repisa o un bloque el paso 4
-        // deja vy = 0; así también puede subir a una rampa de sombra que empieza en el suelo.
-        if (vy >= 0 && inShadow(shadows, getCenterX(), getBottom())) {
-            standOnShadow(shadows, solids);
+        // 4. ¿Sigue dentro de la sombra? Si sale por arriba nadando hacia arriba,
+        //    sale de un salto, para alcanzar una repisa que esté sobre la sombra.
+        inShadow = inShadow(shadows, getCenterX(), getCenterY());
+        if (wasInShadow && !inShadow && vy < 0 && up) {
+            vy = -Config.JUMP_SPEED;
         }
+
+        // 5. Vida: la recupera en la sombra y la pierde fuera de ella
+        if (inShadow) life = Math.min(1, life + dt / Config.LIFE_REGEN_TIME);
+        else          life = Math.max(0, life - dt / Config.LIFE_DRAIN_TIME);
+        if (life == 0) dead = true;
+    }
+
+    /** Se desmorona de inmediato (por ejemplo, por estar demasiado cerca de la luz). */
+    public void crumble() {
+        life = 0;
+        dead = true;
     }
 
     /**
      * Escalón: si al caminar choca con un sólido cuya cara de arriba queda a MAX_STEP px
-     * o menos sobre sus pies, lo sube en lugar de detenerlo. Sin esto se atoraría al
-     * pasar de una rampa de sombra a su bloque, porque la rampa nace en la esquina
-     * del bloque y los pies llegan unos píxeles abajo de ella.
+     * o menos sobre sus pies, lo sube en lugar de detenerlo.
      */
     private boolean stepOnto(Rectangle2D r, List<Rectangle2D> solids) {
         double step = getBottom() - r.getMinY();
@@ -130,50 +160,7 @@ public class Player {
         return true;
     }
 
-    /**
-     * Saca al jugador de la sombra hacia arriba y lo deja parado justo en su borde.
-     * Solo se revisa el punto de los pies: (centro, abajo).
-     */
-    private void standOnShadow(List<Path2D> shadows, List<Rectangle2D> solids) {
-        double cx = getCenterX();
-        double inside = getBottom();   // altura de los pies: está dentro de la sombra
-        double outside = inside;
-
-        // a) Subir de 1 en 1 px hasta que los pies salgan. Si después de MAX_STEP
-        //    siguen adentro, el jugador está metido en la sombra, no encima de ella:
-        //    no es suelo y sigue cayendo.
-        for (int step = 0; inShadow(shadows, cx, outside); step++) {
-            if (step == MAX_STEP) return;
-            inside = outside;
-            outside -= 1;
-        }
-
-        // b) El borde está entre 'outside' (afuera) e 'inside' (adentro), a 1 px o menos.
-        //    Búsqueda binaria: cada vuelta parte el intervalo a la mitad (10 vueltas: ~0.001 px).
-        //    Si los pies quedaran hasta 1 px arriba del borde, en el siguiente cuadro la
-        //    gravedad (solo 0.5 px) no alcanzaría a meterlos otra vez: el jugador parpadearía
-        //    entre "en el aire" y "en el suelo" y a veces no podría saltar.
-        for (int i = 0; i < 10; i++) {
-            double mid = (inside + outside) / 2;
-            if (inShadow(shadows, cx, mid)) inside = mid;
-            else                            outside = mid;
-        }
-
-        // c) No subirlo si la cabeza quedaría metida en una repisa o un bloque;
-        //    si no, el paso 4 del siguiente cuadro lo "teletransportaría" encima de ese sólido.
-        double oldY = y;
-        y = outside - H;
-        for (Rectangle2D r : solids) {
-            if (overlaps(r)) {
-                y = oldY;
-                return;
-            }
-        }
-
-        vy = 0;
-        onGround = true;
-    }
-
+    /** Punto dentro de polígono: ¿el punto (px, py) está dentro de alguna sombra? */
     private static boolean inShadow(List<Path2D> shadows, double px, double py) {
         for (Path2D shadow : shadows) {
             if (shadow.contains(px, py)) return true;
@@ -187,18 +174,22 @@ public class Player {
     }
 
     public void draw(Graphics2D g) {
+        if (dead) return;
         double cx = getCenterX();
-        double cy = y + H / 2;
+        double cy = getCenterY();
 
-        // Brillo alrededor de la criatura
+        // Brillo alrededor: se apaga mientras pierde vida
         float glowR = 40f;
+        int glowAlpha = (int) (30 + 90 * life);
         g.setPaint(new RadialGradientPaint(new Point2D.Double(cx, cy), glowR,
             new float[] { 0f, 1f },
-            new Color[] { new Color(170, 230, 255, 120), new Color(170, 230, 255, 0) }));
+            new Color[] { new Color(170, 230, 255, glowAlpha), new Color(170, 230, 255, 0) }));
         g.fill(new Ellipse2D.Double(cx - glowR, cy - glowR, glowR * 2, glowR * 2));
 
-        // Cuerpo
-        g.setColor(new Color(225, 245, 255));
+        // Cuerpo: con poca vida se ve gris; dentro de la sombra, un poco transparente
+        Color body = mix(new Color(110, 125, 150), new Color(225, 245, 255), life);
+        int alpha = inShadow ? 190 : 255;
+        g.setColor(new Color(body.getRed(), body.getGreen(), body.getBlue(), alpha));
         g.fill(new RoundRectangle2D.Double(x, y, W, H, 14, 14));
 
         // Ojos (miran hacia donde camina)
@@ -209,10 +200,22 @@ public class Player {
         g.fill(new Ellipse2D.Double(eyeX + 1, eyeY, 4, 6));
     }
 
-    public double getX()       { return x; }
-    public double getY()       { return y; }
-    public double getCenterX() { return x + W / 2; }
-    public double getBottom()  { return y + H; }
+    /** Interpolación lineal entre dos colores: t = 0 regresa 'a', t = 1 regresa 'b'. */
+    private static Color mix(Color a, Color b, double t) {
+        return new Color(
+            (int) Math.round(a.getRed()   + (b.getRed()   - a.getRed())   * t),
+            (int) Math.round(a.getGreen() + (b.getGreen() - a.getGreen()) * t),
+            (int) Math.round(a.getBlue()  + (b.getBlue()  - a.getBlue())  * t));
+    }
+
+    public double getX()        { return x; }
+    public double getY()        { return y; }
+    public double getCenterX()  { return x + W / 2; }
+    public double getCenterY()  { return y + H / 2; }
+    public double getBottom()   { return y + H; }
     public boolean isOnGround() { return onGround; }
+    public boolean isInShadow() { return inShadow; }
+    public boolean isDead()     { return dead; }
+    public double getLife()     { return life; }
     public Rectangle2D getBounds() { return new Rectangle2D.Double(x, y, W, H); }
 }

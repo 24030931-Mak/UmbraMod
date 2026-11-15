@@ -9,7 +9,7 @@ public final class Config {
     private Config() { }
 
     public static final String TITLE = "Umbra";
-    /** Cámbiala en cada entrega: v0.3 (30%), v0.7 (70%), v1.0 (final). */
+    /** Cámbiala en cada versión publicada: v0.3 (30%), v0.7 (70%), v1.0 (entrega en la materia)... */
     public static final String VERSION = "v0.7";
 
     // ---- Ventana ----
@@ -25,6 +25,18 @@ public final class Config {
     public static final double MOVE_SPEED = 260;      // px/s
     public static final double JUMP_SPEED = 620;      // px/s
     public static final double MAX_FALL_SPEED = 900;  // px/s
+    /** Velocidad al flotar dentro de una sombra (W sube, S baja). */
+    public static final double SWIM_SPEED = 220;      // px/s
+
+    // ---- Vida de Candil [v1.0] ----
+    /** Segundos que aguanta fuera de la sombra, con la vida llena, antes de desmoronarse. */
+    public static final double LIFE_DRAIN_TIME = 6.0;
+    /** Segundos que tarda en recuperar toda la vida dentro de una sombra. */
+    public static final double LIFE_REGEN_TIME = 2.0;
+    /** Si el centro de Candil queda a esta distancia de la luz (px) o menos, se desmorona. */
+    public static final double CRUMBLE_RADIUS = 70;
+    /** Segundos que pasan entre que se desmorona y reaparece. */
+    public static final double RESPAWN_DELAY = 0.8;
 
     // ---- Luz ----
     /** Qué tan rápido la luz alcanza al ratón (mayor = más rápido). */
