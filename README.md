@@ -24,8 +24,8 @@ Proyecto final de **Graficación**.
 
 - **Dentro de una sombra** Candil está a salvo: flota sin gravedad (W o Espacio para subir, S para bajar) y recupera vida.
 - **Fuera de la sombra** camina y salta, pero pierde vida (la barra de arriba a la derecha) y se va deshaciendo en polvo de luz.
-- **Si la Lumbre se acerca demasiado**, Candil se desmorona.
-- Mueve la Lumbre con el ratón y **haz clic para fijarla**: así no se mueve mientras avanzas. Otro clic la suelta.
+- **Si la Llama(Logi) se acerca demasiado**, Candil se desmorona.
+- Mueve la Llama(Logi) con el ratón y **haz clic para fijarla**: así no se mueve mientras avanzas. Otro clic la suelta.
 - Si sales de una sombra nadando hacia arriba, **sales de un salto**: sirve para alcanzar repisas altas.
 - Si te desmoronas o caes al vacío, reapareces en la última repisa firme que pisaste.
 
@@ -83,7 +83,7 @@ src/umbra/
 │   └── Input.java            Estado del teclado y del ratón
 ├── entities/
 │   ├── Player.java           Candil: física, vida, flotar en la sombra y animación
-│   ├── LightSource.java      La Lumbre: sigue al ratón con interpolación; se fija con un clic
+│   ├── LightSource.java      Logi: sigue al ratón con interpolación; se fija con un clic
 │   └── Block.java            Objetos que proyectan sombra
 ├── graphics/
 │   ├── Background.java       Cueva por capas (parallax), niebla, esporas y viñeta
