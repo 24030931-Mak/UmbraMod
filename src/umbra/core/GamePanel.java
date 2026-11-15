@@ -74,6 +74,10 @@ public class GamePanel extends JPanel {
     private List<Path2D> shadows = new ArrayList<>();
     private boolean levelComplete;
     private double deathTimer;   // segundos desde que Candil se desmoronó
+    private double trailTimer, dustTimer;   // acumuladores de partículas
+
+    /** Partículas por segundo: rastro al moverse y polvo con la vida en 0 (se reparte según la vida). */
+    private static final double TRAIL_RATE = 40, DUST_RATE = 30;
     private boolean debug = true;
 
     // Tiempo y FPS
@@ -183,7 +187,7 @@ public class GamePanel extends JPanel {
             boolean wasOnGround = player.isOnGround();
             player.update(dt, input, level, shadows);
 
-            // Aterrizaje: chispas [ENTREGA FINAL]
+            // Aterrizaje: chispas
             if (!wasOnGround && player.isOnGround()) {
                 particles.emit(player.getCenterX(), player.getBottom(), 12);
             }
@@ -196,6 +200,8 @@ public class GamePanel extends JPanel {
                 player.crumble();
                 light.setPinned(false);   // si estaba fija ahí, no lo deshace otra vez al reaparecer
             }
+
+            emitPlayerEffects(dt);
 
             // Recuerda la última repisa firme que pisó, para reaparecer ahí
             Rectangle2D ground = level.getPlatformUnder(player.getBounds());
@@ -221,6 +227,30 @@ public class GamePanel extends JPanel {
         camera.follow(player.getCenterX(), dt);
 
         particles.update(dt);
+    }
+
+    /**
+     * Partículas de Candil [v1.0]: fragmentos si se acaba de desmoronar; si no, un rastro de
+     * luz cuando se mueve y polvo de luz fuera de la sombra (más entre menos vida le queda).
+     * Los acumuladores hacen que salgan a un ritmo fijo por segundo, sin importar los FPS.
+     */
+    private void emitPlayerEffects(double dt) {
+        if (player.isDead()) {
+            particles.emitCrumble(player.getBounds());
+            return;
+        }
+        double cx = player.getCenterX(), cy = player.getCenterY();
+        boolean moving = Math.abs(player.getVx()) > 1 || Math.abs(player.getVy()) > 60;
+        trailTimer = moving ? trailTimer + dt * TRAIL_RATE : 0;
+        while (trailTimer >= 1) {
+            trailTimer -= 1;
+            particles.emitTrail(cx, cy, player.isInShadow());
+        }
+        dustTimer = player.isInShadow() ? 0 : dustTimer + dt * DUST_RATE * (1 - player.getLife());
+        while (dustTimer >= 1) {
+            dustTimer -= 1;
+            particles.emitDust(cx, cy);
+        }
     }
 
     private void restart() {
@@ -319,8 +349,8 @@ public class GamePanel extends JPanel {
         if (debug) {
             int y = Config.HEIGHT - 60;
             g.setColor(new Color(120, 255, 160));
-            g.drawString(String.format("FPS: %d   camara: %.0f de %.0f", fps,
-                    camera.getX(), level.getWidth() - Config.WIDTH), 16, y);
+            g.drawString(String.format("FPS: %d   camara: %.0f de %.0f   particulas: %d", fps,
+                    camera.getX(), level.getWidth() - Config.WIDTH, particles.size()), 16, y);
             g.drawString(String.format("Jugador: (%.0f, %.0f)  en suelo: %b  en sombra: %b  vida: %.0f%%",
                     player.getX(), player.getY(), player.isOnGround(), player.isInShadow(),
                     player.getLife() * 100), 16, y + 18);

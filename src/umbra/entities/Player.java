@@ -4,15 +4,17 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RadialGradientPaint;
 import java.awt.event.KeyEvent;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
-import java.awt.geom.RoundRectangle2D;
 import java.util.List;
+import java.util.Random;
 
 import umbra.core.Config;
 import umbra.core.Input;
+import umbra.math.Mat3;
 import umbra.math.Vec2;
 import umbra.world.Level;
 
@@ -46,6 +48,14 @@ public class Player {
     private boolean inShadow; // el centro del cuerpo está dentro de una sombra
     private boolean dead;     // se desmoronó; GamePanel lo hace reaparecer
 
+    // ---- Animación [v1.0]: solo cambia cómo se dibuja, nunca la física ----
+    private final Random rnd = new Random();
+    private double animTime;    // reloj de la animación (s)
+    private double stretch;     // > 0 estirado (salto), < 0 aplastado (al caer al suelo)
+    private double lean;        // inclinación al caminar (radianes)
+    private double blinkTimer = 3;   // segundos para el siguiente parpadeo
+    private double blinkLeft;        // segundos que le quedan al parpadeo actual
+
     public Player(Vec2 spawn) {
         respawn(spawn);
     }
@@ -59,10 +69,13 @@ public class Player {
         life = 1;
         inShadow = false;
         dead = false;
+        stretch = 0;
+        lean = 0;
     }
 
     public void update(double dt, Input in, Level level, List<Path2D> shadows) {
         if (dead) return;
+        boolean wasOnGround = onGround;
 
         // 1. Movimiento horizontal (igual dentro y fuera de la sombra)
         double dir = 0;
@@ -91,6 +104,7 @@ public class Player {
             if (jump && onGround) {
                 vy = -Config.JUMP_SPEED;
                 onGround = false;
+                stretch = 1;   // se estira al saltar
             }
             vy = Math.min(vy + Config.GRAVITY * dt, Config.MAX_FALL_SPEED);
         }
@@ -121,18 +135,42 @@ public class Player {
                 vy = 0;
             }
         }
+        if (!wasOnGround && onGround) stretch = -1;   // se aplasta al caer al suelo
 
         // 4. ¿Sigue dentro de la sombra? Si sale por arriba nadando hacia arriba,
         //    sale de un salto, para alcanzar una repisa que esté sobre la sombra.
         inShadow = inShadow(shadows, getCenterX(), getCenterY());
         if (wasInShadow && !inShadow && vy < 0 && up) {
             vy = -Config.JUMP_SPEED;
+            stretch = 1;
         }
 
         // 5. Vida: la recupera en la sombra y la pierde fuera de ella
         if (inShadow) life = Math.min(1, life + dt / Config.LIFE_REGEN_TIME);
         else          life = Math.max(0, life - dt / Config.LIFE_DRAIN_TIME);
         if (life == 0) dead = true;
+
+        animate(dt);
+    }
+
+    /**
+     * Animación: el estirón o aplastón regresa suave a 0 (en el aire se estira un poco según
+     * qué tan rápido cae), se inclina hacia donde camina y parpadea cada pocos segundos.
+     */
+    private void animate(double dt) {
+        animTime += dt;
+        double t = 1 - Math.exp(-10 * dt);   // mismo suavizado exponencial de la luz
+        boolean airborne = !onGround && !inShadow;
+        double stretchTarget = airborne ? Math.min(0.35, Math.abs(vy) / 1500) : 0;
+        stretch += (stretchTarget - stretch) * t;
+        lean += (0.08 * vx / Config.MOVE_SPEED - lean) * t;
+
+        blinkTimer -= dt;
+        if (blinkTimer <= 0) {
+            blinkLeft = 0.12;
+            blinkTimer = 2.5 + rnd.nextDouble() * 3;
+        }
+        blinkLeft = Math.max(0, blinkLeft - dt);
     }
 
     /** Se desmorona de inmediato (por ejemplo, por estar demasiado cerca de la luz). */
@@ -177,6 +215,19 @@ public class Player {
         if (dead) return;
         double cx = getCenterX();
         double cy = getCenterY();
+        double bottom = getBottom();
+        double bob = -1 - Math.sin(animTime * 3.2);   // flota: sube y baja entre 0 y 2 px
+
+        // Estirar o aplastar e inclinar con los pies como punto fijo (escala y rotación
+        // alrededor de un punto), igual que la salida usa T * R * S:
+        //   M = T(cx, pies + flote) * R(inclinación) * S(sx, sy) * T(-cx, -pies)
+        double sx = 1 - 0.14 * stretch, sy = 1 + 0.18 * stretch;
+        Mat3 m = Mat3.translation(cx, bottom + bob)
+                .multiply(Mat3.rotation(lean))
+                .multiply(Mat3.scale(sx, sy))
+                .multiply(Mat3.translation(-cx, -bottom));
+        AffineTransform old = g.getTransform();
+        g.transform(m.toAffineTransform());
 
         // Brillo alrededor: se apaga mientras pierde vida
         float glowR = 40f;
@@ -186,18 +237,44 @@ public class Player {
             new Color[] { new Color(170, 230, 255, glowAlpha), new Color(170, 230, 255, 0) }));
         g.fill(new Ellipse2D.Double(cx - glowR, cy - glowR, glowR * 2, glowR * 2));
 
-        // Cuerpo: con poca vida se ve gris; dentro de la sombra, un poco transparente
+        // Cuerpo de fantasma: con poca vida se ve gris; dentro de la sombra, un poco transparente
         Color body = mix(new Color(110, 125, 150), new Color(225, 245, 255), life);
         int alpha = inShadow ? 190 : 255;
         g.setColor(new Color(body.getRed(), body.getGreen(), body.getBlue(), alpha));
-        g.fill(new RoundRectangle2D.Double(x, y, W, H, 14, 14));
+        g.fill(ghostShape());
 
-        // Ojos (miran hacia donde camina)
+        // Ojos: miran hacia donde camina y a veces parpadean
         g.setColor(new Color(30, 40, 70));
         double eyeX = cx + facing * 4;
-        double eyeY = y + 9;
-        g.fill(new Ellipse2D.Double(eyeX - 5, eyeY, 4, 6));
-        g.fill(new Ellipse2D.Double(eyeX + 1, eyeY, 4, 6));
+        double eyeH = blinkLeft > 0 ? 1.2 : 6;
+        double eyeY = y + 9 + (6 - eyeH) / 2;
+        g.fill(new Ellipse2D.Double(eyeX - 5, eyeY, 4, eyeH));
+        g.fill(new Ellipse2D.Double(eyeX + 1, eyeY, 4, eyeH));
+
+        g.setTransform(old);
+    }
+
+    /**
+     * Silueta de fantasma: cabeza redonda (dos curvas de Bézier que aproximan un semicírculo)
+     * y una cola con tres ondas que se mueven con el tiempo.
+     */
+    private Path2D ghostShape() {
+        double r = W / 2, k = 0.5523 * r;   // 0.5523: constante para aproximar un círculo con Bézier
+        double base = y + H - 4;
+        Path2D p = new Path2D.Double();
+        p.moveTo(x, y + r);
+        p.curveTo(x, y + r - k, x + r - k, y, x + r, y);
+        p.curveTo(x + r + k, y, x + W, y + r - k, x + W, y + r);
+        p.lineTo(x + W, base);
+        int waves = 3;
+        double ww = W / waves;
+        for (int i = 0; i < waves; i++) {
+            double x0 = x + W - i * ww, x1 = x0 - ww;
+            double dip = 8 + 1.5 * Math.sin(animTime * 7 + i * 2.1);   // las ondas de la cola se mueven
+            p.quadTo((x0 + x1) / 2, base + dip, x1, base);
+        }
+        p.closePath();
+        return p;
     }
 
     /** Interpolación lineal entre dos colores: t = 0 regresa 'a', t = 1 regresa 'b'. */
@@ -213,6 +290,8 @@ public class Player {
     public double getCenterX()  { return x + W / 2; }
     public double getCenterY()  { return y + H / 2; }
     public double getBottom()   { return y + H; }
+    public double getVx()       { return vx; }
+    public double getVy()       { return vy; }
     public boolean isOnGround() { return onGround; }
     public boolean isInShadow() { return inShadow; }
     public boolean isDead()     { return dead; }
