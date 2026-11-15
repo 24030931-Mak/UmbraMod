@@ -1,8 +1,6 @@
 package umbra.audio;
 
 import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -14,6 +12,7 @@ import javax.sound.sampled.FloatControl;
 import javax.sound.sampled.UnsupportedAudioFileException;
 
 import umbra.core.Config;
+import umbra.core.Resources;
 
 /**
  * [v1.0] Música de ambiente: un archivo WAV que se repite sin fin, con entrada suave
@@ -91,17 +90,9 @@ public class Music {
         gain.setValue(Math.max(gain.getMinimum(), Math.min(gain.getMaximum(), db)));
     }
 
-    /**
-     * Busca el archivo dentro del classpath (así funciona dentro del .jar y desde el IDE) y,
-     * si no está ahí, en la carpeta src (así funciona con run.bat y run.sh).
-     */
+    /** Abre el archivo con Resources (dentro del .jar, desde el IDE o desde la carpeta src). */
     private AudioInputStream open() throws IOException, UnsupportedAudioFileException {
-        InputStream raw = Music.class.getResourceAsStream(resource);
-        if (raw == null) {
-            File file = new File("src" + resource);
-            if (!file.isFile()) throw new IOException("no se encontro " + resource);
-            raw = new FileInputStream(file);
-        }
+        InputStream raw = Resources.open(resource);
         // AudioSystem necesita poder regresar al inicio del flujo (mark/reset): por eso el búfer
         return AudioSystem.getAudioInputStream(new BufferedInputStream(raw));
     }
