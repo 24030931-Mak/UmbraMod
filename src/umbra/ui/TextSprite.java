@@ -35,7 +35,7 @@ final class TextSprite {
         ascent = fm.getAscent();
 
         image = new BufferedImage(width + 2 * margin, fm.getAscent() + fm.getDescent() + 2 * margin,
-                BufferedImage.TYPE_INT_ARGB_PRE);
+                BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = image.createGraphics();
         Text.smooth(g);
         g.setFont(font);

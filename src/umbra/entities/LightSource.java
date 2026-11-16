@@ -290,14 +290,14 @@ public class LightSource {
         // 1. Halo cálido
         float hr = (float) (HEAD * (2.6 + 2 * e));
         g.setPaint(new RadialGradientPaint(new Point2D.Double(cx, cy), hr, new float[] { 0f, 1f },
-                new Color[] { withAlpha(HALO, (80 + 40 * e) * (1 - 0.55 * eyeDarkness)), withAlpha(HALO, 0) }));
+                new Color[] { withAlpha(HALO, (80 + 40 * e) * (1 - 0.4 * eyeDarkness)), withAlpha(HALO, 0) }));
         g.fill(new Ellipse2D.Double(cx - hr, cy - hr, 2 * hr, 2 * hr));
 
         // 2 y 3. La llama en coordenadas locales: M = T(cx, cy) · R(angle)
         g.transform(Mat3.translation(cx, cy).multiply(Mat3.rotation(angle)).toAffineTransform());
         if (e > 0.01) drawWisps(g, r, len, 255 * e);
         Path2D outer = layer(0, r, len, amp, flamePhase);
-        double d = eyeDarkness;
+        double d = 0.5 * eyeDarkness;   // [v0.8.6] la llama se enfría solo a medias: lo que cambia son los ojos
         fillLayer(g, outer, mix(OUTER, DARK_OUTER, d), 225 * flick * (1 - 0.8 * e));
         if (rise > 0.02) drawSpiral(g, outer, r, len, 205 * rise * tail * flick);
         fillLayer(g, layer(-0.1 * HEAD, 0.7 * r, 0.75 * len, 0.8 * amp, flamePhase + 0.4), mix(MIDDLE, DARK_MIDDLE, d),
@@ -307,7 +307,7 @@ public class LightSource {
         g.setTransform(old);
 
         // 4. Ojos
-        drawEyes(g, cx, cy, (235 + 20 * d) * (1 - 0.35 * e));
+        drawEyes(g, cx, cy, (235 + 20 * eyeDarkness) * (1 - 0.35 * e));
 
         // 5. Un anillo indica que está fija
         if (pinned) {

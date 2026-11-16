@@ -71,7 +71,7 @@ public class Intro {
     private static final Color VOICE = new Color(255, 226, 172);   // lo que dice Logi (empieza con raya)
 
     private final List<String> narration;
-    private Scene[] scenes;      // null mientras no se usan (ver build)
+    private Scene[] scenes;      // null mientras no se usan (ver scenes())
     private DarkStage dark;      // el escenario de Candil y Logi (escenas 4 a 6)
     private double time;         // el reloj de la intro (s)
     private int index;           // la escena actual, de 0 a 5
@@ -132,7 +132,7 @@ public class Intro {
         all[index].advance(dt, time - sceneStart(index));
     }
 
-    /** Termina y suelta los escenarios (sus imágenes ocupan unos 35 MB); restart() los vuelve a crear. */
+    /** Termina y suelta los escenarios (sus imágenes ocupan unos 45 MB); restart() los vuelve a crear. */
     private void finish() {
         finished = true;
         scenes = null;
