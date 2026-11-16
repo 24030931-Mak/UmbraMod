@@ -17,7 +17,11 @@ import java.util.Random;
  *   emit         chispas al aterrizar
  *   emitVapor    estela de vapor al moverse (violeta dentro de la sombra)
  *   emitDust     polvo de luz que suelta mientras pierde vida fuera de la sombra
- *   emitCrumble  fragmentos cuando se desmorona
+ *   emitCrumble  niebla y ceniza cuando se desmorona
+ *
+ * Efectos de Logi:
+ *   emitSpark    chispa que sale de la llama y flota hacia arriba
+ *   emitAsh      ceniza y brasas que va dejando atrás cuando se mueve
  */
 public class ParticleSystem {
 

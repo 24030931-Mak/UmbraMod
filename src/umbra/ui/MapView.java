@@ -24,7 +24,9 @@ import umbra.world.World;
  *
  * Vista: otra matriz de mundo a pantalla (escala + traslación), igual que la cámara pero fija:
  * todos los niveles juntos miden "ancho total" px y se escalan para caber en MAP_WIDTH.
- *     pantalla = T(margen, y0) * S(s) * mundo,   s = MAP_WIDTH / ancho total
+ *     pantalla = T(margen, y0) * S(s) * T(inicio del nivel, 0) * mundo del nivel,   s = MAP_WIDTH / ancho total
+ * donde "inicio del nivel" es la suma de los anchos de los niveles anteriores (cada nivel se
+ * dibuja en su propio espacio, 0..ancho, y esa traslación lo pone junto al anterior).
  *
  * Lo no recorrido lo tapa del todo la neblina (MapFog, la misma del círculo de la esquina),
  * con máscara bilineal de zonas: las orillas de lo recorrido salen suaves, no cuadradas.

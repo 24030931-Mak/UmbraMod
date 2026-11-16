@@ -47,8 +47,9 @@ public class Camera {
     }
 
     /**
-     * Coloca la cámara de inmediato, sin suavizado (al cambiar de nivel): la misma meta
-     * que sigue 'follow', pero alcanzada de un salto. Respeta los límites del nivel.
+     * Coloca la cámara de inmediato, sin suavizado (al cambiar de nivel o reiniciar): deja al
+     * jugador en el borde izquierdo de la zona libre (LEFT), x = targetX - LEFT, sin importar
+     * de qué lado venía. Respeta los límites del nivel (0 .. maxX).
      */
     public void snapTo(double targetX) {
         double goal = targetX - LEFT;   // el jugador queda en el borde de la zona libre
