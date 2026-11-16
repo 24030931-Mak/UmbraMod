@@ -28,6 +28,11 @@ public class Menu {
         time += dt;
     }
 
+    /** Ya empezaron a aparecer las opciones: desde este momento el menú acepta teclas. */
+    public boolean isReady() {
+        return time >= READY_AT;
+    }
+
     /** Todo el menú: el velo y encima el texto. */
     public void draw(Graphics2D g) {
         drawVeil(g);

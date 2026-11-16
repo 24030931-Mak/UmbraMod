@@ -134,6 +134,8 @@ public class GamePanel extends JPanel {
     private int fadeDir;        // +1 oscureciendo, -1 aclarando, 0 quieto
     private Runnable onBlack;   // qué hacer cuando la pantalla quede negra
     private double menuTime;    // para mover despacio la cueva del menú
+    /** Lo que hace Esc en el menú: cerrar el juego. Es un campo para que las pruebas lo puedan observar. */
+    private Runnable quit = () -> System.exit(0);
 
     private boolean debug = false;
 
@@ -294,14 +296,19 @@ public class GamePanel extends JPanel {
         }
     }
 
-    /** Menú: Enter, Espacio o clic empiezan el juego; I vuelve a ver la intro; Esc sale. */
+    /**
+     * Menú: Enter, Espacio o clic empiezan el juego; I vuelve a ver la intro; Esc sale.
+     * No acepta teclas mientras la pantalla todavía se está aclarando ni antes de que aparezcan
+     * sus opciones (Menu.isReady): así, quien aprieta Esc o Enter dos veces para saltar la
+     * intro no cierra el juego ni empieza a jugar sin haber visto el menú.
+     */
     private void updateMenu(double dt, boolean leaving) {
         menuTime += dt;
         menu.update(dt);
         background.update(dt);
         menuLight.setTarget(input.getMouseX(), input.getMouseY());   // Logi sigue al ratón
         menuLight.update(dt);
-        if (leaving) return;
+        if (leaving || fadeDir != 0 || !menu.isReady()) return;
 
         boolean confirm = input.wasPressed(KeyEvent.VK_ENTER) || input.wasPressed(KeyEvent.VK_SPACE)
                 || input.wasClicked();
@@ -310,7 +317,7 @@ public class GamePanel extends JPanel {
         } else if (input.wasPressed(KeyEvent.VK_I)) {
             fadeTo(this::showIntro);
         } else if (input.wasPressed(KeyEvent.VK_ESCAPE)) {
-            System.exit(0);
+            quit.run();
         }
     }
 
