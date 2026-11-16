@@ -444,6 +444,7 @@ public class GamePanel extends JPanel {
             if (deathTimer >= Config.RESPAWN_DELAY) {
                 player.respawn(checkpoint);
                 deathTimer = 0;
+                camera.snapTo(player.getCenterX());   // como en restart(): la cámara va con Candil
                 keepLogiAwayFromCandil();
             }
         } else if (!levelComplete) {
@@ -484,6 +485,7 @@ public class GamePanel extends JPanel {
             // Se cayó al vacío: de vuelta a esa repisa
             if (player.getY() > Config.HEIGHT + 100) {
                 player.respawn(checkpoint);
+                camera.snapTo(player.getCenterX());   // igual: si no, el ratón apunta a otro lugar
                 keepLogiAwayFromCandil();
             }
 
