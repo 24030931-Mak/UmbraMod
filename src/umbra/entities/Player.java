@@ -32,6 +32,12 @@ import umbra.world.Level;
  * oscura con dos ojos blancos que brillan y una capa que termina en jirones. Cada acción tiene
  * su forma (Pose), y las formas se mezclan sin saltos. Solo cambia el dibujo: la caja de
  * colisión sigue siendo de 22 x 30.
+ *
+ * Techo del mundo: la cámara solo se mueve en horizontal, así que lo que pasa por encima de
+ * y = 0 no se ve. Por eso Candil no puede subir de ahí: si y < 0 se deja y = 0 y, si iba hacia
+ * arriba (vy < 0), se detiene (vy = 0). Sin esta regla, nadando hacia arriba en una sombra alta
+ * se podía salir de un salto, caminar sobre el techo del pasillo del nivel 2 fuera de la vista y
+ * saltarse un tramo.
  */
 public class Player {
 
@@ -297,6 +303,11 @@ public class Player {
                 }
                 vy = 0;
             }
+        }
+        // Techo del mundo: el borde de arriba de la pantalla (y = 0) no se cruza
+        if (y < 0) {
+            y = 0;
+            if (vy < 0) vy = 0;
         }
         if (!wasOnGround && onGround) stretch = -1;   // se aplasta al caer al suelo
 
