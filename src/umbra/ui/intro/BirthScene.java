@@ -20,13 +20,13 @@ import umbra.math.Vec2;
  */
 public final class BirthScene extends Scene {
 
-    private static final double BIRTH_X = 290;        // dónde cae la chispa y nace Candil
+    private static final double BIRTH_X = 268;        // dónde cae la chispa y nace Candil
     private static final double LAND = 1.7;           // segundo en que la chispa toca el piso
     private static final double FORM_FROM = 2.1, FORM_TO = 3.3;   // entre estos segundos se forma Candil
     private static final double GO = 3.8;             // empieza a ir hacia la luz
     private static final double LIGHT_X = 177;        // hasta dónde se mete en el rayo
     private static final double RETREAT = 5.15;       // regresa a la sombra
-    private static final double HOME_X = 284;
+    private static final double HOME_X = 262;
     private static final double LOOK_BACK = 6.5;      // voltea otra vez hacia la luz
 
     /** Las motas de niebla que se juntan para formar a Candil. */
@@ -35,7 +35,7 @@ public final class BirthScene extends Scene {
 
     private final DarkStage stage;
     private final LightShards spark = new LightShards(7);
-    private final Glow seed = new Glow(64, new Color(170, 212, 255), 0.45, 0.5);
+    private final Glow seed = new Glow(160, new Color(170, 212, 255), 0.45, 0.5);
     private boolean home, lookedBack;
 
     public BirthScene(DarkStage stage, double length) {

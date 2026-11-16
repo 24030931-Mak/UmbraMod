@@ -168,7 +168,7 @@ public final class GreatLantern {
         if (broken) return;
         double breath = 1 + 0.035 * Math.sin(time * 1.7) + 0.02 * Math.sin(time * 4.3);
         double leak = 1 + 0.45 * crack;   // por las grietas se escapa más luz
-        halo.draw(g, 0, FLAME_Y, 170 * breath * leak);
+        halo.draw(g, 0, FLAME_Y, 128 * breath * leak);
     }
 
     public void draw(Graphics2D g) {

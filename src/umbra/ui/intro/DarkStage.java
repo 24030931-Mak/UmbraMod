@@ -123,8 +123,6 @@ public final class DarkStage {
 
         Random seed = new Random(19);
         back = renderBack(seed);
-        air.subtract(new Area(new Rectangle2D.Double(-100, GROUND, GAP_LEFT + 100, H)));
-        air.subtract(new Area(new Rectangle2D.Double(GAP_RIGHT, GROUND, W, H)));
         air.subtract(new Area(ROCK_1));
         air.subtract(new Area(ROCK_2));
         fog = renderFog(seed);
@@ -271,7 +269,7 @@ public final class DarkStage {
         g.transform(view.toAffineTransform());
         double pulse = 1 + 0.08 * Math.sin(clock * 1.3) + 0.04 * Math.sin(clock * 3.1);
         farGlow.draw(g, FAR_GLOW_X, FAR_GLOW_Y, 46 * pulse);
-        if (logiPresent && logiLight > 0.01) logiGlow.draw(g, logi.getX(), logi.getY(), 280 * logiLight);
+        if (logiPresent && logiLight > 0.01) logiGlow.draw(g, logi.getX(), logi.getY(), 240 * logiLight);
         if (beam > 0.01) drawBeam(g, beam);
         if (logiPresent) drawShadows(g);
         particles.draw(g);
@@ -389,7 +387,7 @@ public final class DarkStage {
     //  GENERACIÓN (una sola vez)
     // =========================================================
 
-    private static BufferedImage renderBack(Random rnd) {
+    private BufferedImage renderBack(Random rnd) {
         BufferedImage img = new BufferedImage((int) (W * SCALE), (int) (H * SCALE), BufferedImage.TYPE_INT_RGB);
         Graphics2D g = img.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -469,7 +467,7 @@ public final class DarkStage {
      * orilla clara, y la pared que da al hueco irregular (desplazamiento del punto medio), cada
      * vez más metida conforme baja, como un risco. Encima, vetas, musgo y unos hongos que brillan.
      */
-    private static void drawLedge(Graphics2D g, Random rnd, double x0, double x1, boolean cliffOnRight) {
+    private void drawLedge(Graphics2D g, Random rnd, double x0, double x1, boolean cliffOnRight) {
         double[] inset = Background.midpointDisplacement(rnd, 16, 9, 0.6);
         Path2D body = new Path2D.Double();
         double flat = cliffOnRight ? x0 : x1, cliff = cliffOnRight ? x1 : x0, dir = cliffOnRight ? -1 : 1;
@@ -484,6 +482,7 @@ public final class DarkStage {
         body.closePath();
         g.setPaint(new GradientPaint(0, (float) GROUND, ROCK_TOP, 0, (float) GROUND + 130, ROCK_BOTTOM));
         g.fill(body);
+        air.subtract(new Area(body));   // las sombras no se pintan sobre la roca (ver drawShadows)
 
         // Vetas: rayas casi horizontales
         g.setStroke(new BasicStroke(1.2f));
