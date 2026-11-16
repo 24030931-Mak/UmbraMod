@@ -31,6 +31,7 @@ import umbra.graphics.ParticleSystem;
 import umbra.graphics.ShadowCaster;
 import umbra.math.Mat3;
 import umbra.math.Vec2;
+import umbra.ui.Intro;
 import umbra.ui.LevelTitle;
 import umbra.ui.MapView;
 import umbra.ui.MiniMap;
@@ -48,8 +49,8 @@ import umbra.world.World;
  *   - Así la física (saltos, gravedad) se comporta igual en cualquier computadora.
  * Todo corre en el hilo de Swing, así que no hay problemas de concurrencia.
  *
- * [v1.0] Pantallas (máquina de estados): MENU (título e historia) -> PLAYING (el nivel)
- * -> VICTORY (cierre). Cada cambio pasa por un fundido a negro.
+ * [v1.0] Pantallas (máquina de estados): INTRO (la historia animada) -> MENU (título) ->
+ * PLAYING (el nivel) -> VICTORY (cierre). Cada cambio pasa por un fundido a negro.
  */
 public class GamePanel extends JPanel {
 
@@ -57,7 +58,7 @@ public class GamePanel extends JPanel {
     private static final double STEP = 1.0 / Config.UPS;
 
     /** Las pantallas del juego. */
-    private enum Screen { MENU, PLAYING, VICTORY }
+    private enum Screen { INTRO, MENU, PLAYING, VICTORY }
 
     private static final Color BACKGROUND = new Color(8, 8, 16);
     private static final Color SHADOW_COLOR = new Color(6, 6, 10, 235);
@@ -92,7 +93,9 @@ public class GamePanel extends JPanel {
     private final ShadowCaster shadowCaster = new ShadowCaster();
     private final ParticleSystem particles = new ParticleSystem();
     private final Music music = new Music(Config.MUSIC_FILE);
-    private final Menu menu = new Menu(Resources.readLines("/umbra/res/historia.txt"));
+    /** [v0.8.6] La intro animada: sale al abrir el juego y se puede volver a ver desde el menú. */
+    private final Intro intro = new Intro(Resources.readLines("/umbra/res/intro.txt"));
+    private final Menu menu = new Menu();
     private final LevelTitle levelTitle = new LevelTitle();
     private final MapView mapView = new MapView();
     private final MiniMap miniMap = new MiniMap();
@@ -125,7 +128,7 @@ public class GamePanel extends JPanel {
     private double sparkTimer, ashTimer;    // acumuladores de las partículas de Logi
 
     // Pantallas y fundido a negro
-    private Screen screen = Config.SHOW_INTRO ? Screen.MENU : Screen.PLAYING;
+    private Screen screen = Config.SHOW_INTRO ? Screen.INTRO : Screen.PLAYING;
     private double fade;        // 0 = se ve todo; 1 = negro
     private double fadeTime = FADE_TIME;   // segundos que dura el fundido en curso
     private int fadeDir;        // +1 oscureciendo, -1 aclarando, 0 quieto
@@ -233,6 +236,7 @@ public class GamePanel extends JPanel {
         boolean leaving = onBlack != null;   // oscureciendo para cambiar de pantalla: no se aceptan teclas
 
         switch (screen) {
+            case INTRO:   updateIntro(dt, leaving);   break;
             case MENU:    updateMenu(dt, leaving);    break;
             case PLAYING: updateGame(dt, leaving);    break;
             case VICTORY: updateVictory(dt, leaving); break;
@@ -271,7 +275,26 @@ public class GamePanel extends JPanel {
         }
     }
 
-    /** Menú: la historia aparece sola; Enter o clic la completa y luego empieza el juego. */
+    /**
+     * [v0.8.6] La intro: corre sola. Enter, Esc, Espacio o un clic la saltan (se oscurece en un
+     * momento). Al terminar, sola o saltada, ya está en negro: se pasa al menú, que aparece con
+     * la segunda mitad de un fundido (fade = 1 y aclarando).
+     */
+    private void updateIntro(double dt, boolean leaving) {
+        intro.update(dt);
+        if (leaving) return;
+        boolean skip = input.wasPressed(KeyEvent.VK_ENTER) || input.wasPressed(KeyEvent.VK_ESCAPE)
+                || input.wasPressed(KeyEvent.VK_SPACE) || input.wasClicked();
+        if (skip) intro.skip();
+        if (intro.isFinished()) {
+            backToMenu();
+            fade = 1;
+            fadeTime = FADE_TIME;
+            fadeDir = -1;
+        }
+    }
+
+    /** Menú: Enter, Espacio o clic empiezan el juego; I vuelve a ver la intro; Esc sale. */
     private void updateMenu(double dt, boolean leaving) {
         menuTime += dt;
         menu.update(dt);
@@ -282,8 +305,10 @@ public class GamePanel extends JPanel {
 
         boolean confirm = input.wasPressed(KeyEvent.VK_ENTER) || input.wasPressed(KeyEvent.VK_SPACE)
                 || input.wasClicked();
-        if (confirm && menu.confirm()) {
+        if (confirm) {
             fadeTo(this::startGame);
+        } else if (input.wasPressed(KeyEvent.VK_I)) {
+            fadeTo(this::showIntro);
         } else if (input.wasPressed(KeyEvent.VK_ESCAPE)) {
             System.exit(0);
         }
@@ -383,7 +408,13 @@ public class GamePanel extends JPanel {
 
     private void backToMenu() {
         screen = Screen.MENU;
-        menu.restart(false);   // la historia ya se vio: título y opciones de una vez
+        menu.restart();
+    }
+
+    /** [v0.8.6] Vuelve a ver la intro desde el principio (tecla I en el menú). */
+    private void showIntro() {
+        intro.restart();
+        screen = Screen.INTRO;
     }
 
     private void showVictory() {
@@ -590,7 +621,9 @@ public class GamePanel extends JPanel {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 
-        if (screen == Screen.MENU) {
+        if (screen == Screen.INTRO) {
+            intro.draw(g2);
+        } else if (screen == Screen.MENU) {
             drawMenu(g2);
         } else {
             drawWorld(g2);
@@ -614,7 +647,7 @@ public class GamePanel extends JPanel {
         countFps();
     }
 
-    /** El menú: la cueva moviéndose despacio, Logi siguiendo al ratón, el título y la historia. */
+    /** El menú: la cueva moviéndose despacio, Logi siguiendo al ratón, el título y las opciones. */
     private void drawMenu(Graphics2D g2) {
         double camX = 300 + 250 * Math.sin(menuTime * 0.05);
         background.drawBack(g2, camX);

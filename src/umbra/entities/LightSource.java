@@ -60,6 +60,10 @@ public class LightSource {
     private static final Color EYES = new Color(50, 22, 12);       // ojos oscuros
     private static final Color HALO = new Color(255, 190, 100);    // halo cálido
     private static final Color RING = new Color(255, 240, 200, 200);
+    // Con los ojos oscurecidos (solo en la intro): la llama se enfría hacia el rojo
+    private static final Color DARK_OUTER = new Color(150, 34, 40);
+    private static final Color DARK_MIDDLE = new Color(226, 96, 52);
+    private static final Color DARK_CORE = new Color(255, 190, 130);
 
     private double x, y;
     private double targetX, targetY;
@@ -78,6 +82,7 @@ public class LightSource {
     private double lookX, lookY;           // hacia dónde miran los ojos (vector de largo <= 1)
     private double blinkTimer = 2.5;       // segundos para el siguiente parpadeo
     private double blinkLeft;              // segundos que le quedan al parpadeo actual
+    private double eyeDarkness;            // [v0.8.6] 0 = como siempre; 1 = ojos negros y llama enrojecida
 
     public LightSource(double x, double y) {
         this.x = x;
@@ -124,6 +129,14 @@ public class LightSource {
 
     /** [v1.0] Etérea: fuego sin bordes fijos (Logi del menú y de la pantalla final). */
     public void setEthereal(boolean e) { ethereal = e; }
+
+    /**
+     * [v0.8.6] Oscurece los ojos de Logi, de 0 (como siempre) a 1: se vuelven negros y más
+     * grandes, y la llama se enfría hacia el rojo. Cada color es una interpolación lineal entre
+     * el normal y el oscuro, color = normal + (oscuro - normal) · d, así que con d = 0 se dibuja
+     * exactamente igual que antes. Solo la usa la intro, un instante.
+     */
+    public void setEyeDarkness(double d) { eyeDarkness = Math.max(0, Math.min(1, d)); }
 
     public void update(double dt) {
         // Suavizado exponencial: en cada update recorre una fracción 't' del camino restante.
@@ -277,23 +290,24 @@ public class LightSource {
         // 1. Halo cálido
         float hr = (float) (HEAD * (2.6 + 2 * e));
         g.setPaint(new RadialGradientPaint(new Point2D.Double(cx, cy), hr, new float[] { 0f, 1f },
-                new Color[] { withAlpha(HALO, 80 + 40 * e), withAlpha(HALO, 0) }));
+                new Color[] { withAlpha(HALO, (80 + 40 * e) * (1 - 0.55 * eyeDarkness)), withAlpha(HALO, 0) }));
         g.fill(new Ellipse2D.Double(cx - hr, cy - hr, 2 * hr, 2 * hr));
 
         // 2 y 3. La llama en coordenadas locales: M = T(cx, cy) · R(angle)
         g.transform(Mat3.translation(cx, cy).multiply(Mat3.rotation(angle)).toAffineTransform());
         if (e > 0.01) drawWisps(g, r, len, 255 * e);
         Path2D outer = layer(0, r, len, amp, flamePhase);
-        fillLayer(g, outer, OUTER, 225 * flick * (1 - 0.8 * e));
+        double d = eyeDarkness;
+        fillLayer(g, outer, mix(OUTER, DARK_OUTER, d), 225 * flick * (1 - 0.8 * e));
         if (rise > 0.02) drawSpiral(g, outer, r, len, 205 * rise * tail * flick);
-        fillLayer(g, layer(-0.1 * HEAD, 0.7 * r, 0.75 * len, 0.8 * amp, flamePhase + 0.4), MIDDLE,
+        fillLayer(g, layer(-0.1 * HEAD, 0.7 * r, 0.75 * len, 0.8 * amp, flamePhase + 0.4), mix(MIDDLE, DARK_MIDDLE, d),
                 235 * flick * (1 - 0.45 * e));
-        fillLayer(g, layer(-0.18 * HEAD, 0.42 * r, 0.5 * len, 0.6 * amp, flamePhase + 0.8), CORE,
+        fillLayer(g, layer(-0.18 * HEAD, 0.42 * r, 0.5 * len, 0.6 * amp, flamePhase + 0.8), mix(CORE, DARK_CORE, d),
                 245 * flick * (1 - 0.1 * e));
         g.setTransform(old);
 
         // 4. Ojos
-        drawEyes(g, cx, cy, 235 * (1 - 0.35 * e));
+        drawEyes(g, cx, cy, (235 + 20 * d) * (1 - 0.35 * e));
 
         // 5. Un anillo indica que está fija
         if (pinned) {
@@ -390,9 +404,11 @@ public class LightSource {
 
     /** Ojos oscuros: se mueven hasta 2 px hacia donde mira, agitada los abre más, y parpadean. */
     private void drawEyes(Graphics2D g, double cx, double cy, double alpha) {
-        double w = 2.4, h = blinkLeft > 0 ? 0.8 : 3.8 * (1 + 0.35 * agitation);
+        // [v0.8.6] Oscurecidos: más anchos, más altos y negros (y no parpadean en ese instante)
+        double w = 2.4 * (1 + 0.3 * eyeDarkness);
+        double h = (blinkLeft > 0 && eyeDarkness < 0.1 ? 0.8 : 3.8 * (1 + 0.35 * agitation)) * (1 + 0.3 * eyeDarkness);
         double ex = cx + 2 * lookX, ey = cy - 0.5 + 1.6 * lookY;
-        g.setColor(withAlpha(EYES, alpha));
+        g.setColor(withAlpha(mix(EYES, Color.BLACK, eyeDarkness), alpha));
         g.fill(new Ellipse2D.Double(ex - 3.4 - w / 2, ey - h / 2, w, h));
         g.fill(new Ellipse2D.Double(ex + 3.4 - w / 2, ey - h / 2, w, h));
     }
@@ -401,6 +417,14 @@ public class LightSource {
     private static double smoothstep(double e0, double e1, double v) {
         double t = Math.max(0, Math.min(1, (v - e0) / (e1 - e0)));
         return t * t * (3 - 2 * t);
+    }
+
+    /** Interpolación lineal entre dos colores: t = 0 regresa 'a', t = 1 regresa 'b'. */
+    private static Color mix(Color a, Color b, double t) {
+        return new Color(
+            (int) Math.round(a.getRed()   + (b.getRed()   - a.getRed())   * t),
+            (int) Math.round(a.getGreen() + (b.getGreen() - a.getGreen()) * t),
+            (int) Math.round(a.getBlue()  + (b.getBlue()  - a.getBlue())  * t));
     }
 
     private static Color withAlpha(Color c, double alpha) {

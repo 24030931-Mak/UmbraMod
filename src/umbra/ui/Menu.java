@@ -1,64 +1,31 @@
 package umbra.ui;
 
 import java.awt.Color;
-import java.awt.FontMetrics;
 import java.awt.Graphics2D;
-import java.util.List;
 
 import umbra.core.Config;
 
 /**
- * [v1.0] Menú de inicio: el título UMBRA y la historia, que aparece línea por línea.
- * Cada línea espera según su largo, para dar tiempo de leerla. Enter (o clic) muestra
- * toda la historia de golpe; otro Enter empieza el juego.
+ * [v1.0] Menú de inicio: el título UMBRA, una frase y las opciones.
+ *
+ * [v0.8.6] La historia ya no se lee aquí línea por línea: la cuenta la intro (ui.Intro), que
+ * sale al abrir el juego y se puede volver a ver con la tecla I.
  */
 public class Menu {
 
-    private static final double TITLE_FADE = 1.5;   // s que tarda en aparecer el título
-    private static final double LINE_FADE = 1.2;    // s que tarda en aparecer cada línea
-    private static final double READ_TIME = 0.055;  // s de lectura por letra antes de la siguiente
-    private static final int TEXT_WIDTH = 900;      // ancho máximo de los renglones (px)
+    private static final double TITLE_FADE = 1.2;   // s que tarda en aparecer el título
+    private static final double READY_AT = 0.7;     // s en que empiezan a aparecer las opciones
     private static final Color VEIL = new Color(4, 6, 12, 125);
 
-    private final List<String> story;
-    private final double[] lineStart;   // cuándo empieza a aparecer cada línea
-    private final double readyAt;       // cuándo aparece "Enter o clic: jugar"
     private double time;
 
-    public Menu(List<String> story) {
-        this.story = story;
-        lineStart = new double[story.size()];
-        double t = TITLE_FADE;
-        for (int i = 0; i < story.size(); i++) {
-            lineStart[i] = t;
-            t += 0.8 + story.get(i).length() * READ_TIME;
-        }
-        readyAt = t;
-    }
-
-    /** Vuelve a empezar: con la historia desde el principio, o ya completa. */
-    public void restart(boolean withStory) {
-        time = withStory ? 0 : readyAt;
+    /** Vuelve a empezar: el título y las opciones aparecen otra vez. */
+    public void restart() {
+        time = 0;
     }
 
     public void update(double dt) {
         time += dt;
-    }
-
-    /**
-     * Enter o clic. Si la historia todavía está apareciendo, la muestra completa y regresa
-     * false. Si ya estaba completa, regresa true: a jugar.
-     */
-    public boolean confirm() {
-        if (time < readyAt) {
-            time = readyAt;
-            return false;
-        }
-        return true;
-    }
-
-    public boolean isReady() {
-        return time >= readyAt;
     }
 
     /** Todo el menú: el velo y encima el texto. */
@@ -72,41 +39,30 @@ public class Menu {
         Text.veil(g, VEIL, 1, Config.WIDTH, Config.HEIGHT);
     }
 
-    /** El título, la historia y las indicaciones. */
+    /** El título, la frase y las indicaciones. */
     public void drawText(Graphics2D g) {
         Text.smooth(g);
         double cx = Config.WIDTH / 2.0;
 
         // El espaciado entre letras también se agrega después de la última: se compensa
         g.setFont(Text.TITLE);
-        Text.centered(g, "UMBRA", cx + 14, 180, Text.BRIGHT, time / TITLE_FADE, 3);
+        Text.centered(g, "UMBRA", cx + 14, 300, Text.BRIGHT, time / TITLE_FADE, 3);
 
+        // Una línea fina a cada lado de la frase, como en el título de los niveles
+        double fadeIn = Text.clamp01((time - READY_AT) / 0.8);
         g.setFont(Text.STORY);
-        FontMetrics fm = g.getFontMetrics();
-        double y = 280;
-        for (int i = 0; i < story.size(); i++) {
-            double alpha = (time - lineStart[i]) / LINE_FADE;
-            for (String row : Text.wrap(story.get(i), fm, TEXT_WIDTH)) {
-                Text.centered(g, row, cx, y, Text.STORY_COLOR, alpha, 0);
-                y += 33;
-            }
-            y += 10;
-        }
+        Text.centered(g, "La sombra es el \u00fanico refugio", cx, 366, Text.STORY_COLOR, fadeIn, 0);
+        g.setColor(Text.withAlpha(Text.HINT_COLOR, fadeIn * 0.6));
+        g.fillRect((int) cx - 330, 358, 120, 1);
+        g.fillRect((int) cx + 210, 358, 120, 1);
 
-        if (isReady()) {
-            double fadeIn = Text.clamp01((time - readyAt) / 0.6);
-            double pulse = 0.6 + 0.4 * Math.sin((time - readyAt) * 3);
-            g.setFont(Text.HINT);
-            Text.centered(g, "Enter o clic: jugar            Esc: salir", cx, Config.HEIGHT - 86,
-                    Text.BRIGHT, fadeIn * pulse, 1.2);
-            g.setFont(Text.SMALL);
-            Text.centered(g, "A/D: moverse   \u00b7   W/S: subir y bajar dentro de la sombra   \u00b7   "
-                    + "Rat\u00f3n: mover a Logi   \u00b7   Clic: fijarla   \u00b7   Tab: mapa   \u00b7   M: m\u00fasica",
-                    cx, Config.HEIGHT - 50, Text.HINT_COLOR, fadeIn * 0.8, 0);
-        } else {
-            g.setFont(Text.SMALL);
-            Text.centered(g, "Enter o clic: ver toda la historia", cx, Config.HEIGHT - 50,
-                    Text.HINT_COLOR, Text.clamp01(time - 1) * 0.5, 0);
-        }
+        double pulse = 0.6 + 0.4 * Math.sin((time - READY_AT) * 3);
+        g.setFont(Text.HINT);
+        Text.centered(g, "Enter o clic: jugar", cx, 500, Text.BRIGHT, fadeIn * pulse, 1.2);
+        Text.centered(g, "I: ver la intro            Esc: salir", cx, 540, Text.HINT_COLOR, fadeIn * 0.9, 0);
+        g.setFont(Text.SMALL);
+        Text.centered(g, "A/D: moverse   \u00b7   W/S: subir y bajar dentro de la sombra   \u00b7   "
+                + "Rat\u00f3n: mover a Logi   \u00b7   Clic: fijarla   \u00b7   Tab: mapa   \u00b7   M: m\u00fasica",
+                cx, Config.HEIGHT - 50, Text.HINT_COLOR, fadeIn * 0.8, 0);
     }
 }

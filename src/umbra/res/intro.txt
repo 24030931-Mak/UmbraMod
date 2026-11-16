@@ -1,0 +1,9 @@
+# Narración de la intro: una línea por escena, en orden (la escena 6 es solo el título).
+# Se puede editar: cada línea que no esté vacía ni empiece con # es la narración de una escena.
+# Cada oración (lo que termina en punto) aparece a su tiempo; lo que empieza con una raya (—)
+# es algo que alguien dice y se pinta de otro color.
+Bajo la tierra, el Gran Farol lo iluminaba todo. Nada podía esconderse de su llama.
+Una noche se quebró, y su luz cayó en mil pedazos por toda la cueva.
+La oscuridad lo llenó todo: Umbra.
+De la última chispa nació Candil. La luz lo deshace; solo la sombra lo abriga.
+Entre los pedazos sobrevivió Logi, una llama que no puede andar. —Juntos volveremos a encender el Gran Farol.

@@ -1,8 +1,0 @@
-# Historia que aparece en el menú, una línea a la vez.
-# Se puede editar: cada línea que no esté vacía ni empiece con # es un momento de la historia.
-# Las líneas largas se acomodan solas en varios renglones.
-Bajo la tierra, el Gran Farol iluminaba un mundo de cavernas.
-Una noche se apagó, su luz se rompió en mil pedazos y la oscuridad lo llenó todo: Umbra.
-De la última chispa nacieron dos: Candil, que puede andar pero apenas brilla, y la Llama(Logi), que alumbra lejos pero no puede andar.
-El vacío apaga a Candil y la luz directa lo deshace. Solo la sombra lo abriga.
-Juntos buscarán el Gran Farol para volver a encenderlo.

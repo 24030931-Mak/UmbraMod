@@ -433,7 +433,7 @@ public class Background {
      * @param segments número de tramos (potencia de 2)
      * @return segments + 1 alturas, relativas a la línea base
      */
-    static double[] midpointDisplacement(Random rnd, int segments, double amplitude, double roughness) {
+    public static double[] midpointDisplacement(Random rnd, int segments, double amplitude, double roughness) {
         double[] h = new double[segments + 1];
         h[0] = (rnd.nextDouble() * 2 - 1) * amplitude;
         h[segments] = (rnd.nextDouble() * 2 - 1) * amplitude;
