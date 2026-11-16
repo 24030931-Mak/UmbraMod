@@ -73,10 +73,12 @@ public class GamePanel extends JPanel {
     private static final double FADE_TIME = 0.6;
     /** El fundido, más corto, al cruzar el paso entre dos niveles. */
     private static final double PASSAGE_FADE_TIME = 0.4;
-    /** Al llegar a otro nivel, Logi no puede quedar más cerca que esto de Candil (si no, lo desmorona). */
+    /** Al reiniciar o reaparecer, si Logi quedó más cerca que esto de Candil (px), lo desmoronaría al instante. */
     private static final double ARRIVAL_SAFE_DISTANCE = 140;
-    /** Cuánto se sube Logi si quedó demasiado cerca. */
+    /** Cuánto se coloca Logi arriba de Candil al llegar a otro nivel (px). */
     private static final double ARRIVAL_LIFT = 220;
+    /** Cuánto debe moverse el ratón (px en pantalla) para que Logi, en espera, vuelva a seguirlo. */
+    private static final double MOUSE_WAKE_DISTANCE = 4;
     /** Qué tan cerca de Candil (px) deben quedar las zonas del nivel para contar como recorridas. */
     private static final double EXPLORE_RADIUS = 180;
     /** Segundos entre tocar la salida y pasar a la pantalla final. */
@@ -107,6 +109,9 @@ public class GamePanel extends JPanel {
     private Player player;
     private LightSource light;
     private Camera camera;
+    /** Logi espera quieta arriba de Candil hasta que el jugador mueva el ratón (ver placeLogiAbove). */
+    private boolean logiWaiting;
+    private int waitMouseX, waitMouseY;   // dónde estaba el ratón (pantalla) cuando empezó la espera
     private Background background;
     private LevelArt levelArt;
     private Vec2 checkpoint;   // dónde reaparece si se cae: la última repisa firme que pisó
@@ -309,6 +314,7 @@ public class GamePanel extends JPanel {
     private void startGame() {
         world.reset();
         useCurrentLevel();
+        logiWaiting = false;   // partida nueva: Logi sigue al ratón desde el principio
         restart();
         particles.clear();
         playTime = 0;
@@ -322,8 +328,9 @@ public class GamePanel extends JPanel {
      * con la pantalla en negro. Candil aparece en la entrada del nivel al que llega y
      * conserva su vida; esa entrada es ahora su punto de reaparición.
      *
-     * Logi se suelta y va a donde apunta el ratón (en el mundo del nivel nuevo). Si ahí
-     * quedara a menos de 140 px de Candil lo desmoronaría al instante, así que se sube 220 px.
+     * Logi se suelta y aparece 220 px arriba de Candil, sin importar dónde esté el ratón, y
+     * espera ahí hasta que el jugador lo mueva (ver placeLogiAbove). Si siguiera al ratón de
+     * inmediato y éste quedó sobre Candil, lo desmoronaría antes de que se pueda reaccionar.
      */
     private void changeLevel(int dir) {
         int target = world.currentIndex() + dir;
@@ -336,16 +343,36 @@ public class GamePanel extends JPanel {
         camera.snapTo(player.getCenterX());
         checkpoint = entry;
 
-        light.setPinned(false);
-        Vec2 mouse = camera.screenToWorld(input.getMouseX(), input.getMouseY());
-        double lx = mouse.x, ly = mouse.y;
-        double dx = lx - player.getCenterX(), dy = ly - player.getCenterY();
-        if (dx * dx + dy * dy < ARRIVAL_SAFE_DISTANCE * ARRIVAL_SAFE_DISTANCE) ly -= ARRIVAL_LIFT;
-        light.snapTo(lx, ly);
+        placeLogiAbove();
 
         particles.clear();
         String caption = first ? "Pasaste al nivel " + (target + 1) : null;
         levelTitle.show(level.getNumber(), level.getName(), caption);
+    }
+
+    /**
+     * Suelta a Logi y la coloca 220 px arriba del centro de Candil (snapTo también reinicia su
+     * velocidad: el salto no cuenta como movimiento). Se queda ahí mientras el ratón no se mueva
+     * más de 4 px en pantalla desde este momento; en cuanto se mueve vuelve a seguirlo como
+     * siempre (si el jugador la lleva hasta Candil, lo desmorona: es la mecánica normal).
+     * La distancia al ratón se mide con Pitágoras: sqrt(dx² + dy²).
+     */
+    private void placeLogiAbove() {
+        light.setPinned(false);
+        light.snapTo(player.getCenterX(), player.getCenterY() - ARRIVAL_LIFT);
+        logiWaiting = true;
+        waitMouseX = input.getMouseX();
+        waitMouseY = input.getMouseY();
+    }
+
+    /**
+     * Al reiniciar o reaparecer: si Logi quedó a menos de 140 px de Candil (el ratón quieto
+     * sobre el lugar de aparición) lo desmoronaría otra vez en pocos cuadros, así que se aplica
+     * la misma regla que al cruzar de nivel. Si está lejos no se toca nada.
+     */
+    private void keepLogiAwayFromCandil() {
+        double dx = light.getX() - player.getCenterX(), dy = light.getY() - player.getCenterY();
+        if (dx * dx + dy * dy < ARRIVAL_SAFE_DISTANCE * ARRIVAL_SAFE_DISTANCE) placeLogiAbove();
     }
 
     private void backToMenu() {
@@ -389,7 +416,11 @@ public class GamePanel extends JPanel {
         if (input.wasClicked()) light.togglePinned();
         Vec2 mouse = camera.screenToWorld(input.getMouseX(), input.getMouseY());
         light.setCandil(player.getCenterX(), player.getCenterY());   // lo mira, y se agita si está cerca
-        light.setTarget(mouse.x, mouse.y);
+        if (logiWaiting && Math.hypot(input.getMouseX() - waitMouseX, input.getMouseY() - waitMouseY)
+                > MOUSE_WAKE_DISTANCE) {
+            logiWaiting = false;   // el jugador movió el ratón: Logi vuelve a seguirlo
+        }
+        if (!logiWaiting) light.setTarget(mouse.x, mouse.y);
         light.update(dt);
         emitLogiEffects(dt);   // chispas si está fija; ceniza si va rápido
 
@@ -407,6 +438,7 @@ public class GamePanel extends JPanel {
             if (deathTimer >= Config.RESPAWN_DELAY) {
                 player.respawn(checkpoint);
                 deathTimer = 0;
+                keepLogiAwayFromCandil();
             }
         } else if (!levelComplete) {
             boolean wasOnGround = player.isOnGround();
@@ -529,6 +561,7 @@ public class GamePanel extends JPanel {
         player.respawn(level.getSpawn());
         checkpoint = level.getSpawn();
         light.setPinned(false);
+        keepLogiAwayFromCandil();
         deathTimer = 0;
         levelComplete = false;
         completeTimer = 0;
