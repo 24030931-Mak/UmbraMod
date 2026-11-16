@@ -587,8 +587,9 @@ public class GamePanel extends JPanel {
                 levelTitle.draw(g2);
                 mapView.draw(g2, world, new Vec2(player.getCenterX(), player.getCenterY()), light.getPosition());
             } else {
-                victory.draw(g2);
-                menuLight.drawCore(g2);   // Logi etérea sigue al ratón, encima del velo
+                victory.drawVeil(g2);
+                menuLight.drawCore(g2);   // Logi etérea sigue al ratón: encima del velo, pero detrás del texto
+                victory.drawText(g2);
             }
         }
 
@@ -611,8 +612,9 @@ public class GamePanel extends JPanel {
         g2.setTransform(onScreen);
         menuLight.drawGlow(g2);
         background.drawFront(g2, camX);
-        menu.draw(g2);
-        menuLight.drawCore(g2);   // Logi etérea, encima del velo (igual que en la pantalla final)
+        menu.drawVeil(g2);
+        menuLight.drawCore(g2);   // Logi etérea: encima del velo (para que brille), pero detrás del texto
+        menu.drawText(g2);
     }
 
     /** El nivel: fondo con parallax, sombras, roca, Candil, partículas y primer plano. */

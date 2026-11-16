@@ -61,9 +61,20 @@ public class Menu {
         return time >= readyAt;
     }
 
+    /** Todo el menú: el velo y encima el texto. */
     public void draw(Graphics2D g) {
+        drawVeil(g);
+        drawText(g);
+    }
+
+    /** El velo que oscurece la cueva para que el texto se lea. Va aparte para poder poner a Logi entre el velo y el texto. */
+    public void drawVeil(Graphics2D g) {
+        Text.veil(g, VEIL, 1, Config.WIDTH, Config.HEIGHT);
+    }
+
+    /** El título, la historia y las indicaciones. */
+    public void drawText(Graphics2D g) {
         Text.smooth(g);
-        Text.veil(g, VEIL, 1, Config.WIDTH, Config.HEIGHT);   // para que el texto se lea sobre la cueva
         double cx = Config.WIDTH / 2.0;
 
         // El espaciado entre letras también se agrega después de la última: se compensa

@@ -51,9 +51,20 @@ public class Victory {
         time = Math.max(time, statsAt() + 0.6);
     }
 
+    /** Toda la pantalla final: el velo y encima el texto. */
     public void draw(Graphics2D g) {
+        drawVeil(g);
+        drawText(g);
+    }
+
+    /** El velo que oscurece el nivel, que se queda quieto. Va aparte para poder poner a Logi entre el velo y el texto. */
+    public void drawVeil(Graphics2D g) {
+        Text.veil(g, VEIL, time / 1.0, Config.WIDTH, Config.HEIGHT);
+    }
+
+    /** Las líneas del final, las estadísticas y las indicaciones. */
+    public void drawText(Graphics2D g) {
         Text.smooth(g);
-        Text.veil(g, VEIL, time / 1.0, Config.WIDTH, Config.HEIGHT);   // oscurece el nivel, que se queda quieto
         double cx = Config.WIDTH / 2.0;
 
         g.setFont(Text.STORY_BIG);
