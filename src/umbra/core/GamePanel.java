@@ -366,13 +366,19 @@ public class GamePanel extends JPanel {
     }
 
     /**
-     * Al reiniciar o reaparecer: si Logi quedó a menos de 140 px de Candil (el ratón quieto
-     * sobre el lugar de aparición) lo desmoronaría otra vez en pocos cuadros, así que se aplica
-     * la misma regla que al cruzar de nivel. Si está lejos no se toca nada.
+     * Al reiniciar o reaparecer: Logi no debe quedar a menos de 140 px de Candil, porque lo
+     * desmoronaría otra vez en pocos cuadros. Se revisa de dos maneras, con Pitágoras
+     * sqrt(dx² + dy²): la distancia de Logi a Candil (ya está encima) y la de Candil al punto
+     * del mundo bajo el ratón (hacia ahí va Logi aunque hoy esté lejos, por ejemplo en una partida
+     * nueva, donde conserva su posición anterior). En cualquiera de los dos casos se aplica la
+     * misma regla que al cruzar de nivel. Si todo está lejos no se toca nada.
      */
     private void keepLogiAwayFromCandil() {
-        double dx = light.getX() - player.getCenterX(), dy = light.getY() - player.getCenterY();
-        if (dx * dx + dy * dy < ARRIVAL_SAFE_DISTANCE * ARRIVAL_SAFE_DISTANCE) placeLogiAbove();
+        Vec2 mouse = camera.screenToWorld(input.getMouseX(), input.getMouseY());
+        double min2 = ARRIVAL_SAFE_DISTANCE * ARRIVAL_SAFE_DISTANCE;
+        double lx = light.getX() - player.getCenterX(), ly = light.getY() - player.getCenterY();
+        double mx = mouse.x - player.getCenterX(), my = mouse.y - player.getCenterY();
+        if (lx * lx + ly * ly < min2 || mx * mx + my * my < min2) placeLogiAbove();
     }
 
     private void backToMenu() {
@@ -562,6 +568,9 @@ public class GamePanel extends JPanel {
         player.respawn(level.getSpawn());
         checkpoint = level.getSpawn();
         light.setPinned(false);
+        // La cámara salta de una vez al lugar de aparición: si regresara suavemente, el punto del
+        // mundo bajo el ratón se deslizaría con ella y Logi terminaría encima de Candil.
+        camera.snapTo(player.getCenterX());
         keepLogiAwayFromCandil();
         deathTimer = 0;
         levelComplete = false;
