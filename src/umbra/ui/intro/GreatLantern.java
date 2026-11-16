@@ -39,9 +39,10 @@ import java.util.Random;
  * mece con ondas seno desfasadas; dentro tiene dos ojos oscuros que se pueden abrir.
  *
  * El Farol tiene dos aspectos: entero y encendido (cálido), o roto y apagado (frío, sin la
- * panza de vidrio). Lo que no se mueve de cada aspecto se dibuja una sola vez en dos imágenes:
- * lo de atrás de la llama (pedestal y vidrio) y lo de adelante (reflejos y hierro). En cada
- * cuadro solo se dibujan de nuevo la llama, sus ojos y las grietas que van avanzando.
+ * panza de vidrio). Lo que va detrás de la llama (el pedestal y el vidrio con sus degradados,
+ * que es lo más caro de pintar) se dibuja una sola vez en una imagen por aspecto. En cada cuadro
+ * se dibujan la llama, sus ojos, las grietas que van avanzando y, encima, el hierro y los
+ * reflejos: esos sí como curvas, para que sus orillas se vean nítidas con cualquier acercamiento.
  */
 public final class GreatLantern {
 
@@ -76,7 +77,7 @@ public final class GreatLantern {
     private final Area brokenGlass;
     private final Path2D[] glassShards;
     private final Cracks cracks;
-    private final BufferedImage litBack, litFront, brokenBack, brokenFront;
+    private final BufferedImage litBack, brokenBack;
     private final Glow halo = new Glow(192, new Color(255, 206, 120), 0.5, 0.62);
     private final Glow ember = new Glow(48, new Color(255, 140, 60), 1.1, 0.5);
 
@@ -127,10 +128,8 @@ public final class GreatLantern {
             glassShards[i] = p;
         }
 
-        litBack = render(false, true);
-        litFront = render(false, false);
-        brokenBack = render(true, true);
-        brokenFront = render(true, false);
+        litBack = render(false);
+        brokenBack = render(true);
     }
 
     // =========================================================
@@ -185,7 +184,10 @@ public final class GreatLantern {
                 g.setClip(oldClip);
             }
         }
-        drawLayer(g, broken ? brokenFront : litFront);
+        Stroke oldStroke = g.getStroke();
+        drawReflections(g, !broken, broken);
+        drawIron(g, !broken);
+        g.setStroke(oldStroke);
     }
 
     /** Una de las imágenes ya hechas, en el rectángulo que ocupa el Farol. */
@@ -263,25 +265,19 @@ public final class GreatLantern {
     // =========================================================
 
     /**
-     * Dibuja una de las cuatro imágenes: el Farol entero y encendido o roto y apagado, y de cada
-     * uno lo que va detrás de la llama (back) o lo que va delante. La imagen usa la matriz
+     * Dibuja una de las dos imágenes: lo que va detrás de la llama (pedestal, vidrio y mechero)
+     * del Farol entero y encendido, o del roto y apagado. La imagen usa la matriz
      * S(RES) · T(-LEFT, -TOP): lleva la esquina del rectángulo del Farol al (0, 0) de la imagen.
      */
-    private BufferedImage render(boolean isBroken, boolean back) {
+    private BufferedImage render(boolean isBroken) {
         BufferedImage img = new BufferedImage((int) (WIDTH * RES), (int) (HEIGHT * RES), BufferedImage.TYPE_INT_ARGB_PRE);
         Graphics2D g = img.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
         g.scale(RES, RES);
         g.translate(-LEFT, -TOP);
-        boolean lit = !isBroken;
-        if (back) {
-            drawPedestal(g, lit, isBroken);
-            drawGlass(g, lit, isBroken);
-        } else {
-            drawReflections(g, lit, isBroken);
-            drawIron(g, lit);
-        }
+        drawPedestal(g, !isBroken, isBroken);
+        drawGlass(g, !isBroken, isBroken);
         g.dispose();
         return img;
     }

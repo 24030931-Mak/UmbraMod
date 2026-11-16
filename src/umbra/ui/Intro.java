@@ -78,6 +78,12 @@ public class Intro {
     private double skipTime = -1;   // segundos desde que se pidió saltar; -1 = no se ha pedido
     private boolean finished;
 
+    // Los textos ya dibujados: los renglones de la escena 'rowsOf' y el título
+    private final List<TextSprite> rows = new ArrayList<>();
+    private final List<Integer> rowOwner = new ArrayList<>();   // a qué oración pertenece cada renglón
+    private int rowsOf = -1, sentenceCount;
+    private TextSprite title;
+
     /** @param narration las líneas de res/intro.txt: una por escena (la última escena no tiene) */
     public Intro(List<String> narration) {
         this.narration = narration;
@@ -131,6 +137,9 @@ public class Intro {
         finished = true;
         scenes = null;
         dark = null;
+        rows.clear();
+        rowsOf = -1;
+        title = null;
     }
 
     /** En qué segundo del reloj empieza la escena i: la suma de las duraciones anteriores. */
@@ -183,17 +192,40 @@ public class Intro {
         }
 
         double visible = 1 - Ease.clamp01(black);   // el texto también se va con el fundido
-        Text.smooth(g);
-        if (index < narration.size()) drawNarration(g, narration.get(index), t, length, visible);
+        if (index < narration.size()) drawNarration(g, t, length, visible);
         if (scene.titleAlpha() > 0) {
-            g.setFont(Text.TITLE);   // el espaciado entre letras también va después de la última: se compensa
-            Text.centered(g, "UMBRA", Config.WIDTH / 2.0 + 14, 262, Text.BRIGHT, scene.titleAlpha() * visible, 3);
+            if (title == null) title = new TextSprite("UMBRA", Text.TITLE, Text.BRIGHT, 3);
+            // El espaciado entre letras también va después de la última: se compensa con 14 px
+            title.draw(g, Config.WIDTH / 2.0 + 14, 262, scene.titleAlpha() * visible);
         }
         double hint = 0.5 * Ease.window(time, 1.4, 2.4, 6.5, 8) * visible;
         if (hint > 0.01) {
+            Text.smooth(g);
             g.setFont(Text.SMALL);
             String s = "Enter: saltar";
             Text.centered(g, s, Config.WIDTH - 26 - g.getFontMetrics().stringWidth(s) / 2.0, 30, Text.HINT_COLOR, hint, 0);
+        }
+    }
+
+    /**
+     * Los renglones de la narración de la escena actual, ya dibujados (TextSprite). La línea se
+     * parte en oraciones (después de cada punto y antes de una raya de diálogo) y cada oración,
+     * en los renglones que hagan falta para caber en TEXT_WIDTH. Se preparan una vez por escena.
+     */
+    private void prepareNarration(Graphics2D g) {
+        if (rowsOf == index) return;
+        rowsOf = index;
+        rows.clear();
+        rowOwner.clear();
+        FontMetrics fm = g.getFontMetrics(Text.STORY_BIG);
+        List<String> sentences = sentences(narration.get(index));
+        sentenceCount = sentences.size();
+        for (int k = 0; k < sentences.size(); k++) {
+            boolean voice = sentences.get(k).startsWith("\u2014");
+            for (String row : Text.wrap(sentences.get(k), fm, TEXT_WIDTH)) {
+                rows.add(new TextSprite(row, Text.STORY_BIG, voice ? VOICE : Text.BRIGHT, 1.5));
+                rowOwner.add(k);
+            }
         }
     }
 
@@ -202,12 +234,11 @@ public class Intro {
      * hacia arriba (un degradado vertical) para que se lea igual sobre la caverna dorada que
      * sobre la cueva oscura.
      *
-     * La línea se parte en oraciones (después de cada punto y antes de una raya de diálogo) y
-     * cada oración aparece a su tiempo: la oración k de n empieza en
+     * Cada oración aparece a su tiempo: la oración k de n empieza en
      *     TEXT_IN + k · (duración - TEXT_IN - TEXT_OUT - 1.2) / n
      * así la segunda entra cuando la primera ya se leyó. Todas se van juntas al final.
      */
-    private void drawNarration(Graphics2D g, String line, double t, double length, double visible) {
+    private void drawNarration(Graphics2D g, double t, double length, double visible) {
         double out = 1 - Ease.smooth(t, length - TEXT_OUT, length - TEXT_OUT + 0.7);
         double band = Ease.smooth(t, TEXT_IN - 0.3, TEXT_IN + 0.6) * out * visible;
         if (band <= 0.004) return;
@@ -215,25 +246,13 @@ public class Intro {
         g.setPaint(new GradientPaint(0, Config.HEIGHT - BAND_HEIGHT, BAND_CLEAR, 0, Config.HEIGHT - 50, Ease.fade(BAND, band)));
         g.fillRect(0, Config.HEIGHT - BAND_HEIGHT, Config.WIDTH, BAND_HEIGHT);
 
-        g.setFont(Text.STORY_BIG);
-        FontMetrics fm = g.getFontMetrics();
-        List<String> sentences = sentences(line);
-        List<String> rows = new ArrayList<>();
-        List<Integer> owner = new ArrayList<>();   // a qué oración pertenece cada renglón
-        for (int k = 0; k < sentences.size(); k++) {
-            for (String row : Text.wrap(sentences.get(k), fm, TEXT_WIDTH)) {
-                rows.add(row);
-                owner.add(k);
-            }
-        }
-        double gap = (length - TEXT_IN - TEXT_OUT - 1.2) / sentences.size();
+        prepareNarration(g);
+        double gap = (length - TEXT_IN - TEXT_OUT - 1.2) / Math.max(1, sentenceCount);
         for (int r = 0; r < rows.size(); r++) {
-            int k = owner.get(r);
-            double start = TEXT_IN + k * gap;
+            double start = TEXT_IN + rowOwner.get(r) * gap;
             double alpha = Ease.smooth(t, start, start + TEXT_FADE) * out * visible;
-            boolean voice = sentences.get(k).startsWith("\u2014");
             double y = LAST_BASELINE - (rows.size() - 1 - r) * ROW_HEIGHT;
-            Text.centered(g, rows.get(r), Config.WIDTH / 2.0, y, voice ? VOICE : Text.BRIGHT, alpha, 1.5);
+            rows.get(r).draw(g, Config.WIDTH / 2.0, y, alpha);
         }
     }
 

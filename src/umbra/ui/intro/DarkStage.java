@@ -8,7 +8,6 @@ import java.awt.GradientPaint;
 import java.awt.Graphics2D;
 import java.awt.RadialGradientPaint;
 import java.awt.RenderingHints;
-import java.awt.Shape;
 import java.awt.Stroke;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Arc2D;
@@ -287,20 +286,21 @@ public final class DarkStage {
     /**
      * Las sombras que proyecta Logi: relleno casi negro y una orilla tenue, como en el juego. En
      * el juego las repisas y las losas se dibujan después y quedan encima de las sombras; aquí
-     * ya están en la imagen del fondo, así que la sombra se recorta para pintarse solo en el
-     * aire (el escenario menos las repisas y las rocas).
+     * ya están en la imagen del fondo, así que de cada sombra se pinta solo su intersección con
+     * el aire (el escenario menos las repisas y las rocas): sombra ∩ aire, con java.awt.geom.Area.
      */
     private void drawShadows(Graphics2D g) {
-        Shape oldClip = g.getClip();
-        g.clip(air);
-        g.setColor(SHADOW);
-        for (Path2D shadow : shadows) g.fill(shadow);
         Stroke old = g.getStroke();
         g.setStroke(SHADOW_STROKE);
-        g.setColor(SHADOW_EDGE);
-        for (Path2D shadow : shadows) g.draw(shadow);
+        for (Path2D shadow : shadows) {
+            Area visible = new Area(shadow);
+            visible.intersect(air);
+            g.setColor(SHADOW);
+            g.fill(visible);
+            g.setColor(SHADOW_EDGE);
+            g.draw(visible);
+        }
         g.setStroke(old);
-        g.setClip(oldClip);
     }
 
     /**

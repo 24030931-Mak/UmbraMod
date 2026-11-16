@@ -38,8 +38,10 @@ public final class LightShards {
     /** Gravedad de los pedazos (px/s²): más suave que la del juego, para que el vuelo se alcance a ver. */
     public static final double GRAVITY = 300;
 
-    private static final int TRAIL = 7;                // puntos de la estela
-    private static final double TRAIL_STEP = 0.034;    // segundos entre un punto de la estela y el siguiente
+    private static final int TRAIL = 5;                // puntos de la estela
+    private static final double TRAIL_STEP = 0.046;    // segundos entre un punto de la estela y el siguiente
+    /** Los trazos de la estela, del más grueso al más delgado (se multiplican por el tamaño al dibujar). */
+    private static final float[] TRAIL_WIDTH = { 2.3f, 1.9f, 1.5f, 1.1f, 0.7f };
     private static final double VANISH = 0.25;         // segundos que tarda en apagarse al llegar
     private static final Color LIGHT = new Color(255, 232, 160);
     private static final Color WHITE = new Color(255, 252, 236);
@@ -150,7 +152,7 @@ public final class LightShards {
                 if (past < 0) break;
                 Vec2 to = view.apply(position(s, past));
                 double f = 1 - (double) k / (TRAIL + 1);
-                g.setStroke(new BasicStroke((float) (2.6 * s.size * zoom * f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g.setStroke(new BasicStroke((float) (TRAIL_WIDTH[k - 1] * s.size * zoom), BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL));
                 g.setColor(Ease.fade(LIGHT, alpha * 0.75 * f * f));
                 g.draw(new Line2D.Double(from.x, from.y, to.x, to.y));
                 from = to;
