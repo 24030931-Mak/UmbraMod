@@ -65,8 +65,8 @@ public class Intro {
     private static final int TEXT_WIDTH = 1040;       // ancho máximo de un renglón (px)
     private static final int ROW_HEIGHT = 40;
     private static final int LAST_BASELINE = Config.HEIGHT - 54;
-    private static final int BAND_HEIGHT = 250;       // franja oscura detrás del texto
-    private static final Color BAND = new Color(3, 4, 10, 215);
+    private static final int BAND_HEIGHT = 210;       // franja oscura detrás del texto
+    private static final Color BAND = new Color(3, 4, 10, 185);
     private static final Color BAND_CLEAR = new Color(3, 4, 10, 0);
     private static final Color VOICE = new Color(255, 226, 172);   // lo que dice Logi (empieza con raya)
 
@@ -212,7 +212,7 @@ public class Intro {
         double band = Ease.smooth(t, TEXT_IN - 0.3, TEXT_IN + 0.6) * out * visible;
         if (band <= 0.004) return;
 
-        g.setPaint(new GradientPaint(0, Config.HEIGHT - BAND_HEIGHT, BAND_CLEAR, 0, Config.HEIGHT - 40, Ease.fade(BAND, band)));
+        g.setPaint(new GradientPaint(0, Config.HEIGHT - BAND_HEIGHT, BAND_CLEAR, 0, Config.HEIGHT - 50, Ease.fade(BAND, band)));
         g.fillRect(0, Config.HEIGHT - BAND_HEIGHT, Config.WIDTH, BAND_HEIGHT);
 
         g.setFont(Text.STORY_BIG);

@@ -26,7 +26,6 @@ public final class DarknessScene extends Scene {
     public void enter() {
         GreatLantern lantern = stage.lantern;
         lantern.setBroken(true);
-        lantern.setFlame(0);
         lantern.setEyes(0);
         lantern.setCrack(1);
         stage.shards.clear();
@@ -40,7 +39,8 @@ public final class DarknessScene extends Scene {
 
     @Override
     public void draw(Graphics2D g) {
-        double cover = Ease.smooth(time, 0.2, coveredAt);
+        // La neblina avanza despacio al principio y cierra rápido al final: avance^1.7
+        double cover = Math.pow(Ease.ramp(time, 0.2, coveredAt), 1.7);
         if (cover < 1) {
             stage.draw(g, camera, Ease.lerp(GoldenStage.DUSK, 0.9, Ease.smooth(time, 0, 3.5)), 0.35 * (1 - cover));
         }

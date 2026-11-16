@@ -33,8 +33,8 @@ public final class TogetherScene extends Scene {
         camera.key(0, 400, 398, 2.25)
               .key(2.4, 420, 398, 2.2)
               .key(4.9, 480, 392, 1.8)       // se abre para ver a Logi y a Candil en las dos orillas
-              .key(6.7, 640, 306, 1.67)
-              .key(length, 640, 262, 1.62);   // y sube hacia el brillo lejano
+              .key(6.7, 640, 356, 1.6)
+              .key(length, 640, 333, 1.5);    // y sube hacia el brillo lejano
     }
 
     @Override

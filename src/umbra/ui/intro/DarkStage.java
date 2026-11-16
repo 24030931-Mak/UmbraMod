@@ -8,9 +8,11 @@ import java.awt.GradientPaint;
 import java.awt.Graphics2D;
 import java.awt.RadialGradientPaint;
 import java.awt.RenderingHints;
+import java.awt.Shape;
 import java.awt.Stroke;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Arc2D;
+import java.awt.geom.Area;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Line2D;
 import java.awt.geom.Path2D;
@@ -60,7 +62,7 @@ public final class DarkStage {
     /** Orilla de la repisa izquierda y de la derecha: entre las dos está el hueco. */
     public static final double GAP_LEFT = 420, GAP_RIGHT = 680;
     /** El brillo lejano, arriba: lo que queda encendido del Gran Farol. */
-    public static final double FAR_GLOW_X = 590, FAR_GLOW_Y = 58;
+    public static final double FAR_GLOW_X = 590, FAR_GLOW_Y = 118;
     /** Hasta dónde llega el rayo de luz de la escena 4 a la altura de Candil: a su izquierda hay luz. */
     public static final double BEAM_EDGE = 200;
 
@@ -70,7 +72,7 @@ public final class DarkStage {
 
     // ---- Paleta: la del fondo y las repisas del juego ----
     private static final Color SKY_TOP = new Color(5, 8, 16), SKY_BOTTOM = new Color(17, 24, 41);
-    private static final Color FAR = new Color(28, 38, 60), MID = new Color(20, 27, 45), NEAR = new Color(12, 17, 29);
+    private static final Color FAR = new Color(32, 44, 70), MID = new Color(22, 30, 51), NEAR = new Color(12, 17, 29);
     private static final Color FOG = new Color(110, 135, 180);
     private static final Color ROCK_TOP = new Color(46, 54, 76), ROCK_BOTTOM = new Color(22, 26, 40);
     private static final Color RIM = new Color(125, 145, 190, 170);
@@ -91,9 +93,11 @@ public final class DarkStage {
 
     private final BufferedImage back;
     private final BufferedImage fog;
-    private final Glow logiGlow = new Glow(160, new Color(255, 200, 124), 0.22, 0.5);
+    private final Glow logiGlow = new Glow(512, new Color(255, 200, 124), 0.22, 0.5);
     private final Glow farGlow = new Glow(96, new Color(255, 206, 130), 1.0, 0.5);
     private final double[] sporeX, sporeY, sporeSpeed, sporePhase;
+    /** Todo el escenario menos las repisas y las rocas: las sombras solo se pintan ahí. */
+    private final Area air = new Area(new Rectangle2D.Double(-100, -100, W + 200, H + 200));
 
     // ---- El nivel y los personajes ----
     private final Level level = new Level("intro", W, new Vec2(0, 0), null);
@@ -120,6 +124,10 @@ public final class DarkStage {
 
         Random seed = new Random(19);
         back = renderBack(seed);
+        air.subtract(new Area(new Rectangle2D.Double(-100, GROUND, GAP_LEFT + 100, H)));
+        air.subtract(new Area(new Rectangle2D.Double(GAP_RIGHT, GROUND, W, H)));
+        air.subtract(new Area(ROCK_1));
+        air.subtract(new Area(ROCK_2));
         fog = renderFog(seed);
         int n = 70;
         sporeX = new double[n];
@@ -264,7 +272,7 @@ public final class DarkStage {
         g.transform(view.toAffineTransform());
         double pulse = 1 + 0.08 * Math.sin(clock * 1.3) + 0.04 * Math.sin(clock * 3.1);
         farGlow.draw(g, FAR_GLOW_X, FAR_GLOW_Y, 46 * pulse);
-        if (logiPresent && logiLight > 0.01) logiGlow.draw(g, logi.getX(), logi.getY(), 340 * logiLight);
+        if (logiPresent && logiLight > 0.01) logiGlow.draw(g, logi.getX(), logi.getY(), 280 * logiLight);
         if (beam > 0.01) drawBeam(g, beam);
         if (logiPresent) drawShadows(g);
         particles.draw(g);
@@ -276,8 +284,15 @@ public final class DarkStage {
         drawFog(g, camera);
     }
 
-    /** Las sombras que proyecta Logi: relleno casi negro y una orilla tenue, como en el juego. */
+    /**
+     * Las sombras que proyecta Logi: relleno casi negro y una orilla tenue, como en el juego. En
+     * el juego las repisas y las losas se dibujan después y quedan encima de las sombras; aquí
+     * ya están en la imagen del fondo, así que la sombra se recorta para pintarse solo en el
+     * aire (el escenario menos las repisas y las rocas).
+     */
     private void drawShadows(Graphics2D g) {
+        Shape oldClip = g.getClip();
+        g.clip(air);
         g.setColor(SHADOW);
         for (Path2D shadow : shadows) g.fill(shadow);
         Stroke old = g.getStroke();
@@ -285,6 +300,7 @@ public final class DarkStage {
         g.setColor(SHADOW_EDGE);
         for (Path2D shadow : shadows) g.draw(shadow);
         g.setStroke(old);
+        g.setClip(oldClip);
     }
 
     /**
@@ -352,14 +368,14 @@ public final class DarkStage {
     }
 
     /**
-     * Dos franjas de niebla delante de todo, en píxeles de pantalla. Se mueven solas y además
-     * con la cámara, a la mitad de su paso (parallax); el módulo las repite sin cortes.
+     * Una franja de niebla delante de todo, en píxeles de pantalla. Se mueve sola y además
+     * con la cámara, a la mitad de su paso (parallax); el módulo la repite sin cortes.
      */
     private void drawFog(Graphics2D g, IntroCamera camera) {
         Object aa = g.getRenderingHint(RenderingHints.KEY_ANTIALIASING);
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
         int w = fog.getWidth();
-        double[] ys = { 470, 250 }, speeds = { 14, -9 };
+        double[] ys = { 470 }, speeds = { 14 };
         for (int k = 0; k < ys.length; k++) {
             double offset = (clock * speeds[k] - camera.getX() * camera.getZoom() * 0.5) % w;
             if (offset > 0) offset -= w;
@@ -382,29 +398,29 @@ public final class DarkStage {
         g.setPaint(new GradientPaint(0, 0, SKY_TOP, 0, (float) H, SKY_BOTTOM));
         g.fill(new Rectangle2D.Double(0, 0, W, H));
         // El resplandor lejano, por una chimenea del techo: lo que quedó encendido allá arriba
-        g.setPaint(new RadialGradientPaint(new Point2D.Double(FAR_GLOW_X, FAR_GLOW_Y - 30), 230, new float[] { 0f, 0.4f, 1f },
+        g.setPaint(new RadialGradientPaint(new Point2D.Double(FAR_GLOW_X, FAR_GLOW_Y - 20), 240, new float[] { 0f, 0.4f, 1f },
                 new Color[] { new Color(255, 200, 120, 105), new Color(190, 130, 100, 40), new Color(120, 110, 140, 0) }));
-        g.fill(new Rectangle2D.Double(0, 0, W, 320));
+        g.fill(new Rectangle2D.Double(0, 0, W, 380));
 
         // Capas de roca: lejos (más clara), en medio (con ruinas) y cerca. Los techos tienen
         // una muesca (una campana de Gauss que se resta) donde se abre la chimenea.
         g.setColor(FAR);
         double[] ceiling = Background.midpointDisplacement(rnd, 64, 30, 0.55);
         double[] floor = Background.midpointDisplacement(rnd, 64, 34, 0.55);
-        g.fill(ridge(ceiling, 84, true, 190, 84));
+        g.fill(ridge(ceiling, 118, true, 230, 84));
         g.fill(ridge(floor, 492, false, 0, 1));
         for (int i = 0; i < 26; i++) {
             double x = rnd.nextDouble() * W;
             if (Math.abs(x - FAR_GLOW_X) < 100) continue;
-            g.fill(spike(x, 70, 7 + rnd.nextDouble() * 14, 30 + rnd.nextDouble() * 100, true));
+            g.fill(spike(x, 100, 7 + rnd.nextDouble() * 14, 30 + rnd.nextDouble() * 100, true));
         }
         g.setColor(MID);
         ceiling = Background.midpointDisplacement(rnd, 64, 24, 0.6);
         floor = Background.midpointDisplacement(rnd, 64, 26, 0.6);
-        g.fill(ridge(ceiling, 44, true, 150, 62));
+        g.fill(ridge(ceiling, 74, true, 190, 62));
         g.fill(ridge(floor, 536, false, 0, 1));
         g.setStroke(new BasicStroke(9, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND));
-        double[][] ruins = { { 62, 86, 150, 1 }, { 500, 70, 118, 0 }, { 930, 92, 168, 1 } };   // x, claro, alto, ¿con arco?
+        double[][] ruins = { { 62, 86, 150, 1 }, { 500, 70, 118, 0 }, { 1004, 92, 168, 1 } };   // x, claro, alto, ¿con arco?
         for (double[] r : ruins) {
             for (int k = 0; k < 2; k++) {
                 double h = r[3] == 1 ? r[2] : r[2] * (0.5 + 0.5 * k);
@@ -416,7 +432,7 @@ public final class DarkStage {
         for (int i = 0; i < 18; i++) {
             double x = rnd.nextDouble() * W;
             if (Math.abs(x - FAR_GLOW_X) < 80) continue;
-            g.fill(spike(x, 30, 10 + rnd.nextDouble() * 20, 40 + rnd.nextDouble() * 120, true));
+            g.fill(spike(x, 58, 10 + rnd.nextDouble() * 20, 40 + rnd.nextDouble() * 110, true));
         }
         // Un banco de niebla quieto entre las capas, para separarlas
         for (int i = 0; i < 26; i++) {

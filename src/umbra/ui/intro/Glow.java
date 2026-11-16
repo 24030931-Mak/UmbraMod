@@ -3,7 +3,6 @@ package umbra.ui.intro;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
-import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 
 /**
@@ -54,15 +53,19 @@ public final class Glow {
         image.getRaster().setDataElements(0, 0, size, size, pixels);
     }
 
-    /** Dibuja la mancha con centro en (cx, cy) y este radio, en las coordenadas actuales de g. */
+    /**
+     * Dibuja la mancha con centro en (cx, cy) y este radio, en las coordenadas actuales de g. Se
+     * dibuja en un rectángulo de coordenadas enteras: así Java2D solo estira la imagen (rápido).
+     */
     public void draw(Graphics2D g, double cx, double cy, double radius) {
         if (radius < 0.5) return;
         Object aa = g.getRenderingHint(RenderingHints.KEY_ANTIALIASING);
         Object quality = g.getRenderingHint(RenderingHints.KEY_RENDERING);
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
         g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
-        double k = radius * 2 / image.getWidth();
-        g.drawImage(image, new AffineTransform(k, 0, 0, k, cx - radius, cy - radius), null);
+        int x = (int) Math.round(cx - radius), y = (int) Math.round(cy - radius);
+        int size = (int) Math.round(radius * 2);
+        g.drawImage(image, x, y, size, size, null);
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, aa);
         g.setRenderingHint(RenderingHints.KEY_RENDERING, quality);
     }

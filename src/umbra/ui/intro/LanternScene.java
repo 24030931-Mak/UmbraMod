@@ -24,7 +24,6 @@ public final class LanternScene extends Scene {
     @Override
     public void enter() {
         GreatLantern lantern = stage.lantern;
-        lantern.setFlame(1);
         lantern.setEyes(0);
         lantern.setLook(0, 0);
         lantern.setAgitation(0);

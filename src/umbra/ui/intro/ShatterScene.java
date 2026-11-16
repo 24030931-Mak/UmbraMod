@@ -34,7 +34,6 @@ public final class ShatterScene extends Scene {
     @Override
     public void enter() {
         GreatLantern lantern = stage.lantern;
-        lantern.setFlame(1);
         lantern.setEyes(1);
         lantern.setBroken(false);
         lantern.setCrack(0);
@@ -63,7 +62,6 @@ public final class ShatterScene extends Scene {
             if (!burst) {
                 burst = true;
                 lantern.setBroken(true);
-                lantern.setFlame(0);
                 lantern.setEyes(0);
                 lantern.setAgitation(0);
                 lantern.setCrack(1);

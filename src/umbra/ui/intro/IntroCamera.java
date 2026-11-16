@@ -16,7 +16,10 @@ import umbra.math.Mat3;
  * dos cuadros clave; se toman como en Catmull-Rom, la pendiente entre el cuadro anterior y el
  * siguiente, m_i = (p_{i+1} - p_{i-1}) / (t_{i+1} - t_{i-1}), y cero en el primero y el último.
  * Así la cámara arranca y termina quieta y pasa por los cuadros de en medio sin frenar ni dar
- * tirones (la velocidad es continua).
+ * tirones (la velocidad es continua). Para que la curva nunca se pase de largo de un cuadro
+ * clave (y la cámara no "rebote"), esa pendiente se limita: vale cero si el valor deja de subir
+ * o de bajar justo ahí, y nunca más de 3 veces la menor de las pendientes de los dos tramos
+ * vecinos (la condición de Fritsch y Carlson para un spline monótono).
  *
  * El acercamiento se interpola en su logaritmo: acercarse de 1x a 2x se siente igual de rápido
  * que de 2x a 4x, así que lo que debe cambiar a ritmo parejo es log(zoom), no zoom.
@@ -61,17 +64,25 @@ public final class IntroCamera {
         double span = b.t - a.t;
         double u = span > 0 ? Ease.clamp01((t - a.t) / span) : 1;
         boolean first = i == 0, last = i + 1 >= n - 1;
-        x = hermite(u, span, a.x, b.x, first ? 0 : slope(before.x, b.x, before.t, b.t),
-                last ? 0 : slope(a.x, after.x, a.t, after.t));
-        y = hermite(u, span, a.y, b.y, first ? 0 : slope(before.y, b.y, before.t, b.t),
-                last ? 0 : slope(a.y, after.y, a.t, after.t));
+        x = hermite(u, span, a.x, b.x, first ? 0 : slope(before.x, a.x, b.x, before.t, a.t, b.t),
+                last ? 0 : slope(a.x, b.x, after.x, a.t, b.t, after.t));
+        y = hermite(u, span, a.y, b.y, first ? 0 : slope(before.y, a.y, b.y, before.t, a.t, b.t),
+                last ? 0 : slope(a.y, b.y, after.y, a.t, b.t, after.t));
         zoom = Math.exp(hermite(u, span, a.logZoom, b.logZoom,
-                first ? 0 : slope(before.logZoom, b.logZoom, before.t, b.t),
-                last ? 0 : slope(a.logZoom, after.logZoom, a.t, after.t)));
+                first ? 0 : slope(before.logZoom, a.logZoom, b.logZoom, before.t, a.t, b.t),
+                last ? 0 : slope(a.logZoom, b.logZoom, after.logZoom, a.t, b.t, after.t)));
     }
 
-    private static double slope(double p0, double p1, double t0, double t1) {
-        return t1 > t0 ? (p1 - p0) / (t1 - t0) : 0;
+    /**
+     * La velocidad en el cuadro clave de en medio (p1, en t1), dados su anterior y su siguiente:
+     * la pendiente de Catmull-Rom (p2 - p0) / (t2 - t0), limitada como dice el comentario de la clase.
+     */
+    private static double slope(double p0, double p1, double p2, double t0, double t1, double t2) {
+        double before = (p1 - p0) / (t1 - t0), after = (p2 - p1) / (t2 - t1);   // pendientes de los dos tramos
+        if (before * after <= 0) return 0;   // cambia de sentido (o se queda quieto): pasa con velocidad cero
+        double m = (p2 - p0) / (t2 - t0);
+        double limit = 3 * Math.min(Math.abs(before), Math.abs(after));
+        return Math.max(-limit, Math.min(limit, m));
     }
 
     /** El spline de Hermite del comentario de la clase, para un solo valor. */

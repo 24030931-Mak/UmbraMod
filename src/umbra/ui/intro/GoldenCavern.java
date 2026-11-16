@@ -31,8 +31,8 @@ import umbra.math.Vec2;
  * las lejanas son más claras que las cercanas (perspectiva atmosférica), pero aquí "más claro"
  * es más parecido a la luz: no hay una sola sombra.
  *
- * Todo lo que no se mueve se dibuja una sola vez en una imagen al doble de resolución
- * (2560 x 1440). Cuando la cámara se acerca hasta 2x la imagen se sigue viendo nítida, y de
+ * Todo lo que no se mueve se dibuja una sola vez en una imagen a 2.5 veces la resolución
+ * (3200 x 1800). Cuando la cámara se acerca hasta 2.5x la imagen se sigue viendo nítida, y de
  * lejos se reduce. Encima va un primer plano de rocas oscuras, dibujado con una vista más
  * "cercana" (IntroCamera.getViewMatrix con profundidad mayor a 1): al acercarse la cámara, esas
  * rocas crecen y se salen de la pantalla más rápido que el fondo, y eso da profundidad.
@@ -42,7 +42,7 @@ public final class GoldenCavern {
     /** Dónde se para el Gran Farol: el centro del pie de su pedestal. */
     public static final double LANTERN_X = 640, LANTERN_Y = 574;
     /** Píxeles de la imagen por cada unidad del mundo. */
-    private static final double SCALE = 2;
+    private static final double SCALE = 2.5;
     private static final int W = 1280, H = 720;
     /** Qué tanto más "cerca" está el primer plano (ver IntroCamera.getViewMatrix). */
     private static final double FRONT_DEPTH = 1.45;

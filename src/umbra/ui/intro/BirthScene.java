@@ -35,7 +35,7 @@ public final class BirthScene extends Scene {
 
     private final DarkStage stage;
     private final LightShards spark = new LightShards(7);
-    private final Glow seed = new Glow(64, new Color(170, 212, 255), 0.85, 0.5);
+    private final Glow seed = new Glow(64, new Color(170, 212, 255), 0.45, 0.5);
     private boolean home, lookedBack;
 
     public BirthScene(DarkStage stage, double length) {
