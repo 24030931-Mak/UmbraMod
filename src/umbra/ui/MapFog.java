@@ -172,9 +172,11 @@ final class MapFog {
 
     /** Ruido en (s, t) medidos en periodos (se repite cada 1), con interpolación bilineal entre texeles. */
     private static double noise(double s, double t) {
+        // Con s negativo y diminuto, s - floor(s) se redondea a exactamente 1.0 y el texel sería TEX:
+        // se limita a TEX - 1 (el valor se acerca a 1 periodo, que es igual al 0 por ser repetible).
         double x = (s - Math.floor(s)) * TEX, y = (t - Math.floor(t)) * TEX;
-        int c = (int) x, r = (int) y;
-        double fx = x - c, fy = y - r;
+        int c = Math.min(TEX - 1, (int) x), r = Math.min(TEX - 1, (int) y);
+        double fx = Math.min(1, x - c), fy = Math.min(1, y - r);
         int c1 = (c + 1) % TEX, r1 = (r + 1) % TEX;
         double top = NOISE[r * TEX + c] * (1 - fx) + NOISE[r * TEX + c1] * fx;
         double bottom = NOISE[r1 * TEX + c] * (1 - fx) + NOISE[r1 * TEX + c1] * fx;
