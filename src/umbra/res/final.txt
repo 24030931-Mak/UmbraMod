@@ -1,5 +1,5 @@
 # Texto de la pantalla final, una línea a la vez.
 # Se puede editar igual que historia.txt.
-Candil y Logi dejan atrás Las Raíces.
+Candil y Logi dejan atrás Las Galerías.
 Arriba, muy lejos, algo todavía brilla.
 El camino continúa hacia arriba…
