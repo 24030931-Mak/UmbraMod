@@ -285,7 +285,7 @@ public class LightSource {
         if (e > 0.01) drawWisps(g, r, len, 255 * e);
         Path2D outer = layer(0, r, len, amp, flamePhase);
         fillLayer(g, outer, OUTER, 225 * flick * (1 - 0.8 * e));
-        if (rise > 0.02) drawSpiral(g, outer, r, len, 190 * rise * tail * flick);
+        if (rise > 0.02) drawSpiral(g, outer, r, len, 205 * rise * tail * flick);
         fillLayer(g, layer(-0.1 * HEAD, 0.7 * r, 0.75 * len, 0.8 * amp, flamePhase + 0.4), MIDDLE,
                 235 * flick * (1 - 0.45 * e));
         fillLayer(g, layer(-0.18 * HEAD, 0.42 * r, 0.5 * len, 0.6 * amp, flamePhase + 0.8), CORE,
@@ -356,7 +356,7 @@ public class LightSource {
 
     /**
      * Subiendo: la cola se enrosca en espiral. Una hélice vista de lado son dos ondas seno
-     * cruzadas: aquí, dos hebras amarillas a lo largo de la cola, más angostas hacia la punta,
+     * cruzadas: aquí, dos hebras amarillas (1.75 px, ~80% opacas) a lo largo de la cola, más angostas hacia la punta,
      * que corren hacia atrás (se dibujan bajo las capas de adentro, así que brillan en la orilla,
      * y recortadas con la capa de afuera para que no se salgan de la cola).
      * Cada hebra pasa por 9 puntos unidos con curvas de Bézier cuadráticas que pasan por los
@@ -366,7 +366,7 @@ public class LightSource {
         Stroke oldStroke = g.getStroke();
         Shape oldClip = g.getClip();
         g.clip(outer);
-        g.setStroke(new BasicStroke(1f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.setStroke(new BasicStroke(1.75f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g.setColor(withAlpha(MIDDLE, alpha));
         int n = 8;
         double[] px = new double[n + 1], py = new double[n + 1];
