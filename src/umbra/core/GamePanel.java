@@ -478,6 +478,7 @@ public class GamePanel extends JPanel {
             // Se cayó al vacío: de vuelta a esa repisa
             if (player.getY() > Config.HEIGHT + 100) {
                 player.respawn(checkpoint);
+                keepLogiAwayFromCandil();
             }
 
             if (level.isAtExit(player.getBounds())) {
