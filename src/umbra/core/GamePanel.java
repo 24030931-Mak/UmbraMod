@@ -60,8 +60,8 @@ public class GamePanel extends JPanel {
     private enum Screen { MENU, PLAYING, VICTORY }
 
     private static final Color BACKGROUND = new Color(8, 8, 16);
-    private static final Color SHADOW_COLOR = new Color(40, 20, 70, 220);
-    private static final Color SHADOW_EDGE = new Color(150, 110, 225, 110);
+    private static final Color SHADOW_COLOR = new Color(6, 6, 10, 235);
+    private static final Color SHADOW_EDGE = new Color(140, 160, 200, 90);
     private static final Stroke SHADOW_EDGE_STROKE = new BasicStroke(2f);
     private static final Font HUD_FONT = new Font(Font.MONOSPACED, Font.PLAIN, 14);
 
