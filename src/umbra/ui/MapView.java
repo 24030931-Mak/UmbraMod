@@ -81,7 +81,7 @@ public class MapView {
             Level level = world.get(i);
             g.transform(view.multiply(Mat3.translation(offset, 0)).toAffineTransform());
             drawLevel(g, level, world.exploration(i), light, height);
-            if (i == world.currentIndex()) drawMarks(g, candil, logi, s);
+            if (i == world.currentIndex()) drawMarks(g, candil, logi, s, level.getWidth(), height);
             g.setTransform(onScreen);
 
             double cx = x0 + (offset + level.getWidth() / 2) * s;
@@ -120,8 +120,12 @@ public class MapView {
         g.draw(new Rectangle2D.Double(0, 0, w, height));
     }
 
-    /** Candil: un punto que brilla. Logi: una llamita. Tamaños en px de pantalla (se divide entre la escala). */
-    private void drawMarks(Graphics2D g, Vec2 candil, Vec2 logi, double s) {
+    /**
+     * Candil: un punto que brilla. Logi: una llamita. Tamaños en px de pantalla (se divide entre la escala).
+     * La marca de Candil se limita al rectángulo del nivel (w x height), con su halo adentro: si
+     * cae al vacío, queda pegada al borde de abajo en lugar de salirse del marco.
+     */
+    private void drawMarks(Graphics2D g, Vec2 candil, Vec2 logi, double s, double w, double height) {
         double pulse = 0.7 + 0.3 * Math.sin(time * 5);
         if (logi != null) {
             double r = 5 / s;
@@ -136,10 +140,12 @@ public class MapView {
         }
         if (candil != null) {
             double r = 4 / s;
+            double cx = Math.max(2.5 * r, Math.min(candil.x, w - 2.5 * r));
+            double cy = Math.max(2.5 * r, Math.min(candil.y, height - 2.5 * r));
             g.setColor(Text.withAlpha(CANDIL, 0.3 * pulse));
-            g.fill(new Ellipse2D.Double(candil.x - 2.5 * r, candil.y - 2.5 * r, 5 * r, 5 * r));
+            g.fill(new Ellipse2D.Double(cx - 2.5 * r, cy - 2.5 * r, 5 * r, 5 * r));
             g.setColor(CANDIL);
-            g.fill(new Ellipse2D.Double(candil.x - r, candil.y - r, 2 * r, 2 * r));
+            g.fill(new Ellipse2D.Double(cx - r, cy - r, 2 * r, 2 * r));
         }
     }
 
