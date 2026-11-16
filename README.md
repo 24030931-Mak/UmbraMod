@@ -23,13 +23,17 @@ Proyecto final de **Graficación**.
 ## Cómo se juega
 
 - **Dentro de una sombra** Candil está a salvo: flota sin gravedad (W o Espacio para subir, S para bajar) y recupera vida.
-- **Fuera de la sombra** camina y salta, pero pierde vida (la barra de arriba a la derecha) y se va deshaciendo en polvo de luz.
+- **Fuera de la sombra** camina y salta, pero pierde vida (la barra de arriba a la derecha, debajo del mapa circular) y se va deshaciendo en polvo de luz.
 - **Si Logi se acerca demasiado**, Candil se desmorona.
 - Mueve a Logi con el ratón y **haz clic para fijarla**: así no se mueve mientras avanzas. Otro clic la suelta.
 - Si sales de una sombra nadando hacia arriba, **sales de un salto**: sirve para alcanzar repisas altas.
 - Si te desmoronas o caes al vacío, reapareces en la última repisa firme que pisaste.
 
-El nivel es un recorrido de tres pantallas de ancho: la cámara avanza conforme avanzas.
+El juego es un mundo de niveles conectados, uno junto al otro. Al llegar a la orilla de un nivel pasas al siguiente, y también puedes regresar al anterior. Cada nivel mide tres pantallas de ancho: la cámara avanza conforme avanzas. El nivel 2, **Las Galerías**, termina en un portal que lleva a la pantalla final.
+
+**El mapa.** Arriba a la derecha hay un mapa circular que siempre muestra dónde estás. Con **Tab** se abre el mapa grande, con todos los niveles juntos. Lo que no has recorrido está cubierto de neblina, y lo que ya recorriste se ilumina con la luz de Logi.
+
+**Candil y Logi cambian de forma.** Candil es un fantasma encapuchado y tiene una forma para cada acción: descansa, corre, salta, cae y flota. Logi también cambia: se estira como cometa cuando la mueves rápido, se enrosca en espiral al subir y se calma cuando está quieta.
 
 ## Cómo ejecutarlo
 
@@ -56,19 +60,34 @@ Requisitos: **Java 8 o superior** (recomendado 17 o 21). No usa librerías exter
 | Ratón | Mover a Logi |
 | Clic | Fijar o soltar a Logi |
 | R | Reiniciar el nivel |
+| Tab | Abrir o cerrar el mapa |
 | M | Silenciar o encender la música |
 | F3 | Mostrar u ocultar los datos de depuración |
 
 ## Cómo pasar el Nivel 1
 
-Ningún hueco se puede cruzar saltando: hay que usar las sombras. En cada tramo pon la luz donde se indica, haz clic para fijarla, métete a la sombra y avanza flotando (**D + W**). Al llegar arriba, sigue subiendo y Candil sale de un salto.
+Ningún hueco se puede cruzar saltando: hay que usar las sombras. En cada tramo pon la luz donde se indica, haz clic para fijarla, métete a la sombra y avanza flotando con **D**. Al llegar arriba, sigue subiendo y Candil sale de un salto.
 
-| Tramo | Obstáculo | Dónde va la luz |
-|---|---|---|
-| 1. El puente | Hueco de 450 px | A la izquierda del bloque, a la altura de su cara de arriba: la sombra se estira como un puente |
-| 2. La rampa | Pared de 220 px | Abajo a la izquierda del bloque: la sombra sube hasta lo alto de la pared |
-| 3. Hacia atrás | Hueco con el bloque del otro lado | A la derecha del bloque: la sombra viene hacia ti; salta desde la pared para entrar en ella |
-| 4. La carpa | Foso de 700 px con un bloque flotando | Justo encima del bloque: la sombra baja por los dos lados como una montaña; crúzala por dentro |
+Ojo con **W**: en los tramos 1 y 2 la sombra queda lejos de Logi y puedes mantener **D + W**. En los tramos 3 y 4 la sombra pasa cerca de Logi: si subes con W, Candil se acerca a ella y se desmorona. Ahí avanza solo con D.
+
+| Tramo | Obstáculo | Dónde va la luz | Cómo avanzar |
+|---|---|---|---|
+| 1. El puente | Hueco de 450 px | A la izquierda del bloque, a la altura de su cara de arriba: la sombra se estira como un puente | D + W |
+| 2. La rampa | Pared de 220 px | Abajo a la izquierda del bloque: la sombra sube hasta lo alto de la pared | D + W |
+| 3. Hacia atrás | Hueco con el bloque del otro lado | A la derecha del bloque: la sombra viene hacia ti; salta desde la pared para entrar en ella | D; solo un instante D + W para entrar |
+| 4. La carpa | Foso de 700 px con un bloque flotando | Justo encima del bloque: la sombra baja por los dos lados como una montaña; crúzala por dentro | Solo D |
+
+## Cómo pasar el Nivel 2: Las Galerías
+
+Al cruzar de nivel, Logi aparece arriba de Candil y espera a que muevas el ratón.
+
+| Tramo | Obstáculo | Dónde va la luz | Cómo avanzar |
+|---|---|---|---|
+| 1. El refugio | Ninguno: es donde descansas | Arriba de la losa de la entrada: su sombra cae como una carpa y cubre a Candil, que no pierde vida | Quédate abajo y acomoda a Logi para el tramo siguiente |
+| 2. Dos sombras, un puente | Hueco de 1000 px: una sola sombra no alcanza | A la izquierda de la primera losa, a la altura de su cara de arriba: las dos sombras salen hacia la derecha y se enciman | D + W hasta pasar la segunda losa; después solo D |
+| 3. La chimenea | Subida de 300 px por un pozo | Arriba a la izquierda de las dos losas: sus sombras caen una sobre otra dentro del pozo | D + W: sube nadando y, al salir por arriba, sale de un salto |
+| 4. El pasillo bajo | Túnel muy bajo con un foso de 200 px | Lejos, atrás del túnel y un poco más arriba que su entrada: la sombra entra casi horizontal y lo llena. Dentro del túnel Logi no sirve: Candil se desmoronaría | Solo D, flotando por el túnel |
+| 5. El portal | Nada: ya casi terminas | Déjala donde quedó | Camina con D hasta el portal |
 
 ## Estructura del proyecto
 
@@ -80,7 +99,8 @@ src/umbra/
 ├── core/
 │   ├── Config.java           Constantes: física, vida, música, versión
 │   ├── GamePanel.java        Game loop, update y render
-│   └── Input.java            Estado del teclado y del ratón
+│   ├── Input.java            Estado del teclado y del ratón
+│   └── Resources.java        Abre la música y los textos (dentro del .jar o en src)
 ├── entities/
 │   ├── Player.java           Candil: física, vida, flotar en la sombra y animación
 │   ├── LightSource.java      Logi: sigue al ratón con interpolación; se fija con un clic
@@ -89,15 +109,27 @@ src/umbra/
 │   ├── Background.java       Cueva por capas (parallax), niebla, esporas y viñeta
 │   ├── Camera.java           Cámara que avanza con Candil (matriz de vista)
 │   ├── LevelArt.java         Roca, musgo, plantas que se mecen, hongos, losas con runas
-│   ├── ParticleSystem.java   Rastro de luz, chispas, polvo y fragmentos
+│   ├── ParticleSystem.java   Rastro de luz, chispas, polvo, niebla y ceniza
 │   └── ShadowCaster.java     Proyección de sombras (envolvente convexa)
 ├── math/
 │   ├── Vec2.java             Vector 2D
 │   └── Mat3.java             Matriz 3x3 (traslación, rotación, escala)
 ├── res/
-│   └── ambiente.wav          Música
+│   ├── ambiente.wav          Música
+│   ├── historia.txt          Texto del menú
+│   └── final.txt             Texto de la pantalla final
+├── ui/
+│   ├── Menu.java             Menú de inicio con la historia
+│   ├── LevelTitle.java       Título del nivel al empezar o al cruzar
+│   ├── Victory.java          Pantalla final
+│   ├── Text.java             Ayudantes para dibujar texto
+│   ├── MapView.java          Mapa grande (Tab): todos los niveles y lo recorrido
+│   ├── MiniMap.java          Mapa circular de la esquina, centrado en Candil
+│   └── MapFog.java           Neblina que cubre lo no recorrido (la usan los dos mapas)
 └── world/
-    └── Level.java            Nivel 1 (tres pantallas) y nivel de prueba
+    ├── Level.java            Niveles 1 y 2 (tres pantallas cada uno) y nivel de prueba
+    ├── World.java            Los niveles en fila, conectados de ida y vuelta
+    └── Exploration.java      Qué zonas de cada nivel ya recorrió Candil
 ```
 
 ## Avances
@@ -118,27 +150,30 @@ src/umbra/
 - [x] Cámara con desplazamiento horizontal: el nivel mide tres pantallas
 - [x] Luz que se fija con un clic, escalón para subir bordes bajos y reaparición en la última repisa
 
-### v1.0 — Entrega en la materia (en desarrollo)
+### v0.8.5 — Entrega en la materia (en desarrollo)
 - [x] Mecánica de la sombra: Candil flota dentro, pierde vida fuera y se desmorona cerca de la luz
 - [x] Ambiente de cueva: fondo por capas con parallax, niebla, esporas y viñeta
 - [x] Decoraciones: repisas de roca con musgo, hongos que brillan, losas con runas y columnas rotas
-- [x] Candil animado: flota, parpadea, se estira al saltar y se aplasta al caer
-- [x] Partículas: rastro de luz, chispas, polvo al perder vida y fragmentos al desmoronarse
+- [x] Candil encapuchado, con una forma para cada acción (descansa, corre, salta, cae, flota)
+- [x] Logi cambia de forma según se mueve: cometa, espiral al subir, calmada
+- [x] Partículas: rastro de luz, chispas, polvo al perder vida, niebla y ceniza al desmoronarse
 - [x] Plantas que se mecen al pasar Candil
 - [x] Música de ambiente
 - [x] 60 FPS en Windows
-- [ ] Menú con la historia, título del nivel y pantalla de victoria
+- [x] Menú con la historia, título del nivel y pantalla final
+- [x] Mundo conectado: se puede pasar de un nivel al siguiente y regresar
+- [x] Nivel 2, "Las Galerías": cuatro tramos con ideas nuevas y un portal al final
+- [x] Mapa grande con Tab, con neblina sobre lo no recorrido
+- [x] Mapa circular arriba a la derecha, siempre a la vista
 - [ ] Capturas de pantalla en este README
 
-### Después (v1.1 en adelante)
-La v1.0 no es la versión final: el juego sigue creciendo.
-- [ ] Más niveles y cambio de nivel al llegar a la salida
+### Después
+Las versiones siguen: el juego todavía puede crecer.
+- [ ] Más niveles
 - [ ] Luces que se mueven solas
 - [ ] Enemigos: polillas de ceniza que persiguen la luz
 - [ ] Fragmentos del Gran Farol para coleccionar
 - [ ] Efectos de sonido
-
-Tip: busca `TODO (v1.0)` en el código para ver qué falta.
 
 ## Técnicas de graficación
 
@@ -161,6 +196,8 @@ Tip: busca `TODO (v1.0)` en el código para ver qué falta.
 | Punto dentro de polígono: ¿Candil está en la sombra? | `Player.inShadow()` |
 | Resorte amortiguado (plantas que se mecen) | `LevelArt.sway()` |
 | Sistema de partículas | `ParticleSystem` |
+| Mapa: escala y traslación fijas, y su recorte circular | `MapView`, `MiniMap` |
+| Neblina con máscara bilineal (orillas suaves) | `MapFog` |
 
 ## Música
 
