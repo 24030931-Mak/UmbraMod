@@ -251,7 +251,7 @@ public final class DarkCavern {
 
         // El hueco se oscurece hacia abajo, para que se vea hondo
         g.setPaint(new GradientPaint(0, 500, new Color(2, 3, 8, 0), 0, (float) H, new Color(2, 3, 8, 215)));
-        g.fill(new Rectangle2D.Double(x0, 500, w, H - 500));
+        g.fill(new Rectangle2D.Double(x0, 500, w, y0 + h - 500));   // hasta el borde del plano (con margen), no solo hasta H
         g.dispose();
         return Plane.cropped(img, x0, y0, SCALE);
     }
