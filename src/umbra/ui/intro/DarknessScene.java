@@ -3,9 +3,9 @@ package umbra.ui.intro;
 import java.awt.Graphics2D;
 
 /**
- * [v0.8.6] Escena 3: la oscuridad avanza como neblina desde los dos lados y lo apaga todo. Por
- * un instante, dos ojos blancos miran desde adentro. Sigue de corrido a la escena 2 y termina
- * en negro (la neblina lo cubrió todo), así que no necesita fundido.
+ * [v0.8.6] Escena 3: la oscuridad avanza como neblina desde los dos lados y lo apaga todo
+ * ([v0.8.7] también baja del techo y se cierra desde las esquinas; ver Mist). Sigue de corrido
+ * a la escena 2 y termina en negro (la neblina lo cubrió todo), así que no necesita fundido.
  */
 public final class DarknessScene extends Scene {
 
