@@ -41,7 +41,11 @@ final class LogiArt {
     private static final Color EYES = new Color(50, 22, 12);       // ojos oscuros
     private static final Color HALO = new Color(255, 190, 100);    // halo cálido
     private static final Color RING = new Color(255, 240, 200, 200);
-    // Con los ojos oscurecidos (solo en la intro): la llama se enfría hacia el rojo
+    // Halo de luz (drawGlow): del centro hacia afuera, hasta transparente
+    private static final Color LIGHT_INNER = new Color(255, 225, 160, 110);
+    private static final Color LIGHT_MID = new Color(255, 200, 120, 40);
+    private static final Color LIGHT_EDGE = new Color(255, 200, 120, 0);
+    // Con los ojos oscurecidos: la llama se enfría hacia el rojo
     private static final Color DARK_OUTER = new Color(150, 34, 40);
     private static final Color DARK_MIDDLE = new Color(226, 96, 52);
     private static final Color DARK_CORE = new Color(255, 190, 130);
@@ -54,9 +58,7 @@ final class LogiArt {
             new Point2D.Double(x, y), r,
             new float[] { 0f, 0.35f, 1f },
             new Color[] {
-                new Color(255, 225, 160, 110),
-                new Color(255, 200, 120, 40),
-                new Color(255, 200, 120, 0)
+                LIGHT_INNER, LIGHT_MID, LIGHT_EDGE
             });
         g.setPaint(glow);
         g.fill(new Ellipse2D.Double(x - r, y - r, r * 2, r * 2));

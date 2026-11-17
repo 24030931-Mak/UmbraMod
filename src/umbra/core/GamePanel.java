@@ -151,6 +151,10 @@ public class GamePanel extends JPanel {
         this(World.createDefault());
     }
 
+    /**
+     * Los fondos y el decorado de cada nivel se generan una sola vez aquí, así que
+     * Level.setScenery debe llamarse antes de construir el panel.
+     */
     public GamePanel(World world) {
         this.world = world;
         backgrounds = new Background[world.size()];

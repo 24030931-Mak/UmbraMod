@@ -48,17 +48,6 @@ public class Level {
     private long decorSeed = 11;
     private double ruinScale = 1.0;
 
-    /** Fija las semillas del fondo y de la decoración, y la escala de las ruinas del fondo. */
-    public void setScenery(long backgroundSeed, long decorSeed, double ruinScale) {
-        this.backgroundSeed = backgroundSeed;
-        this.decorSeed = decorSeed;
-        this.ruinScale = ruinScale;
-    }
-
-    public long getBackgroundSeed() { return backgroundSeed; }
-    public long getDecorSeed() { return decorSeed; }
-    public double getRuinScale() { return ruinScale; }
-
     /** 'exit' es el portal que lleva a la pantalla final; null si el nivel no tiene. */
     public Level(String number, String name, double width, Vec2 spawn, Rectangle2D exit) {
         this.number = number;
@@ -70,6 +59,13 @@ public class Level {
 
     public Level(String name, double width, Vec2 spawn, Rectangle2D exit) {
         this("", name, width, spawn, exit);
+    }
+
+    /** Fija las semillas del fondo y de la decoración, y la escala de las ruinas del fondo. */
+    public void setScenery(long backgroundSeed, long decorSeed, double ruinScale) {
+        this.backgroundSeed = backgroundSeed;
+        this.decorSeed = decorSeed;
+        this.ruinScale = ruinScale;
     }
 
     /**
@@ -343,6 +339,9 @@ public class Level {
     public Vec2 getLeftEntry() { return leftEntry; }
     public Vec2 getRightEntry() { return rightEntry; }
     public double getWidth() { return width; }
+    public long getBackgroundSeed() { return backgroundSeed; }
+    public long getDecorSeed() { return decorSeed; }
+    public double getRuinScale() { return ruinScale; }
     public Vec2 getSpawn() { return spawn; }
     public List<Rectangle2D> getPlatforms() { return Collections.unmodifiableList(platforms); }
     public List<Block> getBlocks() { return Collections.unmodifiableList(blocks); }

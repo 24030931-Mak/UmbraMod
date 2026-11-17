@@ -43,9 +43,10 @@ final class MapPainter {
     }
 
     /**
-     * Brillo y neblina sobre el nivel. La imagen cubre la cuadrícula completa (cols*CELL x
-     * rows*CELL), no solo el nivel: se recorta al rectángulo del nivel más 'slack' de holgura
-     * por cada lado (en unidades del mundo), y al terminar se restaura el recorte de antes.
+     * Brillo y neblina sobre el nivel. La imagen es del tamaño de la cuadrícula completa
+     * (cols*CELL x rows*CELL), no solo del nivel, pero con 'visible' solo se calcula el pedazo
+     * que se ve; se recorta al rectángulo del nivel más 'slack' de holgura por cada lado (en
+     * unidades del mundo), y al terminar se restaura el recorte de antes.
      */
     static void drawFog(Graphics2D g, Exploration ex, double width, double height, double slack,
                         double time, double light, Rectangle2D visible) {

@@ -58,8 +58,6 @@ public class MiniMap {
         double half = VIEW / 2.0;   // lo que se ve alrededor de Candil: un cuadro de VIEW x VIEW
         Rectangle2D visible = new Rectangle2D.Double(candil.x - half, candil.y - half, VIEW, VIEW);
         MapPainter.drawTerrain(g, level, h, visible);
-        // La imagen cubre la cuadrícula completa: se recorta al nivel, con 1 px de pantalla de
-        // holgura para que la neblina tape también los píxeles donde la repisa se suaviza (antialias)
         MapPainter.drawFog(g, ex, w, h, 1 / SCALE, time, 1, visible);
 
         if (logi != null) {
