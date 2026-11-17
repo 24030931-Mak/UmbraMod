@@ -63,6 +63,8 @@ Requisitos: **Java 8 o superior** (recomendado 17 o 21). No usa librerías exter
 | Tab | Abrir o cerrar el mapa |
 | M | Silenciar o encender la música |
 | F3 | Mostrar u ocultar los datos de depuración |
+| Enter, Esc, Espacio o clic | Saltar la intro |
+| I (en el menú) | Ver la intro otra vez |
 
 ## Cómo pasar el Nivel 1
 
@@ -116,10 +118,14 @@ src/umbra/
 │   └── Mat3.java             Matriz 3x3 (traslación, rotación, escala)
 ├── res/
 │   ├── ambiente.wav          Música
-│   ├── historia.txt          Texto del menú
+│   ├── intro.txt             Narración de la intro (una línea por escena; se puede editar)
 │   └── final.txt             Texto de la pantalla final
 ├── ui/
-│   ├── Menu.java             Menú de inicio con la historia
+│   ├── Intro.java            La intro: línea de tiempo de las seis escenas, fundidos y narración
+│   ├── TextSprite.java       Texto ya dibujado en una imagen, para que la intro vaya a 60 FPS
+│   ├── intro/                Escenas de la intro: el Gran Farol, la caverna dorada, las grietas,
+│   │                         los pedazos de luz, la neblina, el nacimiento de Candil y la llegada de Logi
+│   ├── Menu.java             Menú de inicio: el título y las opciones
 │   ├── LevelTitle.java       Título del nivel al empezar o al cruzar
 │   ├── Victory.java          Pantalla final
 │   ├── Text.java             Ayudantes para dibujar texto
@@ -150,7 +156,7 @@ src/umbra/
 - [x] Cámara con desplazamiento horizontal: el nivel mide tres pantallas
 - [x] Luz que se fija con un clic, escalón para subir bordes bajos y reaparición en la última repisa
 
-### v0.8.5 — Entrega en la materia (en desarrollo)
+### v0.8.5 — Mundo conectado, mapa y personajes
 - [x] Mecánica de la sombra: Candil flota dentro, pierde vida fuera y se desmorona cerca de la luz
 - [x] Ambiente de cueva: fondo por capas con parallax, niebla, esporas y viñeta
 - [x] Decoraciones: repisas de roca con musgo, hongos que brillan, losas con runas y columnas rotas
@@ -165,15 +171,20 @@ src/umbra/
 - [x] Nivel 2, "Las Galerías": cuatro tramos con ideas nuevas y un portal al final
 - [x] Mapa grande con Tab, con neblina sobre lo no recorrido
 - [x] Mapa circular arriba a la derecha, siempre a la vista
-- [ ] Capturas de pantalla en este README
+
+### v0.8.6 — La intro y las sombras negras
+- [x] Intro de unos 45 s dibujada por el propio juego: el Gran Farol, cómo se quebró, la oscuridad, el nacimiento de Candil y la llegada de Logi
+- [x] Candil y Logi de la intro son los mismos del juego; cámara con curvas suaves, grietas por desplazamiento del punto medio y pedazos de luz con tiro parabólico
+- [x] El menú ya no cuenta la historia letra por letra: la cuenta la intro
+- [x] Sombras negras con una orilla tenue
+- [x] Logi ya no cae sobre Candil al reaparecer
 
 ### Después
 Las versiones siguen: el juego todavía puede crecer.
-- [ ] Más niveles
-- [ ] Luces que se mueven solas
-- [ ] Enemigos: polillas de ceniza que persiguen la luz
-- [ ] Fragmentos del Gran Farol para coleccionar
-- [ ] Efectos de sonido
+- [ ] v0.9 — El mundo-cueva: zonas conectadas hacia los lados, arriba y abajo; mapa grande de la cueva; nivel 3 y la Cúpula; fragmentos del Gran Farol; guardar la partida
+- [ ] v0.9.5 — La persecución: la llama negra, luces que se mueven solas y obstáculos nuevos
+- [ ] El final: reparar el Gran Farol
+- [ ] Capturas de pantalla en este README
 
 ## Técnicas de graficación
 
