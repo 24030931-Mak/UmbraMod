@@ -137,7 +137,7 @@ public class Intro {
 
     /** Termina y suelta los escenarios (sus imágenes ocupan unos 75 MB); restart() los vuelve a crear. */
     private void finish() {
-        VoiceOver.stop();   // al terminar o saltar la intro, la narración se corta
+        VoiceOver.release();   // al terminar o saltar la intro, la narración se corta y se sueltan los clips
         finished = true;
         scenes = null;
         dark = null;
@@ -166,6 +166,7 @@ public class Intro {
                 new TogetherScene(dark, LENGTHS[4]),
                 new TitleScene(dark, LENGTHS[5]),
             };
+            for (Scene s : scenes) VoiceOver.preload(s.voice());   // abrir un clip congela un cuadro: se hace aquí, tapado por el fundido
             scenes[index].start();
         }
         return scenes;

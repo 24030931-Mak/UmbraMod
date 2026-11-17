@@ -48,6 +48,9 @@ public abstract class Scene {
     /** [v0.8.7] Ruta del clip de narración de la escena (null = no habla). */
     protected String voiceClip() { return null; }
 
+    /** El clip de voz de esta escena (o null), para cargarlo de antemano. */
+    public final String voice() { return voiceClip(); }
+
     /** [v0.8.7] En qué segundo de la escena empieza la narración. */
     protected double voiceAt() { return 0; }
 
