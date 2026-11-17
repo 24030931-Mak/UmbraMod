@@ -10,7 +10,6 @@ import java.awt.geom.Ellipse2D;
 import java.awt.geom.Rectangle2D;
 
 import umbra.core.Config;
-import umbra.entities.Block;
 import umbra.math.Mat3;
 import umbra.math.Vec2;
 import umbra.world.Exploration;
@@ -37,13 +36,7 @@ public class MiniMap {
     private static final double CENTER_Y = MARGIN + DIAMETER / 2.0;
     private static final double SCALE = (double) DIAMETER / VIEW;
 
-    private static final Color BACKDROP = new Color(5, 7, 14);
-    private static final Color LEVEL_BG = new Color(18, 22, 38);
-    private static final Color ROCK = new Color(120, 130, 160);
-    private static final Color BLOCK = new Color(150, 120, 190);
     private static final Color RING = new Color(150, 165, 200, 200);
-    private static final Color CANDIL = new Color(150, 225, 255);
-    private static final Color LOGI = new Color(255, 190, 80);
 
     private final Shape circle = new Ellipse2D.Double(CENTER_X - DIAMETER / 2.0, CENTER_Y - DIAMETER / 2.0,
             DIAMETER, DIAMETER);
@@ -54,7 +47,7 @@ public class MiniMap {
         Shape oldClip = g.getClip();
         Stroke oldStroke = g.getStroke();
 
-        g.setColor(BACKDROP);
+        g.setColor(MapPainter.BACKDROP);
         g.fill(circle);
         g.clip(circle);
         Mat3 view = Mat3.translation(CENTER_X, CENTER_Y).multiply(Mat3.scale(SCALE, SCALE))
@@ -64,33 +57,19 @@ public class MiniMap {
         double w = level.getWidth(), h = Config.HEIGHT;
         double half = VIEW / 2.0;   // lo que se ve alrededor de Candil: un cuadro de VIEW x VIEW
         Rectangle2D visible = new Rectangle2D.Double(candil.x - half, candil.y - half, VIEW, VIEW);
-        g.setColor(LEVEL_BG);
-        g.fill(new Rectangle2D.Double(0, 0, w, h));
-        g.setColor(ROCK);
-        for (Rectangle2D r : level.getPlatforms()) {
-            if (r.intersects(visible)) g.fill(r);
-        }
-        g.setColor(BLOCK);
-        for (Block b : level.getBlocks()) {
-            if (b.getBounds().intersects(visible)) g.fill(b.getBounds());
-        }
-        Shape levelClip = g.getClip();
+        MapPainter.drawTerrain(g, level, h, visible);
         // La imagen cubre la cuadrícula completa: se recorta al nivel, con 1 px de pantalla de
         // holgura para que la neblina tape también los píxeles donde la repisa se suaviza (antialias)
-        double slack = 1 / SCALE;
-        g.clip(new Rectangle2D.Double(-slack, -slack, w + 2 * slack, h + 2 * slack));
-        MapFog.glow(g, ex, 1);
-        MapFog.paint(g, ex, time);
-        g.setClip(levelClip);
+        MapPainter.drawFog(g, ex, w, h, 1 / SCALE, time, 1);
 
         if (logi != null) {
             double r = 3 / SCALE;   // 3 px de pantalla, pasados a unidades del mundo
-            g.setColor(LOGI);
+            g.setColor(MapPainter.LOGI);
             g.fill(new Ellipse2D.Double(logi.x - r, logi.y - r, 2 * r, 2 * r));
         }
 
         g.setTransform(onScreen);
-        g.setColor(CANDIL);   // Candil: el punto del centro
+        g.setColor(MapPainter.CANDIL);   // Candil: el punto del centro
         g.fill(new Ellipse2D.Double(CENTER_X - 3, CENTER_Y - 3, 6, 6));
 
         g.setClip(oldClip);

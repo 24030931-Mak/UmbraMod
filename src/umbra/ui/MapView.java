@@ -3,7 +3,6 @@ package umbra.ui;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
-import java.awt.Shape;
 import java.awt.Stroke;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
@@ -11,7 +10,6 @@ import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
 
 import umbra.core.Config;
-import umbra.entities.Block;
 import umbra.math.Mat3;
 import umbra.math.Vec2;
 import umbra.world.Exploration;
@@ -37,13 +35,7 @@ public class MapView {
     /** Segundos que tardan en encenderse las zonas descubiertas desde la última vez. */
     private static final double LIGHT_UP = 0.6;
 
-    private static final Color BACKDROP = new Color(5, 7, 14);
-    private static final Color LEVEL_BG = new Color(18, 22, 38);
-    private static final Color ROCK = new Color(120, 130, 160);
-    private static final Color BLOCK = new Color(150, 120, 190);
     private static final Color FRAME = new Color(90, 105, 140);
-    private static final Color CANDIL = new Color(150, 225, 255);
-    private static final Color LOGI = new Color(255, 190, 80);
 
     private boolean open;
     private double time;   // segundos desde que se abrió
@@ -64,7 +56,7 @@ public class MapView {
     public void draw(Graphics2D g, World world, Vec2 candil, Vec2 logi) {
         if (!open) return;
         Text.smooth(g);
-        g.setColor(BACKDROP);
+        g.setColor(MapPainter.BACKDROP);
         g.fillRect(0, 0, Config.WIDTH, Config.HEIGHT);
 
         double totalWidth = 0, height = Config.HEIGHT;
@@ -99,21 +91,8 @@ public class MapView {
     /** Un nivel en su propio espacio (0..ancho, 0..alto): fondo, roca y bloques, brillo y oscuridad. */
     private void drawLevel(Graphics2D g, Level level, Exploration ex, double light, double height) {
         double w = level.getWidth();
-        g.setColor(LEVEL_BG);
-        g.fill(new Rectangle2D.Double(0, 0, w, height));
-
-        g.setColor(ROCK);
-        for (Rectangle2D r : level.getPlatforms()) g.fill(r);
-        g.setColor(BLOCK);
-        for (Block b : level.getBlocks()) g.fill(b.getBounds());
-
-        // Las imágenes cubren la cuadrícula completa (cols*CELL x rows*CELL), no solo el nivel;
-        // se recorta al rectángulo del nivel para que la última zona no se salga.
-        Shape oldClip = g.getClip();
-        g.clip(new Rectangle2D.Double(0, 0, w, height));
-        MapFog.glow(g, ex, light);
-        MapFog.paint(g, ex, time, light);   // neblina opaca sobre lo no recorrido
-        g.setClip(oldClip);
+        MapPainter.drawTerrain(g, level, height, null);
+        MapPainter.drawFog(g, ex, w, height, 0, time, light);
 
         g.setStroke(new BasicStroke(3f));   // en unidades del mundo: ~0.5 px en pantalla
         g.setColor(FRAME);
@@ -133,18 +112,18 @@ public class MapView {
             flame.moveTo(logi.x, logi.y - 1.8 * r);
             flame.curveTo(logi.x + 1.2 * r, logi.y - 0.6 * r, logi.x + r, logi.y + r, logi.x, logi.y + r);
             flame.curveTo(logi.x - r, logi.y + r, logi.x - 1.2 * r, logi.y - 0.6 * r, logi.x, logi.y - 1.8 * r);
-            g.setColor(Text.withAlpha(LOGI, 0.35 * pulse));
+            g.setColor(Text.withAlpha(MapPainter.LOGI, 0.35 * pulse));
             g.fill(new Ellipse2D.Double(logi.x - 2 * r, logi.y - 2 * r, 4 * r, 4 * r));
-            g.setColor(LOGI);
+            g.setColor(MapPainter.LOGI);
             g.fill(flame);
         }
         if (candil != null) {
             double r = 4 / s;
             double cx = Math.max(2.5 * r, Math.min(candil.x, w - 2.5 * r));
             double cy = Math.max(2.5 * r, Math.min(candil.y, height - 2.5 * r));
-            g.setColor(Text.withAlpha(CANDIL, 0.3 * pulse));
+            g.setColor(Text.withAlpha(MapPainter.CANDIL, 0.3 * pulse));
             g.fill(new Ellipse2D.Double(cx - 2.5 * r, cy - 2.5 * r, 5 * r, 5 * r));
-            g.setColor(CANDIL);
+            g.setColor(MapPainter.CANDIL);
             g.fill(new Ellipse2D.Double(cx - r, cy - r, 2 * r, 2 * r));
         }
     }
