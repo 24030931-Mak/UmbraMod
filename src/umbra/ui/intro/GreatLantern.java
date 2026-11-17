@@ -8,8 +8,10 @@ import java.awt.RadialGradientPaint;
 import java.awt.RenderingHints;
 import java.awt.Shape;
 import java.awt.Stroke;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Area;
 import java.awt.geom.Ellipse2D;
+import java.awt.geom.Line2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.QuadCurve2D;
@@ -22,8 +24,13 @@ import java.util.Random;
  * [v0.8.6] El Gran Farol: una linterna antigua y gigante de piedra, hierro y vidrio.
  *
  * Se dibuja en coordenadas propias: el origen (0, 0) es el centro del pie del pedestal y la y
- * crece hacia abajo, así que todo el Farol queda en y negativas (mide unas 400 unidades de
- * alto). Quien lo dibuja pone antes la matriz que lo lleva a su lugar: vista · T(pie).
+ * crece hacia abajo, así que todo el Farol queda en y negativas (mide unas 475 unidades de
+ * alto, más las dos cadenas que suben de la argolla al techo). Quien lo dibuja pone antes la
+ * matriz que lo lleva a su lugar: vista · T(pie).
+ *
+ * [v0.8.7] Silueta gótica: el vidrio es alto y esbelto (en vez de una esfera ancha), el techo
+ * sube en aguja, el pedestal es de piedra tallada con chaflanes rectos y dos cadenas colosales
+ * lo cuelgan del techo de la caverna.
  *
  * Curvas de Bézier. La panza del vidrio es simétrica; su lado izquierdo son dos curvas cúbicas
  * seguidas (la panza y el cuello). Una cúbica va de P0 a P3 jalada por dos puntos de control:
@@ -36,25 +43,48 @@ import java.util.Random;
  * La luz son degradados radiales con centro en la llama: el vidrio va de casi blanco a ámbar, y
  * detrás hay una mancha de brillo aditivo (Glow) que respira. La llama son tres capas (orilla
  * naranja, amarillo, centro casi blanco), cada una un contorno de cuatro cúbicas cuya punta se
- * mece con ondas seno desfasadas; dentro tiene dos ojos oscuros que se pueden abrir.
+ * mece con ondas seno desfasadas.
  *
  * El Farol tiene dos aspectos: entero y encendido (cálido), o roto y apagado (frío, sin la
  * panza de vidrio). Lo que va detrás de la llama (el pedestal y el vidrio con sus degradados,
  * que es lo más caro de pintar) se dibuja una sola vez en una imagen por aspecto. En cada cuadro
- * se dibujan la llama, sus ojos, las grietas que van avanzando y, encima, el hierro y los
- * reflejos: esos sí como curvas, para que sus orillas se vean nítidas con cualquier acercamiento.
+ * se dibujan la llama, las grietas que van avanzando y, encima, el hierro y los reflejos: esos
+ * sí como curvas, para que sus orillas se vean nítidas con cualquier acercamiento. Las cadenas
+ * también van en imágenes aparte (una por aspecto): solo se ven de lejos, arriba del cuadro.
  */
 public final class GreatLantern {
 
     /** Altura del centro de la llama sobre el pie (negativa: hacia arriba). */
-    public static final double FLAME_Y = -172;
+    public static final double FLAME_Y = -205;
     /** De dónde salen las grietas: un punto del vidrio, a un lado de la llama. */
-    public static final double CRACK_X = -34, CRACK_Y = -214;
+    public static final double CRACK_X = -30, CRACK_Y = -250;
 
-    private static final double GLASS_BOTTOM = -98, GLASS_TOP = -300;
-    private static final double HEAD_Y = -158;   // centro de la cabeza redonda de la llama
+    private static final double GLASS_BOTTOM = -98, GLASS_TOP = -365;
+    private static final double HEAD_Y = -190;   // centro de la cabeza redonda de la llama
+    /**
+     * El lado izquierdo del vidrio, de abajo hacia arriba: la panza (P0, P1, P2, P3) y el cuello
+     * (sus dos puntos de control y su final), como pares x, y. El primer punto de control del
+     * cuello sigue la dirección P3 - P2 con que termina la panza, para que no se note la unión.
+     */
+    private static final double[] BELLY = { -56, GLASS_BOTTOM, -78, -135, -84, -245, -62, -295 };
+    private static final double[] NECK = { -53, -315, -45, -342, -44, GLASS_TOP };
+    /** Dónde está la argolla del remate (su orilla de arriba): de ahí salen las cadenas. */
+    private static final double RING_TOP = -475;
+    /** La punta del techo en aguja, sobre el collar. */
+    private static final double ROOF_PEAK = GLASS_TOP - 80;
+    /** Dónde termina arriba el mechero (la copa en que se apoya la cabeza de la llama). */
+    private static final double BURNER_TOP = -160;
+    /**
+     * Hasta dónde suben las cadenas (el techo, fuera del cuadro) y cuánto se abren a cada lado.
+     * El borde de la roca del techo queda en y ≈ -560…-500 (el mundo y ≈ 16…76) y el borde de
+     * arriba de la pantalla, en la toma de lejos, en y ≈ -582: las cadenas siguen de largo.
+     */
+    private static final double CHAIN_END = -700, CHAIN_SPREAD = 120;
     /** El rectángulo que ocupa el Farol (unidades propias) y los píxeles de imagen por unidad. */
-    private static final int LEFT = -140, TOP = -420, WIDTH = 280, HEIGHT = 430;
+    private static final int LEFT = -140, TOP = -490, WIDTH = 280, HEIGHT = 500;
+    /** El rectángulo de las cadenas (de la argolla al techo). */
+    private static final int CHAIN_LEFT = -140, CHAIN_TOP = (int) CHAIN_END - 20, CHAIN_WIDTH = 280,
+            CHAIN_HEIGHT = (int) (RING_TOP - CHAIN_END) + 32;
     private static final double RES = 2.5;
 
     // ---- Colores: encendido (cálidos) y apagado (fríos) ----
@@ -76,7 +106,7 @@ public final class GreatLantern {
     private final Area brokenGlass;
     private final Path2D[] glassShards;
     private final Cracks cracks;
-    private final BufferedImage litBack, brokenBack;
+    private final BufferedImage litBack, brokenBack, litChains, coldChains;
     private final Glow halo = new Glow(192, new Color(255, 206, 120), 0.5, 0.62);
     private final Glow ember = new Glow(48, new Color(255, 140, 60), 1.1, 0.5);
 
@@ -89,25 +119,25 @@ public final class GreatLantern {
     public GreatLantern(long seed) {
         Random rnd = new Random(seed);
         cracks = new Cracks(seed, CRACK_X, CRACK_Y, new double[][] {
-            { -96, -168 }, { -70, -268 }, { 20, -292 }, { 86, -236 }, { 92, -150 }, { 4, -108 }, { -70, -116 } });
+            { -88, -190 }, { -66, -312 }, { 14, -356 }, { 80, -282 }, { 86, -168 }, { 4, -104 }, { -66, -118 } });
 
         // El vidrio roto: a la panza se le resta toda la franja de en medio, con las dos orillas
         // en picos al azar. Quedan los colmillos de abajo (sobre el plato) y los de arriba (bajo
         // el collar).
         Path2D hole = new Path2D.Double();
-        int teeth = 13;
-        hole.moveTo(-130, -262);
+        int teeth = 11;
+        hole.moveTo(-110, -310);
         for (int i = 0; i <= teeth; i++) {   // orilla de arriba, de izquierda a derecha
-            double x = -118 + 236.0 * i / teeth;
-            hole.lineTo(x, i % 2 == 0 ? -252 - rnd.nextDouble() * 12 : -282 - rnd.nextDouble() * 14);
+            double x = -94 + 188.0 * i / teeth;
+            hole.lineTo(x, i % 2 == 0 ? -302 - rnd.nextDouble() * 12 : -334 - rnd.nextDouble() * 14);
         }
-        hole.lineTo(130, -262);
-        hole.lineTo(130, -128);
+        hole.lineTo(110, -310);
+        hole.lineTo(110, -128);
         for (int i = teeth; i >= 0; i--) {   // orilla de abajo, de regreso
-            double x = -118 + 236.0 * i / teeth;
+            double x = -94 + 188.0 * i / teeth;
             hole.lineTo(x, i % 2 == 0 ? -144 + rnd.nextDouble() * 14 : -112 + rnd.nextDouble() * 10);
         }
-        hole.lineTo(-130, -128);
+        hole.lineTo(-110, -128);
         hole.closePath();
         brokenGlass = new Area(glass);
         brokenGlass.subtract(new Area(hole));
@@ -127,6 +157,8 @@ public final class GreatLantern {
 
         litBack = render(false);
         brokenBack = render(true);
+        litChains = renderChains(true);
+        coldChains = renderChains(false);
     }
 
     // =========================================================
@@ -163,9 +195,10 @@ public final class GreatLantern {
     }
 
     public void draw(Graphics2D g) {
-        drawLayer(g, broken ? brokenBack : litBack);
+        drawLayer(g, broken ? coldChains : litChains, CHAIN_LEFT, CHAIN_TOP, CHAIN_WIDTH, CHAIN_HEIGHT);
+        drawLayer(g, broken ? brokenBack : litBack, LEFT, TOP, WIDTH, HEIGHT);
         if (broken) {
-            if (emberGlow > 0.02) ember.draw(g, 0, -128, 26 * emberGlow * (0.75 + 0.25 * Math.sin(time * 5.1)));
+            if (emberGlow > 0.02) ember.draw(g, 0, BURNER_TOP, 26 * emberGlow * (0.75 + 0.25 * Math.sin(time * 5.1)));
         } else {
             drawFlame(g);
             if (crack > 0) {   // las grietas, recortadas al vidrio
@@ -181,15 +214,15 @@ public final class GreatLantern {
         g.setStroke(oldStroke);
     }
 
-    /** Una de las imágenes ya hechas, en el rectángulo que ocupa el Farol. */
-    private static void drawLayer(Graphics2D g, BufferedImage layer) {
+    /** Una de las imágenes ya hechas, en su rectángulo (unidades propias del Farol). */
+    private static void drawLayer(Graphics2D g, BufferedImage layer, int x, int y, int w, int h) {
         Object aa = g.getRenderingHint(RenderingHints.KEY_ANTIALIASING);
         Object quality = g.getRenderingHint(RenderingHints.KEY_RENDERING);
         Object sampling = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
         g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, Scene.smoothScaling(g));   // bilineal con la tarjeta de video
-        g.drawImage(layer, LEFT, TOP, WIDTH, HEIGHT, null);
+        g.drawImage(layer, x, y, w, h, null);
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, aa);
         g.setRenderingHint(RenderingHints.KEY_RENDERING, quality);
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, sampling != null ? sampling
@@ -197,7 +230,7 @@ public final class GreatLantern {
     }
 
     /**
-     * La llama: tres capas, de la orilla naranja al centro casi blanco, y los ojos.
+     * La llama: tres capas, de la orilla naranja al centro casi blanco.
      * Agitada se estira, ondula más y parpadea (su transparencia sube y baja 7 veces por segundo).
      */
     private void drawFlame(Graphics2D g) {
@@ -251,6 +284,16 @@ public final class GreatLantern {
     //  LAS IMÁGENES (una sola vez)
     // =========================================================
 
+    /** Graphics de una imagen para el rectángulo que empieza en (x, y): matriz S(RES) · T(-x, -y). */
+    private static Graphics2D layerGraphics(BufferedImage img, int x, int y) {
+        Graphics2D g = img.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+        g.scale(RES, RES);
+        g.translate(-x, -y);
+        return g;
+    }
+
     /**
      * Dibuja una de las dos imágenes: lo que va detrás de la llama (pedestal, vidrio y mechero)
      * del Farol entero y encendido, o del roto y apagado. La imagen usa la matriz
@@ -258,30 +301,65 @@ public final class GreatLantern {
      */
     private BufferedImage render(boolean isBroken) {
         BufferedImage img = new BufferedImage((int) (WIDTH * RES), (int) (HEIGHT * RES), BufferedImage.TYPE_INT_ARGB_PRE);
-        Graphics2D g = img.createGraphics();
-        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
-        g.scale(RES, RES);
-        g.translate(-LEFT, -TOP);
+        Graphics2D g = layerGraphics(img, LEFT, TOP);
         drawPedestal(g, !isBroken, isBroken);
         drawGlass(g, !isBroken, isBroken);
         g.dispose();
         return img;
     }
 
-    /** Pedestal de piedra: tres escalones (el de arriba, un tambor con runas) y el plato de hierro. */
+    /** Las dos cadenas, de hierro cálido (encendido) o frío (apagado). */
+    private static BufferedImage renderChains(boolean lit) {
+        BufferedImage img = new BufferedImage((int) (CHAIN_WIDTH * RES), (int) (CHAIN_HEIGHT * RES), BufferedImage.TYPE_INT_ARGB_PRE);
+        Graphics2D g = layerGraphics(img, CHAIN_LEFT, CHAIN_TOP);
+        drawChains(g, lit);
+        g.dispose();
+        return img;
+    }
+
+    /**
+     * Pedestal de piedra tallada: tres escalones (el de arriba, un tambor con runas) y el plato
+     * de hierro. Cada escalón es un trapecio (los lados se cierran un poco hacia arriba) con las
+     * dos esquinas de arriba cortadas por un chaflán recto a 45°: el corte avanza lo mismo en x
+     * que en y. La cara del chaflán mira arriba y afuera, así que le da la luz: va más clara.
+     */
     private void drawPedestal(Graphics2D g, boolean lit, boolean isBroken) {
         Color top = lit ? STONE_LIT : STONE_COLD, side = lit ? STONE_SIDE : STONE_SIDE_COLD;
         Color iron = lit ? IRON_LIT : IRON_COLD, shine = lit ? IRON_SHINE : IRON_SHINE_COLD;
+        Color edge = Ease.fade(lit ? new Color(255, 240, 200) : shine, 0.75);
         double[][] steps = { { 130, 0, 22 }, { 104, -22, 20 }, { 80, -42, 26 } };   // medio ancho, pie, alto
+        double taper = 3, cut = 5;   // cuánto se cierra cada lado hacia arriba y el tamaño del chaflán
         for (double[] s : steps) {
+            double hw = s[0], foot = s[1], head = s[1] - s[2], hwTop = hw - taper;
+            Path2D block = new Path2D.Double();
+            block.moveTo(-hw, foot);
+            block.lineTo(-hwTop, head + cut);
+            block.lineTo(-hwTop + cut, head);
+            block.lineTo(hwTop - cut, head);
+            block.lineTo(hwTop, head + cut);
+            block.lineTo(hw, foot);
+            block.closePath();
             // Degradado de lado a lado, espejeado: más claro al centro, donde le da la luz
-            g.setPaint(new GradientPaint((float) -s[0], 0, side, 0, 0, top, true));
-            g.fill(new RoundRectangle2D.Double(-s[0], s[1] - s[2], 2 * s[0], s[2], 5, 5));
-            g.setColor(Ease.fade(lit ? new Color(255, 240, 200) : shine, 0.75));
-            g.fill(new Rectangle2D.Double(-s[0] + 3, s[1] - s[2], 2 * s[0] - 6, 1.6));
+            g.setPaint(new GradientPaint((float) -hw, 0, side, 0, 0, top, true));
+            g.fill(block);
+            // Las caras de los dos chaflanes (una franja clara a 45°) y el filo de arriba
+            g.setColor(Ease.fade(edge, 0.55));
+            for (int k = -1; k <= 1; k += 2) {
+                Path2D bevel = new Path2D.Double();
+                bevel.moveTo(k * hwTop, head + cut);
+                bevel.lineTo(k * (hwTop - cut), head);
+                bevel.lineTo(k * (hwTop - cut), head + 2);
+                bevel.lineTo(k * (hwTop - 1.2), head + cut + 0.8);
+                bevel.closePath();
+                g.fill(bevel);
+            }
+            g.setColor(edge);
+            g.fill(new Rectangle2D.Double(-hwTop + cut, head, 2 * (hwTop - cut), 1.6));
+            // Una junta tallada a lo largo del escalón y la sombra del pie
+            g.setColor(new Color(20, 10, 10, 46));
+            g.fill(new Rectangle2D.Double(-hw + 4, head + s[2] * 0.55, 2 * hw - 8, 1.2));
             g.setColor(new Color(20, 10, 10, 70));
-            g.fill(new Rectangle2D.Double(-s[0] + 2, s[1] - 2.5, 2 * s[0] - 4, 2.5));
+            g.fill(new Rectangle2D.Double(-hw + 2, foot - 2.5, 2 * hw - 4, 2.5));
         }
         // Runas talladas en el tambor: rombos, uno sí y uno no con una raya
         g.setStroke(THIN);
@@ -321,7 +399,7 @@ public final class GreatLantern {
     private void drawGlass(Graphics2D g, boolean lit, boolean isBroken) {
         Shape body = isBroken ? brokenGlass : glass;
         if (lit) {
-            g.setPaint(new RadialGradientPaint(new Point2D.Double(0, FLAME_Y), 150, new float[] { 0f, 0.42f, 1f },
+            g.setPaint(new RadialGradientPaint(new Point2D.Double(0, FLAME_Y), 175, new float[] { 0f, 0.42f, 1f },
                     new Color[] { new Color(255, 250, 218, 232), new Color(255, 224, 142, 196), new Color(238, 162, 72, 150) }));
             g.fill(body);
         } else {
@@ -332,9 +410,11 @@ public final class GreatLantern {
             cracks.draw(g, 1, 0);
             g.setClip(oldClip);
         }
+        // El mechero: la base, un vástago y la copa donde se apoya la cabeza de la llama
         g.setColor(lit ? IRON_LIT : IRON_COLD);
-        g.fill(new RoundRectangle2D.Double(-13, -126, 26, 30, 6, 6));
         g.fill(new Rectangle2D.Double(-20, -104, 40, 8));
+        g.fill(new Rectangle2D.Double(-6, BURNER_TOP + 20, 12, -BURNER_TOP - 118));
+        g.fill(new RoundRectangle2D.Double(-14, BURNER_TOP, 28, 24, 6, 6));
     }
 
     /** Los reflejos del vidrio (dos curvas claras) y su contorno. Van delante de la llama. */
@@ -342,17 +422,20 @@ public final class GreatLantern {
         if (!isBroken) {
             g.setStroke(new BasicStroke(5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
             g.setColor(new Color(255, 255, 255, 84));
-            g.draw(new QuadCurve2D.Double(-80, -138, -97, -190, -76, -240));
+            g.draw(new QuadCurve2D.Double(-58, -146, -73, -212, -56, -282));
             g.setStroke(new BasicStroke(2.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
             g.setColor(new Color(255, 255, 255, 50));
-            g.draw(new QuadCurve2D.Double(70, -146, 84, -180, 76, -208));
+            g.draw(new QuadCurve2D.Double(52, -160, 64, -205, 55, -250));
         }
         g.setStroke(THIN);
         g.setColor(Ease.fade(lit ? GLASS_EDGE : GLASS_EDGE_COLD, isBroken ? 0.8 : 0.6));
         g.draw(isBroken ? brokenGlass : glass);
     }
 
-    /** La jaula de hierro (costillas y aros), el collar, el techo curvo y el remate con su argolla. */
+    /**
+     * La jaula de hierro (costillas y aros), el collar, el techo en aguja (gótico) y el remate
+     * con su argolla.
+     */
     private static void drawIron(Graphics2D g, boolean lit) {
         Color iron = lit ? IRON_LIT : IRON_COLD;
         Color shineColor = lit ? IRON_SHINE : IRON_SHINE_COLD;
@@ -361,9 +444,9 @@ public final class GreatLantern {
         // Aros: se ven como arcos porque rodean la panza (una cuadrática que cuelga un poco)
         g.setStroke(INNER_RIB);
         g.setColor(iron);
-        for (double y : new double[] { -134, -256 }) {
+        for (double y : new double[] { -140, -282 }) {
             double hw = halfWidthAt(y);
-            g.draw(new QuadCurve2D.Double(-hw, y, 0, y + 11, hw, y));
+            g.draw(new QuadCurve2D.Double(-hw, y, 0, y + 9, hw, y));
         }
         // Costillas: la curva del vidrio con las x multiplicadas por un factor
         for (double f : new double[] { -0.45, 0.45 }) g.draw(rib(f));
@@ -373,34 +456,77 @@ public final class GreatLantern {
         g.setColor(shine);
         for (double f : new double[] { -0.985, 0.985, -0.44, 0.46 }) g.draw(rib(f));
 
-        // Collar y techo
+        // Collar y techo: el alero apenas sale del collar y sube en curva hasta una aguja
+        double eave = GLASS_TOP - 10, peak = ROOF_PEAK;
         g.setColor(iron);
-        g.fill(new RoundRectangle2D.Double(-58, GLASS_TOP - 14, 116, 16, 5, 5));
+        g.fill(new RoundRectangle2D.Double(-52, GLASS_TOP - 14, 104, 16, 5, 5));
         Path2D roof = new Path2D.Double();
-        roof.moveTo(-104, -310);
-        roof.quadTo(-44, -324, -15, -374);   // el techo sube en curva hacia la punta, como una pagoda
-        roof.lineTo(15, -374);
-        roof.quadTo(44, -324, 104, -310);
-        roof.quadTo(0, -322, -104, -310);
+        roof.moveTo(-84, eave);
+        roof.quadTo(-30, eave - 16, -10, peak);   // los lados se curvan hacia dentro: una aguja gótica
+        roof.lineTo(10, peak);
+        roof.quadTo(30, eave - 16, 84, eave);
+        roof.quadTo(0, eave - 12, -84, eave);
         roof.closePath();
-        g.setPaint(new GradientPaint(-104, 0, iron, 0, 0, Ease.mix(iron, shineColor, 0.3), true));
+        g.setPaint(new GradientPaint(-84, 0, iron, 0, 0, Ease.mix(iron, shineColor, 0.3), true));
         g.fill(roof);
         g.setStroke(THIN);
         g.setColor(shine);
-        Path2D eave = new Path2D.Double();
-        eave.moveTo(-104, -310);
-        eave.quadTo(0, -322, 104, -310);
-        g.draw(eave);
-        g.draw(new QuadCurve2D.Double(-100, -311, -44, -323, -16, -371));
+        Path2D eaveLine = new Path2D.Double();
+        eaveLine.moveTo(-84, eave);
+        eaveLine.quadTo(0, eave - 12, 84, eave);
+        g.draw(eaveLine);
+        g.draw(new QuadCurve2D.Double(-80, eave - 1, -30, eave - 16, -11, peak + 3));
 
-        // Remate: una bola y una argolla
+        // Remate: una bola sobre la aguja y, encima, la argolla de donde salen las cadenas
+        double ball = peak - 8;   // centro de la bola
         g.setColor(iron);
-        g.fill(new Ellipse2D.Double(-8, -388, 16, 16));
+        g.fill(new Ellipse2D.Double(-8, ball - 8, 16, 16));
         g.setStroke(new BasicStroke(3.4f));
-        g.draw(new Ellipse2D.Double(-10, -410, 20, 22));
+        g.draw(new Ellipse2D.Double(-10, RING_TOP, 20, ball - 6 - RING_TOP));
         g.setStroke(THIN);
         g.setColor(shine);
-        g.draw(new QuadCurve2D.Double(-6, -384, 0, -390, 6, -384));
+        g.draw(new QuadCurve2D.Double(-6, ball + 4, 0, ball - 2, 6, ball + 4));
+    }
+
+    /**
+     * Las dos cadenas colosales: salen juntas de la argolla y suben abiertas en V hasta el techo
+     * (CHAIN_END, más arriba que el borde de cualquier toma: nunca se ve dónde terminan). Cada
+     * eslabón es un óvalo; uno sí y uno no se ve de frente (el aro abierto) o de canto (una
+     * barra), como en una cadena de verdad, donde cada eslabón gira 90° respecto al anterior.
+     * Para ponerlos a lo largo de la cadena se rota cada uno al ángulo de la recta:
+     *     M = T(punto) · R(ángulo)
+     */
+    private static void drawChains(Graphics2D g, boolean lit) {
+        Color iron = lit ? IRON_LIT : IRON_COLD;
+        Color shine = Ease.fade(lit ? IRON_SHINE : IRON_SHINE_COLD, 0.6);
+        Stroke ring = new BasicStroke(5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
+        double linkLength = 30, pitch = 23;   // largo de un eslabón y distancia entre sus centros
+        for (int side = -1; side <= 1; side += 2) {
+            double x0 = side * 3, y0 = RING_TOP + 4, x1 = side * CHAIN_SPREAD, y1 = CHAIN_END;
+            double len = Math.hypot(x1 - x0, y1 - y0), angle = Math.atan2(y1 - y0, x1 - x0);
+            int links = (int) Math.ceil(len / pitch) + 1;
+            for (int i = 0; i < links; i++) {
+                double d = Math.min(len, linkLength / 2 + i * pitch);
+                AffineTransform old = g.getTransform();
+                g.translate(x0 + (x1 - x0) * d / len, y0 + (y1 - y0) * d / len);
+                g.rotate(angle);
+                if (i % 2 == 0) {   // de frente: el aro abierto
+                    g.setStroke(ring);
+                    g.setColor(iron);
+                    g.draw(new RoundRectangle2D.Double(-linkLength / 2, -8.5, linkLength, 17, 16, 16));
+                    g.setStroke(THIN);
+                    g.setColor(shine);
+                    g.draw(new Line2D.Double(-linkLength / 2 + 7, -6.8, linkLength / 2 - 7, -6.8));
+                } else {            // de canto: una barra
+                    g.setColor(iron);
+                    g.fill(new RoundRectangle2D.Double(-linkLength / 2, -3.4, linkLength, 6.8, 6, 6));
+                    g.setStroke(THIN);
+                    g.setColor(shine);
+                    g.draw(new Line2D.Double(-linkLength / 2 + 4, -2, linkLength / 2 - 4, -2));
+                }
+                g.setTransform(old);
+            }
+        }
     }
 
     // =========================================================
@@ -409,13 +535,10 @@ public final class GreatLantern {
 
     /** La panza de vidrio completa: el lado izquierdo de abajo hacia arriba, y el derecho de regreso. */
     private static Path2D glassShape() {
-        Path2D p = new Path2D.Double();
-        p.moveTo(-56, GLASS_BOTTOM);
-        p.curveTo(-108, -122, -112, -214, -84, -252);      // la panza
-        p.curveTo(-68, -276, -50, -284, -48, GLASS_TOP);   // el cuello
-        p.lineTo(48, GLASS_TOP);
-        p.curveTo(50, -284, 68, -276, 84, -252);
-        p.curveTo(112, -214, 108, -122, 56, GLASS_BOTTOM);
+        Path2D p = rib(1);
+        p.lineTo(-NECK[4], NECK[5]);
+        p.curveTo(-NECK[2], NECK[3], -NECK[0], NECK[1], -BELLY[6], BELLY[7]);
+        p.curveTo(-BELLY[4], BELLY[5], -BELLY[2], BELLY[3], -BELLY[0], BELLY[1]);
         p.closePath();
         return p;
     }
@@ -423,9 +546,9 @@ public final class GreatLantern {
     /** El lado izquierdo del vidrio con las x multiplicadas por f (f negativo: del lado derecho). */
     private static Path2D rib(double f) {
         Path2D p = new Path2D.Double();
-        p.moveTo(-56 * f, GLASS_BOTTOM);
-        p.curveTo(-108 * f, -122, -112 * f, -214, -84 * f, -252);
-        p.curveTo(-68 * f, -276, -50 * f, -284, -48 * f, GLASS_TOP);
+        p.moveTo(BELLY[0] * f, BELLY[1]);
+        p.curveTo(BELLY[2] * f, BELLY[3], BELLY[4] * f, BELLY[5], BELLY[6] * f, BELLY[7]);   // la panza
+        p.curveTo(NECK[0] * f, NECK[1], NECK[2] * f, NECK[3], NECK[4] * f, NECK[5]);         // el cuello
         return p;
     }
 
@@ -435,11 +558,12 @@ public final class GreatLantern {
      * en 40 valores de t y se toma el punto cuya y queda más cerca de la pedida.
      */
     private static double halfWidthAt(double y) {
-        double best = 56, bestGap = Double.MAX_VALUE;
+        double best = -BELLY[0], bestGap = Double.MAX_VALUE;
         for (int i = 0; i <= 40; i++) {
             double t = i / 40.0, s = 1 - t;
-            double by = s * s * s * GLASS_BOTTOM + 3 * s * s * t * -122 + 3 * s * t * t * -214 + t * t * t * -252;
-            double bx = s * s * s * 56 + 3 * s * s * t * 108 + 3 * s * t * t * 112 + t * t * t * 84;
+            double a = s * s * s, b = 3 * s * s * t, c = 3 * s * t * t, d = t * t * t;
+            double by = a * BELLY[1] + b * BELLY[3] + c * BELLY[5] + d * BELLY[7];
+            double bx = -(a * BELLY[0] + b * BELLY[2] + c * BELLY[4] + d * BELLY[6]);
             if (Math.abs(by - y) < bestGap) {
                 bestGap = Math.abs(by - y);
                 best = bx;

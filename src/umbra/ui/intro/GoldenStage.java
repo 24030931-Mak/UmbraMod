@@ -15,10 +15,14 @@ import umbra.math.Mat3;
  */
 public final class GoldenStage {
 
-    /** La cámara "de lejos" (se ve toda la caverna) y la "de cerca" (la llama llena la pantalla). */
+    /**
+     * La cámara "de lejos" (se ve toda la caverna) y la "de cerca" (la llama llena la pantalla).
+     * [v0.8.7] La de cerca mira 28 unidades arriba de la llama: con el vidrio alto cabe entero,
+     * del plato al collar.
+     */
     public static final double WIDE_X = 640, WIDE_Y = 360, WIDE_ZOOM = 1;
     public static final double CLOSE_X = GoldenCavern.LANTERN_X,
-            CLOSE_Y = GoldenCavern.LANTERN_Y + GreatLantern.FLAME_Y - 12, CLOSE_ZOOM = 2.45;
+            CLOSE_Y = GoldenCavern.LANTERN_Y + GreatLantern.FLAME_Y - 28, CLOSE_ZOOM = 2.45;
     /** Qué tan oscura queda la caverna al terminar la escena 2 (de 0 a 1); con eso empieza la 3. */
     public static final double DUSK = 0.74;
 
