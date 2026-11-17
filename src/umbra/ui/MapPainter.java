@@ -48,11 +48,11 @@ final class MapPainter {
      * por cada lado (en unidades del mundo), y al terminar se restaura el recorte de antes.
      */
     static void drawFog(Graphics2D g, Exploration ex, double width, double height, double slack,
-                        double time, double light) {
+                        double time, double light, Rectangle2D visible) {
         Shape oldClip = g.getClip();
         g.clip(new Rectangle2D.Double(-slack, -slack, width + 2 * slack, height + 2 * slack));
         MapFog.glow(g, ex, light);
-        MapFog.paint(g, ex, time, light);   // neblina opaca sobre lo no recorrido
+        MapFog.paint(g, ex, time, light, visible);   // neblina opaca sobre lo no recorrido
         g.setClip(oldClip);
     }
 }

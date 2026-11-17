@@ -60,7 +60,7 @@ public class MiniMap {
         MapPainter.drawTerrain(g, level, h, visible);
         // La imagen cubre la cuadrícula completa: se recorta al nivel, con 1 px de pantalla de
         // holgura para que la neblina tape también los píxeles donde la repisa se suaviza (antialias)
-        MapPainter.drawFog(g, ex, w, h, 1 / SCALE, time, 1);
+        MapPainter.drawFog(g, ex, w, h, 1 / SCALE, time, 1, visible);
 
         if (logi != null) {
             double r = 3 / SCALE;   // 3 px de pantalla, pasados a unidades del mundo

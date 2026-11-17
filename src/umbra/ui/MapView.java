@@ -92,7 +92,7 @@ public class MapView {
     private void drawLevel(Graphics2D g, Level level, Exploration ex, double light, double height) {
         double w = level.getWidth();
         MapPainter.drawTerrain(g, level, height, null);
-        MapPainter.drawFog(g, ex, w, height, 0, time, light);
+        MapPainter.drawFog(g, ex, w, height, 0, time, light, null);
 
         g.setStroke(new BasicStroke(3f));   // en unidades del mundo: ~0.5 px en pantalla
         g.setColor(FRAME);
