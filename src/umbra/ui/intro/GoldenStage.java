@@ -68,4 +68,19 @@ public final class GoldenStage {
             g.fillRect(0, 0, Config.WIDTH, Config.HEIGHT);
         }
     }
+
+    /**
+     * [v0.8.7] El cuadro de impacto: toda la pantalla de un color ('paper') y encima la silueta
+     * del Farol roto, sólida y casi negra, con la misma matriz vista · T(pie) que en draw. No
+     * dibuja la caverna: estos pocos cuadros son los más baratos de la escena.
+     */
+    public void drawImpact(Graphics2D g, IntroCamera camera, Color paper) {
+        g.setColor(paper);
+        g.fillRect(0, 0, Config.WIDTH, Config.HEIGHT);
+        AffineTransform old = g.getTransform();
+        g.transform(camera.getViewMatrix()
+                .multiply(Mat3.translation(GoldenCavern.LANTERN_X, GoldenCavern.LANTERN_Y)).toAffineTransform());
+        lantern.drawSilhouette(g);
+        g.setTransform(old);
+    }
 }

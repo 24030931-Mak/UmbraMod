@@ -59,6 +59,10 @@ import umbra.math.Mat3;
  * [v0.8.7] En vez de ojos, dos anillos de astrolabio giran alrededor de la llama (más rápido
  * cuanto más agitada está) y un pilar de luz tenue sube al techo y baja al pedestal detrás del
  * Farol. Los dos son de la luz del Farol: al romperse se apagan con él (bajo el destello).
+ *
+ * [v0.8.7] Para el clímax: los anillos pueden latir despacio (presagio), el halo y el pilar se
+ * pueden encoger hacia la llama (la implosión) y hay una silueta del Farol roto, toda de un
+ * color casi negro, para el cuadro de impacto.
  */
 public final class GreatLantern {
 
@@ -113,6 +117,13 @@ public final class GreatLantern {
     private static final double RING_RUSH = 2.5;
     private static final Stroke RING_EDGE = new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
     private static final Stroke RING_TICK = new BasicStroke(0.9f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
+    /**
+     * El latido de los anillos (presagio): cada RING_BEAT segundos crecen un poco y sus orillas
+     * se aclaran hacia el blanco de la llama. Con pulso p (0 a 1) y t el reloj del Farol,
+     *     latido = p · (1 - cos(2π·t / RING_BEAT)) / 2      (de 0 a p, sin brincos)
+     *     radio  = R · (1 + RING_SWELL · latido)
+     */
+    private static final double RING_BEAT = 1.8, RING_SWELL = 0.045;
 
     /**
      * El pilar de luz: el rectángulo que ocupa (unidades propias; sube hasta donde terminan las
@@ -131,6 +142,9 @@ public final class GreatLantern {
     private static final int PILLAR_UP_END = -372, PILLAR_DOWN_START = -90;   // cortes dentro del collar (-379..-363) y del plato (desde -100)
     /** La transparencia del pilar en su parte más fuerte (de 0 a 255): tenue, no un reflector. */
     private static final int PILLAR_ALPHA = 80;
+    /** El color de la silueta del cuadro de impacto (#05060E) y cuánto se refuerza su opacidad. */
+    private static final int INK = 0x05060E;
+    private static final int INK_BOOST = 6;
 
     // ---- Colores: encendido (cálidos) y apagado (fríos) ----
     private static final Color STONE_LIT = new Color(244, 202, 140), STONE_COLD = new Color(74, 78, 100);
@@ -152,6 +166,7 @@ public final class GreatLantern {
     private final Path2D[] glassShards;
     private final Cracks cracks;
     private final BufferedImage litBack, brokenBack, litChains, coldChains, pillar;
+    private final BufferedImage inkBack, inkChains;   // la silueta del Farol roto (cuadro de impacto)
     private final Glow halo = new Glow(192, new Color(255, 206, 120), 0.5, 0.62);
     private final Glow ember = new Glow(48, new Color(255, 140, 60), 1.1, 0.5);
 
@@ -160,6 +175,8 @@ public final class GreatLantern {
     private double crack;           // cuánto han avanzado las grietas (0 a 1)
     private boolean broken;         // roto y apagado
     private double emberGlow;       // brasa que queda en el mechero al romperse (0 a 1)
+    private double ringPulse;       // qué tan fuerte laten los anillos (0 = nada, 1 = presagio)
+    private double haloScale = 1;   // el halo y el pilar encogidos (1 = normal; la implosión)
     private final double[] ringTurn = new double[RING_RADIUS.length];   // cuánto ha girado cada anillo
 
     public GreatLantern(long seed) {
@@ -206,6 +223,8 @@ public final class GreatLantern {
         litChains = renderChains(true);
         coldChains = renderChains(false);
         pillar = renderPillar();
+        inkBack = renderSilhouette();
+        inkChains = inked(coldChains);
     }
 
     // =========================================================
@@ -223,6 +242,12 @@ public final class GreatLantern {
 
     /** La brasa que queda en el mechero después de romperse (0 a 1). */
     public void setEmber(double e) { this.emberGlow = Ease.clamp01(e); }
+
+    /** Qué tan fuerte laten los anillos, de 0 (nada) a 1: el presagio de que se va a romper. */
+    public void setRingPulse(double p) { this.ringPulse = Ease.clamp01(p); }
+
+    /** Escala del halo y del ancho del pilar de luz: 1 = normal, menos = la luz se encoge. */
+    public void setHaloScale(double s) { this.haloScale = Math.max(0, s); }
 
     public void update(double dt) {
         time += dt;
@@ -243,11 +268,24 @@ public final class GreatLantern {
      */
     public void drawHalo(Graphics2D g) {
         if (broken) return;
-        drawPillar(g, PILLAR_TOP, PILLAR_UP_END);
-        drawPillar(g, PILLAR_DOWN_START, PILLAR_TOP + PILLAR_HEIGHT);
+        // El pilar se angosta hacia su eje con la misma escala que el halo
+        int half = (int) Math.round(PILLAR_WIDTH / 2 * haloScale);
+        if (half > 0) {
+            drawPillar(g, -half, half, PILLAR_TOP, PILLAR_UP_END);
+            drawPillar(g, -half, half, PILLAR_DOWN_START, PILLAR_TOP + PILLAR_HEIGHT);
+        }
         double breath = 1 + 0.035 * Math.sin(time * 1.7) + 0.02 * Math.sin(time * 4.3);
         double leak = 1 + 0.45 * crack;   // por las grietas se escapa más luz
-        halo.draw(g, 0, FLAME_Y, 128 * breath * leak);
+        halo.draw(g, 0, FLAME_Y, 128 * breath * leak * haloScale);
+    }
+
+    /**
+     * La silueta del Farol roto (cadenas, pedestal, vidrio quebrado, hierro), toda de #05060E:
+     * el cuadro de impacto la pone sobre la pantalla en blanco. Son dos imágenes ya hechas.
+     */
+    public void drawSilhouette(Graphics2D g) {
+        drawLayer(g, inkChains, CHAIN_LEFT, CHAIN_TOP, CHAIN_WIDTH, CHAIN_HEIGHT);
+        drawLayer(g, inkBack, LEFT, TOP, WIDTH, HEIGHT);
     }
 
     public void draw(Graphics2D g) {
@@ -274,10 +312,10 @@ public final class GreatLantern {
         g.setStroke(oldStroke);
     }
 
-    /** El tramo del pilar de luz entre las alturas y0 y y1 (unidades propias, pares). */
-    private void drawPillar(Graphics2D g, int y0, int y1) {
+    /** El tramo del pilar de luz entre las alturas y0 y y1 (unidades propias, pares), de x0 a x1 de ancho. */
+    private void drawPillar(Graphics2D g, int x0, int x1, int y0, int y1) {
         int sy0 = (int) Math.round((y0 - PILLAR_TOP) * PILLAR_RES), sy1 = (int) Math.round((y1 - PILLAR_TOP) * PILLAR_RES);
-        drawLayer(g, pillar, PILLAR_LEFT, y0, PILLAR_LEFT + PILLAR_WIDTH, y1, 0, sy0, pillar.getWidth(), sy1);
+        drawLayer(g, pillar, x0, y0, x1, y1, 0, sy0, pillar.getWidth(), sy1);
     }
 
     /** Una de las imágenes ya hechas, en su rectángulo (unidades propias del Farol). */
@@ -370,6 +408,8 @@ public final class GreatLantern {
     private void drawArcaneRings(Graphics2D g, boolean front) {
         double fade = front ? 1 : 0.42;
         double wobble = 0.05 * agitation * Math.sin(time * 6.3);   // agitada, la inclinación tiembla
+        double beat = ringPulse * 0.5 * (1 - Math.cos(2 * Math.PI * time / RING_BEAT));
+        Color shineColor = beat > 0.004 ? Ease.mix(IRON_SHINE, CORE, 0.55 * beat) : IRON_SHINE;
         int arc = 24;                                            // tramos de cada media elipse
         double[] local = new double[2 * (arc + 1)], pts = new double[4 * (arc + 1)];
         double[] tick = new double[4];
@@ -380,7 +420,7 @@ public final class GreatLantern {
             local[2 * i + 1] = Math.sin(a);
         }
         for (int r = 0; r < RING_RADIUS.length; r++) {
-            double radius = RING_RADIUS[r];
+            double radius = RING_RADIUS[r] * (1 + RING_SWELL * beat);
             Mat3 place = Mat3.translation(0, FLAME_Y)
                     .multiply(Mat3.rotation(RING_TILT[r] + (r == 0 ? wobble : -wobble)));
             Mat3 shape = Mat3.scale(radius, radius * RING_SQUASH);   // S(1, 0.28) · S(R): el círculo unitario
@@ -412,7 +452,7 @@ public final class GreatLantern {
             if (!front) {
                 lowEdge.append(highEdge, false);
                 g.setStroke(RING_EDGE);
-                g.setColor(Ease.fade(IRON_SHINE, 0.8 * fade));
+                g.setColor(Ease.fade(shineColor, 0.8 * fade));
                 g.draw(lowEdge);
                 continue;
             }
@@ -442,9 +482,9 @@ public final class GreatLantern {
 
             // Las orillas: hilos dorados (la de abajo, que da a la llama, más brillante)
             g.setStroke(RING_EDGE);
-            g.setColor(Ease.fade(IRON_SHINE, 0.95));
+            g.setColor(Ease.fade(shineColor, 0.95));
             g.draw(lowEdge);
-            g.setColor(Ease.fade(IRON_SHINE, 0.6));
+            g.setColor(Ease.fade(shineColor, 0.6));
             g.draw(highEdge);
         }
     }
@@ -480,6 +520,39 @@ public final class GreatLantern {
         drawGlass(g, !isBroken, isBroken);
         g.dispose();
         return img;
+    }
+
+    /**
+     * La silueta del cuerpo del Farol roto: lo mismo que se ve de él (la imagen de atrás, el
+     * contorno del vidrio quebrado y el hierro) pintado en una imagen aparte y luego entintado.
+     */
+    private BufferedImage renderSilhouette() {
+        BufferedImage img = new BufferedImage((int) (WIDTH * RES), (int) (HEIGHT * RES), BufferedImage.TYPE_INT_ARGB_PRE);
+        Graphics2D g = layerGraphics(img, LEFT, TOP);
+        g.drawImage(brokenBack, LEFT, TOP, WIDTH, HEIGHT, null);   // misma escala: píxel por píxel
+        drawReflections(g, false, true);
+        drawIron(g, false);
+        g.dispose();
+        return inked(img);
+    }
+
+    /**
+     * Una copia de la imagen toda de color INK, conservando su forma. Cada píxel se queda con
+     * su opacidad multiplicada por INK_BOOST (sin pasar de 255), para que el vidrio quebrado,
+     * que es casi transparente, salga sólido; las orillas suavizadas siguen suaves. Como la
+     * imagen es premultiplicada, cada canal se guarda ya multiplicado: c · a / 255.
+     */
+    private static BufferedImage inked(BufferedImage src) {
+        int w = src.getWidth(), h = src.getHeight();
+        int[] px = (int[]) src.getRaster().getDataElements(0, 0, w, h, null);
+        int ir = (INK >> 16) & 255, ig = (INK >> 8) & 255, ib = INK & 255;
+        for (int i = 0; i < px.length; i++) {
+            int a = Math.min(255, (px[i] >>> 24) * INK_BOOST);
+            px[i] = (a << 24) | (ir * a / 255 << 16) | (ig * a / 255 << 8) | (ib * a / 255);
+        }
+        BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB_PRE);
+        out.getRaster().setDataElements(0, 0, w, h, px);
+        return out;
     }
 
     /** Las dos cadenas, de hierro cálido (encendido) o frío (apagado). */
