@@ -1,19 +1,8 @@
 package umbra.entities;
 
-import java.awt.BasicStroke;
-import java.awt.Color;
 import java.awt.Graphics2D;
-import java.awt.Paint;
-import java.awt.RadialGradientPaint;
-import java.awt.Shape;
-import java.awt.Stroke;
-import java.awt.geom.AffineTransform;
-import java.awt.geom.Ellipse2D;
-import java.awt.geom.Path2D;
-import java.awt.geom.Point2D;
 
 import umbra.core.Config;
-import umbra.math.Mat3;
 import umbra.math.Vec2;
 
 /**
@@ -36,34 +25,17 @@ public class LightSource {
     /** Con Candil más cerca que esto (px), Logi se agita: avisa que él corre peligro. */
     public static final double AGITATED_DISTANCE = 150;
 
-    // ---- Dibujo de la llama (px, segundos y radianes) ----
-    /** Radio de la cabeza redonda de la llama. */
-    private static final double HEAD = 9;
-    /** Largo de la llama calmada (del centro de la cabeza a la punta), en radios de la cabeza. */
-    private static final double CALM_LENGTH = 1.7;
+    // ---- Animación de la llama (px, segundos y radianes); lo que solo dibuja vive en LogiArt ----
     /** Entre estas rapideces (px/s) la gota se vuelve cometa poco a poco. */
     private static final double SLOW = 120, FAST = 640;
     /** Desde esta rapidez (px/s) la cola empieza a enroscarse si sube. */
     private static final double SPIRAL_SPEED = 300;
     /** Qué tan rápido siguen los parámetros de la forma a su meta (mayor = más rápido). */
     private static final double SHAPE_RESPONSE = 10;
-    /** Flota: sube y baja BOB px, despacio (BOB_SPEED rad/s). */
-    private static final double BOB = 2, BOB_SPEED = 2.4;
     /** Parpadeo de la llama agitada: unas 7 veces por segundo (rad/s). */
     private static final double FLICKER_SPEED = 2 * Math.PI * 7;
     /** Segundos que dura cerrado un parpadeo de los ojos. */
     private static final double BLINK_TIME = 0.12;
-
-    private static final Color OUTER = new Color(255, 135, 40);    // orillas naranjas
-    private static final Color MIDDLE = new Color(255, 200, 70);
-    private static final Color CORE = new Color(255, 248, 215);    // centro blanco amarillo
-    private static final Color EYES = new Color(50, 22, 12);       // ojos oscuros
-    private static final Color HALO = new Color(255, 190, 100);    // halo cálido
-    private static final Color RING = new Color(255, 240, 200, 200);
-    // Con los ojos oscurecidos (solo en la intro): la llama se enfría hacia el rojo
-    private static final Color DARK_OUTER = new Color(150, 34, 40);
-    private static final Color DARK_MIDDLE = new Color(226, 96, 52);
-    private static final Color DARK_CORE = new Color(255, 190, 130);
 
     private double x, y;
     private double targetX, targetY;
@@ -243,174 +215,14 @@ public class LightSource {
         blinkLeft = Math.max(0, blinkLeft - dt);
     }
 
-    /** Halo de luz: degradado radial que se desvanece hacia afuera. */
+    /** Halo de luz. Lo dibuja LogiArt. */
     public void drawGlow(Graphics2D g) {
-        float r = (float) Config.LIGHT_RADIUS;
-        RadialGradientPaint glow = new RadialGradientPaint(
-            new Point2D.Double(x, y), r,
-            new float[] { 0f, 0.35f, 1f },
-            new Color[] {
-                new Color(255, 225, 160, 110),
-                new Color(255, 200, 120, 40),
-                new Color(255, 200, 120, 0)
-            });
-        g.setPaint(glow);
-        g.fill(new Ellipse2D.Double(x - r, y - r, r * 2, r * 2));
+        LogiArt.drawGlow(g, this);
     }
 
-    /**
-     * [v1.0] Logi: la llama con ojos, en el punto de la luz. Todo sale de los parámetros de la forma:
-     *   1. un halo cálido pequeño;
-     *   2. (etérea) lenguas de fuego difusas;
-     *   3. tres capas de llama (orillas naranjas, centro blanco amarillo) con la cola girada
-     *      y, entre la de afuera y las de adentro, (subiendo) la cola enroscada en espiral.
-     *      Se dibujan en coordenadas locales, con la cola sobre +x, y la matriz
-     *      M = T(x, y + flote) · R(ángulo de la cola) las lleva a su lugar. El ángulo es
-     *      atan2 del vector de la cola, y su largo dice qué tanto se estira la cola;
-     *   4. los ojos, derechos aunque la cola gire;
-     *   5. el anillo si está fija.
-     * Flota con un vaivén suave, pero solo el dibujo: la luz sigue en (x, y).
-     */
+    /** [v1.0] Logi: la llama con ojos, en el punto de la luz. Lo dibuja LogiArt. */
     public void drawCore(Graphics2D g) {
-        Paint oldPaint = g.getPaint();
-        AffineTransform old = g.getTransform();
-
-        double cx = x, cy = y + BOB * Math.sin(time * BOB_SPEED);   // flota
-        double e = etherealMix;
-        double tail = Math.hypot(tailX, tailY);   // 1 = cola bien definida; 0 = llama redonda
-        double flick = 1 - 0.4 * agitation * (0.5 + 0.5 * Math.sin(flickerPhase));   // agitada: parpadea
-        double r = HEAD * (1 - 0.15 * agitation);                                    // agitada: más delgada
-        double len = Math.max(HEAD, HEAD * CALM_LENGTH * (1 + 2 * motion) * tail)    // rápida: cometa
-                * (1 + 0.9 * agitation);                                             // agitada: se estira
-        double amp = HEAD * (0.12 + 0.25 * agitation + 0.5 * rise + 0.15 * e);      // cuánto ondula
-        double angle = Math.atan2(tailY, tailX)
-                + 0.08 * Math.sin(time * 1.9) * (1 - motion)          // vaivén en calma
-                + 0.25 * agitation * Math.sin(flickerPhase * 0.55);   // agitada: se sacude
-
-        // 1. Halo cálido
-        float hr = (float) (HEAD * (2.6 + 2 * e));
-        g.setPaint(new RadialGradientPaint(new Point2D.Double(cx, cy), hr, new float[] { 0f, 1f },
-                new Color[] { withAlpha(HALO, (80 + 40 * e) * (1 - 0.4 * eyeDarkness)), withAlpha(HALO, 0) }));
-        g.fill(new Ellipse2D.Double(cx - hr, cy - hr, 2 * hr, 2 * hr));
-
-        // 2 y 3. La llama en coordenadas locales: M = T(cx, cy) · R(angle)
-        g.transform(Mat3.translation(cx, cy).multiply(Mat3.rotation(angle)).toAffineTransform());
-        if (e > 0.01) drawWisps(g, r, len, 255 * e);
-        Path2D outer = layer(0, r, len, amp, flamePhase);
-        double d = 0.5 * eyeDarkness;   // [v0.8.6] la llama se enfría solo a medias: lo que cambia son los ojos
-        fillLayer(g, outer, mix(OUTER, DARK_OUTER, d), 225 * flick * (1 - 0.8 * e));
-        if (rise > 0.02) drawSpiral(g, outer, r, len, 205 * rise * tail * flick);
-        fillLayer(g, layer(-0.1 * HEAD, 0.7 * r, 0.75 * len, 0.8 * amp, flamePhase + 0.4), mix(MIDDLE, DARK_MIDDLE, d),
-                235 * flick * (1 - 0.45 * e));
-        fillLayer(g, layer(-0.18 * HEAD, 0.42 * r, 0.5 * len, 0.6 * amp, flamePhase + 0.8), mix(CORE, DARK_CORE, d),
-                245 * flick * (1 - 0.1 * e));
-        g.setTransform(old);
-
-        // 4. Ojos
-        drawEyes(g, cx, cy, (235 + 20 * eyeDarkness) * (1 - 0.35 * e));
-
-        // 5. Un anillo indica que está fija
-        if (pinned) {
-            g.setColor(RING);
-            g.draw(new Ellipse2D.Double(x - 19, y - 19, 38, 38));
-        }
-        g.setPaint(oldPaint);
-    }
-
-    /**
-     * Contorno de una capa de la llama, en coordenadas locales: la cabeza es un círculo de radio
-     * r con centro en (x0, 0) y la cola apunta hacia +x, hasta 'len' del centro. Son cuatro
-     * curvas de Bézier cúbicas: dos cuartos de círculo al frente (0.5523·r aproxima un círculo,
-     * como en la cabeza de Candil) y dos curvas que se juntan en la punta. Los puntos de control
-     * de la cola se mueven de lado con ondas seno desfasadas: es una onda que recorre la cola, y
-     * por eso la llama ondula y parpadea.
-     */
-    private static Path2D layer(double x0, double r, double len, double amp, double phase) {
-        double k = 0.5523 * r;
-        double w1 = amp * Math.sin(phase * 9);
-        double w2 = amp * Math.sin(phase * 9 - 1.9);
-        double w3 = amp * 1.3 * Math.sin(phase * 9 - 3.4);                 // la punta se mueve más
-        double tip = x0 + len * (1 + 0.08 * Math.sin(phase * 13 + 0.6));   // y crece y se encoge
-        double c1 = x0 + 0.35 * (tip - x0), c2 = x0 + 0.7 * (tip - x0);
-        Path2D p = new Path2D.Double();
-        p.moveTo(x0 - r, 0);
-        p.curveTo(x0 - r, -k, x0 - k, -r, x0, -r);                    // frente -> un lado
-        p.curveTo(c1, -0.95 * r + w1, c2, -0.4 * r + w2, tip, w3);     // ese lado -> la punta
-        p.curveTo(c2, 0.4 * r + w2, c1, 0.95 * r + w1, x0, r);         // la punta -> el otro lado
-        p.curveTo(x0 - k, r, x0 - r, k, x0 - r, 0);                    // el otro lado -> frente
-        p.closePath();
-        return p;
-    }
-
-    private static void fillLayer(Graphics2D g, Path2D shape, Color c, double alpha) {
-        g.setColor(withAlpha(c, alpha));
-        g.fill(shape);
-    }
-
-    /**
-     * Forma etérea: tres lenguas de fuego, cada una a su ritmo y desplazándose un poco (amorfa).
-     * Cada lengua son tres copias de la misma curva, cada vez más chicas, muy transparentes y una
-     * sobre otra: la orilla queda tenue y el centro más intenso, así que no tiene bordes fijos.
-     */
-    private void drawWisps(Graphics2D g, double r, double len, double alpha) {
-        for (int i = 0; i < 3; i++) {
-            double ph = flamePhase * 0.8 + i * 2.1;
-            double ox = HEAD * 0.4 * Math.sin(ph * 1.3), oy = HEAD * 0.45 * Math.sin(ph * 0.9 + i);
-            double wl = len * (1.25 + 0.3 * Math.sin(ph * 1.7));
-            g.translate(ox, oy);
-            for (int s = 0; s < 3; s++) {
-                double f = 1 - 0.28 * s;   // 1, 0.72 y 0.44
-                Color c = s == 0 ? OUTER : s == 1 ? MIDDLE : CORE;
-                fillLayer(g, layer(-0.1 * s * HEAD, r * (1.2 - 0.15 * i) * f, wl * f, HEAD * 0.5, ph), c,
-                        alpha * (0.24 + 0.1 * s));
-            }
-            g.translate(-ox, -oy);
-        }
-    }
-
-    /**
-     * Subiendo: la cola se enrosca en espiral. Una hélice vista de lado son dos ondas seno
-     * cruzadas: aquí, dos hebras amarillas (1.75 px, ~80% opacas) a lo largo de la cola, más angostas hacia la punta,
-     * que corren hacia atrás (se dibujan bajo las capas de adentro, así que brillan en la orilla,
-     * y recortadas con la capa de afuera para que no se salgan de la cola).
-     * Cada hebra pasa por 9 puntos unidos con curvas de Bézier cuadráticas que pasan por los
-     * puntos medios, para que se vea lisa.
-     */
-    private void drawSpiral(Graphics2D g, Shape outer, double r, double len, double alpha) {
-        Stroke oldStroke = g.getStroke();
-        Shape oldClip = g.getClip();
-        g.clip(outer);
-        g.setStroke(new BasicStroke(1.75f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.setColor(withAlpha(MIDDLE, alpha));
-        int n = 8;
-        double[] px = new double[n + 1], py = new double[n + 1];
-        for (int s = 0; s < 2; s++) {
-            for (int i = 0; i <= n; i++) {
-                double u = (double) i / n;
-                px[i] = len * (0.2 + 0.8 * u);
-                py[i] = 0.75 * r * (1 - 0.7 * u) * Math.sin(3 * Math.PI * u - 9 * flamePhase + s * Math.PI);
-            }
-            Path2D strand = new Path2D.Double();
-            strand.moveTo(px[0], py[0]);
-            for (int i = 1; i < n; i++) {
-                strand.quadTo(px[i], py[i], (px[i] + px[i + 1]) / 2, (py[i] + py[i + 1]) / 2);
-            }
-            strand.lineTo(px[n], py[n]);
-            g.draw(strand);
-        }
-        g.setClip(oldClip);
-        g.setStroke(oldStroke);
-    }
-
-    /** Ojos oscuros: se mueven hasta 2 px hacia donde mira, agitada los abre más, y parpadean. */
-    private void drawEyes(Graphics2D g, double cx, double cy, double alpha) {
-        // [v0.8.6] Oscurecidos: más anchos, más altos y negros (y no parpadean en ese instante)
-        double w = 2.4 * (1 + 0.3 * eyeDarkness);
-        double h = (blinkLeft > 0 && eyeDarkness < 0.1 ? 0.8 : 3.8 * (1 + 0.35 * agitation)) * (1 + 0.3 * eyeDarkness);
-        double ex = cx + 2 * lookX, ey = cy - 0.5 + 1.6 * lookY;
-        g.setColor(withAlpha(mix(EYES, Color.BLACK, eyeDarkness), alpha));
-        g.fill(new Ellipse2D.Double(ex - 3.4 - w / 2, ey - h / 2, w, h));
-        g.fill(new Ellipse2D.Double(ex + 3.4 - w / 2, ey - h / 2, w, h));
+        LogiArt.drawCore(g, this);
     }
 
     /** Curva suave de 0 (en e0) a 1 (en e1): 3t² - 2t³, arranca y termina despacio. */
@@ -419,22 +231,25 @@ public class LightSource {
         return t * t * (3 - 2 * t);
     }
 
-    /** Interpolación lineal entre dos colores: t = 0 regresa 'a', t = 1 regresa 'b'. */
-    private static Color mix(Color a, Color b, double t) {
-        return new Color(
-            (int) Math.round(a.getRed()   + (b.getRed()   - a.getRed())   * t),
-            (int) Math.round(a.getGreen() + (b.getGreen() - a.getGreen()) * t),
-            (int) Math.round(a.getBlue()  + (b.getBlue()  - a.getBlue())  * t));
-    }
-
-    private static Color withAlpha(Color c, double alpha) {
-        return new Color(c.getRed(), c.getGreen(), c.getBlue(), (int) Math.max(0, Math.min(255, Math.round(alpha))));
-    }
-
     public double getX() { return x; }
     public double getY() { return y; }
     /** [v1.0] Velocidad propia (px/s): para la ceniza que deja atrás. */
     public double getVx() { return vx; }
     public double getVy() { return vy; }
     public Vec2 getPosition() { return new Vec2(x, y); }
+
+    // Solo lectura, para LogiArt (el dibujo de Logi): el estado de la animación
+    double getTime() { return time; }
+    double getFlamePhase() { return flamePhase; }
+    double getFlickerPhase() { return flickerPhase; }
+    double getMotion() { return motion; }
+    double getRise() { return rise; }
+    double getAgitation() { return agitation; }
+    double getEtherealMix() { return etherealMix; }
+    double getTailX() { return tailX; }
+    double getTailY() { return tailY; }
+    double getLookX() { return lookX; }
+    double getLookY() { return lookY; }
+    double getBlinkLeft() { return blinkLeft; }
+    double getEyeDarkness() { return eyeDarkness; }
 }
