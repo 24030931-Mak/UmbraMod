@@ -27,6 +27,7 @@ public final class TogetherScene extends Scene {
     private static final double AHEAD_X = 930, AHEAD_Y = 408;   // y se queda del otro lado de la segunda roca
 
     private final DarkStage stage;
+    private boolean pulsed;   // el pulso de pacto se dispara una sola vez por pasada
 
     public TogetherScene(DarkStage stage, double length) {
         this.stage = stage;
@@ -51,6 +52,7 @@ public final class TogetherScene extends Scene {
 
     @Override
     public void enter() {
+        pulsed = false;
         stage.reset(CANDIL_X);
         stage.setDarkness(new Rectangle2D.Double(0, 0, DarkStage.W, DarkStage.H));   // sin Logi, todo es sombra
         stage.getLogi().snapTo(100, 236);
@@ -72,6 +74,10 @@ public final class TogetherScene extends Scene {
             logi.setTarget(Ease.lerp(100, CAST_X, u) + 16 * Math.sin(u * Math.PI * 3) * (1 - u),
                     Ease.lerp(236, CAST_Y, u));
             logi.setPinned(time >= SETTLED + 0.35);   // se fija, como con un clic: la sombra ya no se mueve
+            if (!pulsed && time >= SETTLED + 0.35) {
+                pulsed = true;
+                stage.firePactPulse(CAST_X, CAST_Y);   // chispas y anillo justo cuando proyecta el puente
+            }
         } else {
             // Se adelanta por arriba de Candil, sobre una curva de Bézier cuadrática:
             //     B(u) = (1-u)²·P0 + 2(1-u)u·P1 + u²·P2

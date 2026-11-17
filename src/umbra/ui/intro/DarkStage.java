@@ -6,7 +6,9 @@ import java.awt.Color;
 import java.awt.Composite;
 import java.awt.GradientPaint;
 import java.awt.Graphics2D;
+import java.awt.RadialGradientPaint;
 import java.awt.Rectangle;
+import java.awt.Shape;
 import java.awt.Stroke;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Area;
@@ -62,6 +64,7 @@ public final class DarkStage {
     /** Las dos rocas: sus rectángulos de colisión (DarkCavern las dibuja encima). */
     static final Rectangle2D ROCK_1 = new Rectangle2D.Double(310, 396, 50, 44);
     static final Rectangle2D ROCK_2 = new Rectangle2D.Double(810, 398, 46, 42);
+    private static final Rectangle2D[] ROCKS = { ROCK_1, ROCK_2 };
 
     // ---- Colores de lo que se mueve: el rayo de luz y las sombras ----
     private static final Color BEAM = new Color(255, 238, 190);
@@ -102,6 +105,11 @@ public final class DarkStage {
     private boolean dissolving;     // y su orilla se deshace en niebla
     private double trailTimer, ashTimer, sparkTimer, dissolveTimer;
     private double clock;
+    private double pulseTime = -1, pulseX, pulseY;   // pulso de pacto: segundos desde que se disparó (-1 = ninguno)
+
+    /** El pulso de pacto: dura PULSE_TIME segundos y su anillo crece hasta PULSE_RADIUS px. */
+    private static final double PULSE_TIME = 0.6, PULSE_RADIUS = 90, REFLECT_RANGE = 420;
+    private static final Stroke PULSE_STROKE = new BasicStroke(2.4f);
 
     public DarkStage() {
         level.addPlatform(0, GROUND, GAP_LEFT, H - GROUND);
@@ -133,6 +141,7 @@ public final class DarkStage {
         particles.clear();
         input.releaseAll();
         trailTimer = ashTimer = sparkTimer = dissolveTimer = 0;
+        pulseTime = -1;
     }
 
     public Player getCandil()      { return candil; }
@@ -179,6 +188,15 @@ public final class DarkStage {
         input.endUpdate();
         emitCandilEffects(dt);
         particles.update(dt);
+        if (pulseTime >= 0) pulseTime += dt;
+    }
+
+    /** Pulso de pacto en (x, y): una ráfaga de 18 chispas y un anillo de luz que se expande y se apaga. */
+    public void firePactPulse(double x, double y) {
+        pulseTime = 0;
+        pulseX = x;
+        pulseY = y;
+        for (int i = 0; i < 18; i++) particles.emitSpark(x, y);
     }
 
     /**
@@ -251,12 +269,44 @@ public final class DarkStage {
         g.transform(camera.getViewMatrix().toAffineTransform());
         if (logiPresent && logiLight > 0.01) logiGlow.draw(g, logi.getX(), logi.getY(), 240 * logiLight);
         if (beam > 0.01) drawBeam(g, beam);
+        if (pulseTime >= 0 && pulseTime < PULSE_TIME) drawPulse(g);   // antes de las sombras: no las aclara
         if (logiPresent) drawShadows(g);
+        if (logiPresent && logiLight > 0.01) drawRockGlow(g);
         particles.draw(g);
         drawCandil(g, candilTop, candilBottom, candilGrow);
         if (logiPresent) logi.drawCore(g);
         g.setTransform(onScreen);
         cavern.drawFront(g, camera, clock);
+    }
+
+    /** El anillo del pulso: crece con salida suave hasta PULSE_RADIUS y se desvanece. */
+    private void drawPulse(Graphics2D g) {
+        double u = pulseTime / PULSE_TIME, r = PULSE_RADIUS * (1 - (1 - u) * (1 - u));
+        Stroke old = g.getStroke();
+        g.setStroke(PULSE_STROKE);
+        g.setColor(new Color(255, 214, 130, (int) (200 * (1 - u) * (1 - u))));
+        g.draw(new Ellipse2D.Double(pulseX - r, pulseY - r, 2 * r, 2 * r));
+        g.setStroke(old);
+    }
+
+    /**
+     * Reflejo cálido de Logi en las rocas: un degradado radial dorado centrado en ella, recortado
+     * a cada roca. Como se apaga con la distancia al centro, solo la cara que mira a Logi se
+     * alumbra; y la roca entera casi no se ve si Logi está lejos de ella.
+     */
+    private void drawRockGlow(Graphics2D g) {
+        Shape oldClip = g.getClip();
+        for (Rectangle2D rock : ROCKS) {
+            double d = Math.hypot(rock.getCenterX() - logi.getX(), rock.getCenterY() - logi.getY());
+            double k = Ease.clamp01(1 - d / REFLECT_RANGE) * logiLight;
+            if (k < 0.02) continue;
+            g.setClip(rock);
+            g.setPaint(new RadialGradientPaint((float) logi.getX(), (float) logi.getY(), 300f,
+                    new float[] { 0f, 1f },
+                    new Color[] { new Color(255, 200, 110, (int) (110 * k)), new Color(255, 200, 110, 0) }));
+            g.fill(rock);
+        }
+        g.setClip(oldClip);
     }
 
     /**
