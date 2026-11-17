@@ -21,8 +21,14 @@ public final class VoiceOver {
     private static Clip currentClip;
     private static FloatControl gain;
     private static boolean muted;
+    private static boolean failed;   // el último play() no pudo sonar (sin archivo o sin tarjeta de sonido)
 
     private VoiceOver() { }
+
+    /** true si el último intento de reproducir falló: la intro usa entonces su texto de respaldo. */
+    public static boolean failed() {
+        return failed;
+    }
 
     /** Reproduce la narración desde el principio; detiene la anterior si seguía sonando. */
     public static void play(String path) {
@@ -41,7 +47,9 @@ public final class VoiceOver {
                     ? (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN) : null;
             applyMute();
             clip.start();
+            failed = false;
         } catch (Exception e) {
+            failed = true;
             System.err.println("Umbra: no se pudo reproducir la voz " + path + " (" + e.getMessage()
                     + "). El juego sigue sin voz.");
             currentClip = null;

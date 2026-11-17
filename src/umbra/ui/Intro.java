@@ -197,7 +197,8 @@ public class Intro {
         }
 
         double visible = 1 - Ease.clamp01(black);   // el texto también se va con el fundido
-        if (index < narration.size()) drawNarration(g, t, length, visible);
+        // El texto de res/intro.txt es el respaldo: solo sale si la voz no pudo sonar (con voz, van los subtítulos)
+        if (index < narration.size() && VoiceOver.failed()) drawNarration(g, t, length, visible);
         if (scene.titleAlpha() > 0) {
             if (title == null) title = new TextSprite("UMBRA", Text.TITLE, Text.BRIGHT, 3);
             // El espaciado entre letras también va después de la última: se compensa con 14 px
