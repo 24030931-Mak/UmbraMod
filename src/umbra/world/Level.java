@@ -9,11 +9,13 @@ import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 import umbra.core.Config;
 import umbra.entities.Block;
+import umbra.entities.Player;
 import umbra.math.Mat3;
 import umbra.math.Vec2;
 
@@ -27,6 +29,7 @@ public class Level {
     private final String number;  // numeral romano del título ("I", "II"); "" si no tiene
     private final String name;
     private final double width;   // ancho del mundo en px; puede ser mayor que la ventana
+    private final double height;  // alto del mundo en px; puede ser mayor que la ventana
     private final Vec2 spawn;
     private final Rectangle2D exit;
     private final List<Rectangle2D> platforms = new ArrayList<>();
@@ -42,7 +45,6 @@ public class Level {
     // por ese lado. null = no hay paso de ese lado.
     private Vec2 leftEntry, rightEntry;
 
-    private static final double HEIGHT = 720;   // alto de la zona, hasta que exista getHeight()
     private final List<Passage> passages = new ArrayList<>();
     private final List<Passage> connectPassages = new ArrayList<>();   // los que generó World
     private double worldX, worldY;   // posición de la zona en el plano de la cueva
@@ -55,9 +57,15 @@ public class Level {
 
     /** 'exit' es el portal que lleva a la pantalla final; null si el nivel no tiene. */
     public Level(String number, String name, double width, Vec2 spawn, Rectangle2D exit) {
+        this(number, name, width, Config.HEIGHT, spawn, exit);
+    }
+
+    /** Una zona de 'width' x 'height' px; si 'height' pasa de 720, la cámara también sigue en vertical. */
+    public Level(String number, String name, double width, double height, Vec2 spawn, Rectangle2D exit) {
         this.number = number;
         this.name = name;
         this.width = width;
+        this.height = height;
         this.spawn = spawn;
         this.exit = exit;
     }
@@ -120,7 +128,7 @@ public class Level {
                 case LEFT:  edge = playerBounds.getMinX() <= 1;          along = cy; break;
                 case RIGHT: edge = playerBounds.getMaxX() >= width - 1;  along = cy; break;
                 case TOP:   edge = playerBounds.getMinY() <= 1;          along = cx; break;
-                default:    edge = playerBounds.getMaxY() >= HEIGHT - 1; along = cx; break;
+                default:    edge = playerBounds.getMaxY() >= height - 1; along = cx; break;
             }
             if (edge && along >= p.getFrom() && along <= p.getTo()) return p;
         }
@@ -225,6 +233,38 @@ public class Level {
         lvl.addBlock(new Block(1500, 285, 60,  90));   // tramo 3: la chimenea, losa de arriba
         lvl.addBlock(new Block(2200, 190, 60,  30));   // tramo 4: el dintel del pasillo
         return lvl;
+    }
+
+    /**
+     * Dos zonas altas conectadas, solo para pruebas (no van en World.createDefault()):
+     *
+     *   "Pozo de prueba" (1280 x 2160, en (0, 0)): repisas arriba (y = 300), en medio (y = 1100)
+     *   y abajo (y = 1900); el piso tiene un hueco en x 560..720 que es un paso BOTTOM hacia el
+     *   fondo. La repisa de y = 1800 (x 740..1000) es donde llega quien sube del fondo.
+     *   "Fondo de prueba" (1280 x 720, en (0, 2160)): se llega por arriba en (610, 20) y se
+     *   reaparece sobre la repisa de y = 600; su techo tiene un paso TOP en x 560..720 de vuelta
+     *   al pozo. Del lado derecho no hay piso: sirve para probar la caída al vacío.
+     */
+    public static List<Level> createTestShaft() {
+        Level shaft = new Level("", "Pozo de prueba", 1280, 2160, new Vec2(80, 300 - Player.H), null);
+        shaft.setWorldPosition(0, 0);
+        Level bottom = new Level("", "Fondo de prueba", 1280, 720, new Vec2(500, 600 - Player.H), null);
+        bottom.setWorldPosition(0, 2160);
+
+        //                  x     y     ancho alto
+        shaft.addPlatform(0,    300,  500,  40);    // arriba
+        shaft.addPlatform(800,  1100, 480,  40);    // en medio
+        shaft.addPlatform(0,    1900, 500,  40);    // abajo
+        shaft.addPlatform(740,  1800, 260,  40);    // donde llega quien sube del fondo
+        shaft.addPlatform(0,    2100, 560,  60);    // piso, a la izquierda del hueco
+        shaft.addPlatform(720,  2100, 560,  60);    // piso, a la derecha del hueco
+        bottom.addPlatform(400, 600,  500,  120);   // la repisa de la llegada
+
+        shaft.addPassage(new Passage(Passage.Side.BOTTOM, 560, 720, bottom,
+            new Vec2(610, 20), new Vec2(500, 600 - Player.H)));
+        bottom.addPassage(new Passage(Passage.Side.TOP, 560, 720, shaft,
+            new Vec2(760, 1800 - Player.H), null));
+        return Arrays.asList(shaft, bottom);
     }
 
     /**
@@ -390,6 +430,7 @@ public class Level {
     public Vec2 getLeftEntry() { return leftEntry; }
     public Vec2 getRightEntry() { return rightEntry; }
     public double getWidth() { return width; }
+    public double getHeight() { return height; }
     public long getBackgroundSeed() { return backgroundSeed; }
     public long getDecorSeed() { return decorSeed; }
     public double getRuinScale() { return ruinScale; }

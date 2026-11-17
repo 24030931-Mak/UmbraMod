@@ -5,8 +5,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import umbra.core.Config;
-
 /**
  * El mundo: los niveles en fila, de izquierda a derecha. La salida derecha de cada nivel
  * conecta con la entrada izquierda del siguiente, y se puede volver.
@@ -26,7 +24,7 @@ public class World {
         this.visited = new boolean[levels.size()];
         this.explored = new Exploration[levels.size()];
         for (int i = 0; i < explored.length; i++) {
-            explored[i] = new Exploration(levels.get(i).getWidth(), Config.HEIGHT);
+            explored[i] = new Exploration(levels.get(i).getWidth(), levels.get(i).getHeight());
         }
         connectLevels();
         reset();
@@ -43,11 +41,11 @@ public class World {
             Level l = levels.get(i);
             if (i + 1 < levels.size() && l.getRightEntry() != null && levels.get(i + 1).getLeftEntry() != null) {
                 Level next = levels.get(i + 1);
-                l.addConnectPassage(new Passage(Passage.Side.RIGHT, 0, 720, next, next.getLeftEntry(), null));
+                l.addConnectPassage(new Passage(Passage.Side.RIGHT, 0, l.getHeight(), next, next.getLeftEntry(), null));
             }
             if (i > 0 && l.getLeftEntry() != null && levels.get(i - 1).getRightEntry() != null) {
                 Level prev = levels.get(i - 1);
-                l.addConnectPassage(new Passage(Passage.Side.LEFT, 0, 720, prev, prev.getRightEntry(), null));
+                l.addConnectPassage(new Passage(Passage.Side.LEFT, 0, l.getHeight(), prev, prev.getRightEntry(), null));
             }
         }
     }

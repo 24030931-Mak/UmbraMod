@@ -80,6 +80,7 @@ public class GamePanel extends JPanel {
     private static final double ARRIVAL_SAFE_DISTANCE = 140;
     /** Cuánto se coloca Logi arriba de Candil al llegar a otro nivel (px). */
     private static final double ARRIVAL_LIFT = 220;
+    private static final double ARRIVAL_MIN_Y = 20;   // Logi nunca aparece más arriba (el techo de la zona es y = 0)
     /** Cuánto debe moverse el ratón (px en pantalla) para que Logi, en espera, vuelva a seguirlo. */
     private static final double MOUSE_WAKE_DISTANCE = 4;
     /** Qué tan cerca de Candil (px) deben quedar las zonas del nivel para contar como recorridas. */
@@ -216,7 +217,7 @@ public class GamePanel extends JPanel {
         level = world.current();
         background = backgrounds[world.currentIndex()];
         levelArt = arts[world.currentIndex()];
-        camera = new Camera(level.getWidth());
+        camera = new Camera(level.getWidth(), level.getHeight());
     }
 
     // =========================================================
@@ -387,8 +388,9 @@ public class GamePanel extends JPanel {
 
         boolean first = world.enter(target);
         useCurrentLevel();
-        player.moveTo(p.getArrival());
-        camera.snapTo(player.getCenterX());
+        if (p.getSide() == Passage.Side.BOTTOM) player.placeKeepingSpeed(p.getArrival());   // sigue cayendo igual
+        else player.moveTo(p.getArrival());
+        camera.snapTo(player.getCenterX(), player.getCenterY());
         checkpoint = p.getRespawn();
 
         placeLogiAbove();
@@ -407,7 +409,18 @@ public class GamePanel extends JPanel {
      */
     private void placeLogiAbove() {
         light.setPinned(false);
-        light.snapTo(player.getCenterX(), player.getCenterY() - ARRIVAL_LIFT);
+        // Cerca del techo de la zona, 220 px arriba quedarían fuera de ella: se recorta a y >= 20.
+        // Si así queda a menos de 140 px de Candil lo desmoronaría al llegar: se corre de lado
+        // (hacia donde haya zona) hasta quedar a 140 px, con Pitágoras: dx = sqrt(140² - dy²).
+        double cx = player.getCenterX(), cy = player.getCenterY();
+        double ly = Math.max(ARRIVAL_MIN_Y, cy - ARRIVAL_LIFT);
+        double lx = cx;
+        double dy = ly - cy;
+        if (dy * dy < ARRIVAL_SAFE_DISTANCE * ARRIVAL_SAFE_DISTANCE) {
+            double dx = Math.sqrt(ARRIVAL_SAFE_DISTANCE * ARRIVAL_SAFE_DISTANCE - dy * dy);
+            lx = cx + dx <= level.getWidth() - ARRIVAL_MIN_Y ? cx + dx : cx - dx;
+        }
+        light.snapTo(lx, ly);
         logiWaiting = true;
         waitMouseX = input.getMouseX();
         waitMouseY = input.getMouseY();
@@ -498,7 +511,7 @@ public class GamePanel extends JPanel {
             if (deathTimer >= Config.RESPAWN_DELAY) {
                 player.respawn(checkpoint);
                 deathTimer = 0;
-                camera.snapTo(player.getCenterX());   // como en restart(): la cámara va con Candil
+                camera.snapTo(player.getCenterX(), player.getCenterY());   // como en restart(): la cámara va con Candil
                 keepLogiAwayFromCandil();
             }
         } else if (!levelComplete) {
@@ -537,9 +550,9 @@ public class GamePanel extends JPanel {
             }
 
             // Se cayó al vacío: de vuelta a esa repisa
-            if (player.getY() > Config.HEIGHT + 100) {
+            if (player.getY() > level.getHeight() + 100) {
                 player.respawn(checkpoint);
-                camera.snapTo(player.getCenterX());   // igual: si no, el ratón apunta a otro lugar
+                camera.snapTo(player.getCenterX(), player.getCenterY());   // igual: si no, el ratón apunta a otro lugar
                 keepLogiAwayFromCandil();
             }
 
@@ -561,7 +574,7 @@ public class GamePanel extends JPanel {
         }
 
         // ---- Cámara: avanza cuando el jugador avanza ----
-        camera.follow(player.getCenterX(), dt);
+        camera.follow(player.getCenterX(), player.getCenterY(), dt);
 
         particles.update(dt);
     }
@@ -626,7 +639,7 @@ public class GamePanel extends JPanel {
         light.setPinned(false);
         // La cámara salta de una vez al lugar de aparición: si regresara suavemente, el punto del
         // mundo bajo el ratón se deslizaría con ella y Logi terminaría encima de Candil.
-        camera.snapTo(player.getCenterX());
+        camera.snapTo(player.getCenterX(), player.getCenterY());
         keepLogiAwayFromCandil();
         deathTimer = 0;
         levelComplete = false;

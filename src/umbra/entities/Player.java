@@ -123,6 +123,13 @@ public class Player {
         onGround = false;
     }
 
+    /** Lo coloca en 'position' sin tocar su velocidad (al bajar por un paso: sigue cayendo igual). */
+    public void placeKeepingSpeed(Vec2 position) {
+        x = position.x;
+        y = position.y;
+        onGround = false;
+    }
+
     /** A qué distancia está Logi (px). GamePanel la da en cada cuadro; cerca, Candil se asusta. */
     public void setLogiDistance(double d) {
         logiDistance = d;
@@ -191,6 +198,10 @@ public class Player {
                 }
                 vy = 0;
             }
+        }
+        if (y < 0) {             // el techo del mundo: no sale por arriba (salvo por un paso, que se dispara en y <= 1)
+            y = 0;
+            if (vy < 0) vy = 0;
         }
         if (!wasOnGround && onGround) stretch = -1;   // se aplasta al caer al suelo
 
