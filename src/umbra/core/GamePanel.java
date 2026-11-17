@@ -104,10 +104,10 @@ public class GamePanel extends JPanel {
     /** Logi del menú y de la pantalla final: etérea, sigue al ratón en coordenadas de pantalla. */
     private final LightSource menuLight = new LightSource(Config.WIDTH / 2.0, Config.HEIGHT / 3.0);
 
-    private final World world = World.createDefault();
+    private final World world;
     // Fondo y decoración de cada nivel: se generan una sola vez al abrir el juego
-    private final Background[] backgrounds = new Background[world.size()];
-    private final LevelArt[] arts = new LevelArt[world.size()];
+    private final Background[] backgrounds;
+    private final LevelArt[] arts;
 
     private Level level;        // el nivel actual (world.current())
     private Player player;
@@ -148,6 +148,13 @@ public class GamePanel extends JPanel {
     private int fps;
 
     public GamePanel() {
+        this(World.createDefault());
+    }
+
+    public GamePanel(World world) {
+        this.world = world;
+        backgrounds = new Background[world.size()];
+        arts = new LevelArt[world.size()];
         setPreferredSize(new Dimension(Config.WIDTH, Config.HEIGHT));
         setBackground(BACKGROUND);
         setDoubleBuffered(true);
@@ -163,11 +170,11 @@ public class GamePanel extends JPanel {
             public void mousePressed(MouseEvent e) { requestFocusInWindow(); }
         });
 
-        // Semillas fijas: cada cueva siempre es igual (7 y 11 el nivel 1; 23 y 29 el nivel 2)
-        long[][] seeds = { { 7, 11 }, { 23, 29 } };
+        // Semillas fijas: cada cueva siempre es igual; cada nivel guarda las suyas y la escala de sus ruinas
         for (int i = 0; i < world.size(); i++) {
-            backgrounds[i] = new Background(world.get(i).getWidth(), seeds[i][0], i == 0 ? 1 : 1.5);   // nivel 2: ruinas más grandes
-            arts[i] = new LevelArt(world.get(i), seeds[i][1]);   // roca, musgo, hongos y runas
+            Level lv = world.get(i);
+            backgrounds[i] = new Background(lv.getWidth(), lv.getBackgroundSeed(), lv.getRuinScale());
+            arts[i] = new LevelArt(lv, lv.getDecorSeed());   // roca, musgo, hongos y runas
         }
         loadLevel(0);
         if (screen == Screen.PLAYING) levelTitle.show(level.getNumber(), level.getName());

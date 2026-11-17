@@ -42,6 +42,23 @@ public class Level {
     // por ese lado. null = no hay paso de ese lado.
     private Vec2 leftEntry, rightEntry;
 
+    // Fondo y decoración del nivel: semillas fijas (cada cueva siempre es igual) y escala de las
+    // ruinas del fondo. Si nadie llama a setScenery se usan estos valores por defecto.
+    private long backgroundSeed = 7;
+    private long decorSeed = 11;
+    private double ruinScale = 1.0;
+
+    /** Fija las semillas del fondo y de la decoración, y la escala de las ruinas del fondo. */
+    public void setScenery(long backgroundSeed, long decorSeed, double ruinScale) {
+        this.backgroundSeed = backgroundSeed;
+        this.decorSeed = decorSeed;
+        this.ruinScale = ruinScale;
+    }
+
+    public long getBackgroundSeed() { return backgroundSeed; }
+    public long getDecorSeed() { return decorSeed; }
+    public double getRuinScale() { return ruinScale; }
+
     /** 'exit' es el portal que lleva a la pantalla final; null si el nivel no tiene. */
     public Level(String number, String name, double width, Vec2 spawn, Rectangle2D exit) {
         this.number = number;
@@ -93,6 +110,7 @@ public class Level {
         Level lvl = new Level("I", "Las Ra\u00edces", 3840,
             new Vec2(80, 530), null);   // sin portal: su salida es el paso de la orilla derecha
         lvl.connect(null, new Vec2(3758, 450));
+        lvl.setScenery(7, 11, 1.0);
 
         //              x     y    ancho alto
         lvl.addPlatform(0,    560, 230,  160);   // A: inicio
@@ -144,6 +162,7 @@ public class Level {
             new Vec2(80, 530),
             new Rectangle2D.Double(3300, 180, 60, 80));   // el portal, parado sobre E
         lvl.connect(new Vec2(80, 530), null);   // a la izquierda, el paso al nivel 1
+        lvl.setScenery(23, 29, 1.5);            // ruinas más grandes
 
         //              x     y    ancho alto
         lvl.addPlatform(0,    560, 380,  160);   // A: la entrada, con el refugio
