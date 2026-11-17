@@ -42,6 +42,11 @@ public class Level {
     // por ese lado. null = no hay paso de ese lado.
     private Vec2 leftEntry, rightEntry;
 
+    private static final double HEIGHT = 720;   // alto de la zona, hasta que exista getHeight()
+    private final List<Passage> passages = new ArrayList<>();
+    private final List<Passage> connectPassages = new ArrayList<>();   // los que generó World
+    private double worldX, worldY;   // posición de la zona en el plano de la cueva
+
     // Fondo y decoración del nivel: semillas fijas (cada cueva siempre es igual) y escala de las
     // ruinas del fondo. Si nadie llama a setScenery se usan estos valores por defecto.
     private long backgroundSeed = 7;
@@ -78,14 +83,58 @@ public class Level {
     }
 
     /**
-     * Si el jugador toca una orilla con paso: -1 = la izquierda (minX <= 1), +1 = la derecha
-     * (maxX >= ancho - 1), 0 = ninguna. Es solo una comparación de coordenadas con el borde.
+     * Agrega un paso en una orilla de esta zona. Los pasos se revisan en el orden en que se
+     * agregan (ver passageAt).
      */
-    public int passageAt(Rectangle2D playerBounds) {
-        if (leftEntry != null && playerBounds.getMinX() <= 1) return -1;
-        if (rightEntry != null && playerBounds.getMaxX() >= width - 1) return 1;
-        return 0;
+    public void addPassage(Passage p) {
+        passages.add(p);
     }
+
+    /** Agrega un paso generado por World a partir de connect. */
+    void addConnectPassage(Passage p) {
+        passages.add(p);
+        connectPassages.add(p);
+    }
+
+    /** Quita los pasos que generó World, para que otro World con estas zonas no los duplique. */
+    void clearConnectPassages() {
+        passages.removeAll(connectPassages);
+        connectPassages.clear();
+    }
+
+    /** Los pasos de esta zona, en orden de inserción (lista sin modificar). */
+    public List<Passage> getPassages() { return Collections.unmodifiableList(passages); }
+
+    /**
+     * El primer paso (en orden de inserción) que toca el jugador, o null. Un paso se toca cuando
+     * el jugador está en su orilla (LEFT minX <= 1, RIGHT maxX >= ancho - 1, TOP minY <= 1,
+     * BOTTOM maxY >= alto - 1) y el centro de Candil, en Y para LEFT/RIGHT o en X para
+     * TOP/BOTTOM, cae dentro de [from, to]. Es solo comparar coordenadas con el borde.
+     */
+    public Passage passageAt(Rectangle2D playerBounds) {
+        double cx = playerBounds.getCenterX(), cy = playerBounds.getCenterY();
+        for (Passage p : passages) {
+            boolean edge;
+            double along;
+            switch (p.getSide()) {
+                case LEFT:  edge = playerBounds.getMinX() <= 1;          along = cy; break;
+                case RIGHT: edge = playerBounds.getMaxX() >= width - 1;  along = cy; break;
+                case TOP:   edge = playerBounds.getMinY() <= 1;          along = cx; break;
+                default:    edge = playerBounds.getMaxY() >= HEIGHT - 1; along = cx; break;
+            }
+            if (edge && along >= p.getFrom() && along <= p.getTo()) return p;
+        }
+        return null;
+    }
+
+    /** Dónde está esta zona en el plano de la cueva (esquina superior izquierda, en px). */
+    public void setWorldPosition(double x, double y) {
+        this.worldX = x;
+        this.worldY = y;
+    }
+
+    public double getWorldX() { return worldX; }
+    public double getWorldY() { return worldY; }
 
     /**
      * [AVANCE 70%] Nivel 1: un recorrido de tres pantallas de ancho (3840 px) que solo
@@ -106,6 +155,7 @@ public class Level {
         Level lvl = new Level("I", "Las Ra\u00edces", 3840,
             new Vec2(80, 530), null);   // sin portal: su salida es el paso de la orilla derecha
         lvl.connect(null, new Vec2(3758, 450));
+        lvl.setWorldPosition(0, 0);
         lvl.setScenery(7, 11, 1.0);
 
         //              x     y    ancho alto
@@ -158,6 +208,7 @@ public class Level {
             new Vec2(80, 530),
             new Rectangle2D.Double(3300, 180, 60, 80));   // el portal, parado sobre E
         lvl.connect(new Vec2(80, 530), null);   // a la izquierda, el paso al nivel 1
+        lvl.setWorldPosition(3840, 0);
         lvl.setScenery(23, 29, 1.5);            // ruinas más grandes
 
         //              x     y    ancho alto

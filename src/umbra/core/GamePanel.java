@@ -39,6 +39,7 @@ import umbra.ui.MiniMap;
 import umbra.ui.Menu;
 import umbra.ui.Victory;
 import umbra.world.Level;
+import umbra.world.Passage;
 import umbra.world.World;
 
 /**
@@ -372,24 +373,23 @@ public class GamePanel extends JPanel {
     }
 
     /**
-     * Cruza el paso de una orilla: dir = -1 va al nivel anterior, +1 al siguiente. Se llama
-     * con la pantalla en negro. Candil aparece en la entrada del nivel al que llega y
-     * conserva su vida; esa entrada es ahora su punto de reaparición.
+     * Cruza un paso: se llama con la pantalla en negro. Candil aparece en la llegada del paso,
+     * en la zona a la que lleva, y conserva su vida; el punto de reaparición del paso es ahora
+     * el suyo.
      *
      * Logi se suelta y aparece 220 px arriba de Candil, sin importar dónde esté el ratón, y
      * espera ahí hasta que el jugador lo mueva (ver placeLogiAbove). Si siguiera al ratón de
      * inmediato y éste quedó sobre Candil, lo desmoronaría antes de que se pueda reaccionar.
      */
-    private void changeLevel(int dir) {
-        int target = world.currentIndex() + dir;
-        if (target < 0 || target >= world.size()) return;
+    private void crossPassage(Passage p) {
+        int target = world.indexOf(p.getTarget());
+        if (target < 0) return;
 
         boolean first = world.enter(target);
         useCurrentLevel();
-        Vec2 entry = dir > 0 ? level.getLeftEntry() : level.getRightEntry();
-        player.moveTo(entry);
+        player.moveTo(p.getArrival());
         camera.snapTo(player.getCenterX());
-        checkpoint = entry;
+        checkpoint = p.getRespawn();
 
         placeLogiAbove();
 
@@ -547,8 +547,8 @@ public class GamePanel extends JPanel {
                 levelComplete = true;
             } else if (!player.isDead() && onBlack == null) {
                 // Tocar la orilla con paso: fundido corto y cambio de nivel (vivo y sin otro fundido)
-                int dir = level.passageAt(player.getBounds());
-                if (dir != 0) fadeTo(() -> changeLevel(dir), PASSAGE_FADE_TIME);
+                Passage passage = level.passageAt(player.getBounds());
+                if (passage != null) fadeTo(() -> crossPassage(passage), PASSAGE_FADE_TIME);
             }
         }
 

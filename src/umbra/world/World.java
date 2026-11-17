@@ -28,8 +28,32 @@ public class World {
         for (int i = 0; i < explored.length; i++) {
             explored[i] = new Exploration(levels.get(i).getWidth(), Config.HEIGHT);
         }
+        connectLevels();
         reset();
     }
+
+    /**
+     * Convierte las entradas de connect en pasos de toda la orilla hacia el vecino: la derecha
+     * de la zona i lleva a la i+1 y la izquierda a la i-1. Antes quita los pasos que otro World
+     * generó con estas mismas zonas, para no acumularlos.
+     */
+    private void connectLevels() {
+        for (Level l : levels) l.clearConnectPassages();
+        for (int i = 0; i < levels.size(); i++) {
+            Level l = levels.get(i);
+            if (i + 1 < levels.size() && l.getRightEntry() != null && levels.get(i + 1).getLeftEntry() != null) {
+                Level next = levels.get(i + 1);
+                l.addConnectPassage(new Passage(Passage.Side.RIGHT, 0, 720, next, next.getLeftEntry(), null));
+            }
+            if (i > 0 && l.getLeftEntry() != null && levels.get(i - 1).getRightEntry() != null) {
+                Level prev = levels.get(i - 1);
+                l.addConnectPassage(new Passage(Passage.Side.LEFT, 0, 720, prev, prev.getRightEntry(), null));
+            }
+        }
+    }
+
+    /** La posición de la zona 'l' en la lista, o -1 si no es de este mundo. */
+    public int indexOf(Level l) { return levels.indexOf(l); }
 
     /** El mundo del juego: el nivel 1 y el nivel 2. */
     public static World createDefault() {
