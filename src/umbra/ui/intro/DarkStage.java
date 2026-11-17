@@ -6,12 +6,15 @@ import java.awt.Color;
 import java.awt.Composite;
 import java.awt.GradientPaint;
 import java.awt.Graphics2D;
+import java.awt.Rectangle;
 import java.awt.Stroke;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Area;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
+import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -72,6 +75,16 @@ public final class DarkStage {
 
     private final DarkCavern cavern;
     private final Glow logiGlow = new Glow(512, new Color(255, 200, 124), 0.22, 0.5);
+    /** La luz del rayo donde pega en la repisa: un Glow aplastado en vertical (ver drawBeam). */
+    private final Glow floorGlow = new Glow(256, BEAM, 0.45, 0.75);
+
+    /** El color de la niebla que se junta para formar a Candil (el de las motas de BirthScene). */
+    private static final Color FORMING_MIST = new Color(176, 192, 222);
+    /**
+     * Mientras Candil se forma se dibuja primero aquí y luego se copia a la pantalla (ver
+     * drawCandil). Se crea una vez y solo crece si hace falta: no se crean imágenes por cuadro.
+     */
+    private BufferedImage forming;
 
     // ---- El nivel y los personajes ----
     private final Level level = new Level("intro", W, new Vec2(0, 0), null);
@@ -223,6 +236,15 @@ public final class DarkStage {
      * @param candilGrow  su tamaño mientras se forma (1 = el normal): se escala desde sus pies
      */
     public void draw(Graphics2D g, IntroCamera camera, double beam, double candilAlpha, double candilGrow) {
+        draw(g, camera, beam, candilAlpha, candilAlpha, candilGrow);
+    }
+
+    /**
+     * Igual que el anterior, pero Candil se forma de arriba abajo: 'candilTop' es qué tan formada
+     * está su capucha (con los ojos) y 'candilBottom' qué tanto sus jirones (0 a 1 cada uno).
+     */
+    public void draw(Graphics2D g, IntroCamera camera, double beam, double candilTop, double candilBottom,
+                     double candilGrow) {
         cavern.drawBack(g, camera, clock);
 
         AffineTransform onScreen = g.getTransform();
@@ -231,7 +253,7 @@ public final class DarkStage {
         if (beam > 0.01) drawBeam(g, beam);
         if (logiPresent) drawShadows(g);
         particles.draw(g);
-        drawCandil(g, candilAlpha, candilGrow);
+        drawCandil(g, candilTop, candilBottom, candilGrow);
         if (logiPresent) logi.drawCore(g);
         g.setTransform(onScreen);
         cavern.drawFront(g, camera, clock);
@@ -259,22 +281,74 @@ public final class DarkStage {
     }
 
     /**
-     * Candil, con Player.draw. Mientras se forma se dibuja translúcido (AlphaComposite multiplica
-     * la transparencia de todo lo que dibuja) y más chico, escalado desde sus pies:
+     * Candil, con Player.draw, escalado desde sus pies mientras se forma:
      *     M = T(pies) · S(s) · T(-pies)
+     *
+     * Formado (top = bottom = 1) se dibuja directo. Mientras se forma, en cambio, se condensa de
+     * la niebla de arriba abajo: se dibuja en una imagen aparte con los mismos píxeles que tendría
+     * en la pantalla (la matriz de g, movida a la esquina de la imagen), y ahí
+     *   1. se tiñe del color de la niebla lo que todavía no termina de formarse (SRC_ATOP: solo
+     *      pinta donde ya hay Candil, sin cambiar su transparencia), y
+     *   2. se multiplica su transparencia por un degradado vertical (DST_IN: resultado =
+     *      Candil · alfa de la máscara), de 'top' en la punta de la capucha a 'bottom' en los
+     *      jirones. Más arriba de la capucha vale 'top' y más abajo de los jirones, 'bottom'.
+     * Luego la imagen se copia sin estirar a su lugar: al llegar a 1 no hay salto.
      */
-    private void drawCandil(Graphics2D g, double alpha, double grow) {
-        if (alpha <= 0.01) return;
+    private void drawCandil(Graphics2D g, double top, double bottom, double grow) {
+        top = Ease.clamp01(top);
+        bottom = Ease.clamp01(bottom);
+        if (top <= 0.01 && bottom <= 0.01) return;
         AffineTransform old = g.getTransform();
-        Composite oldComposite = g.getComposite();
+        double fx = candil.getCenterX(), fy = candil.getBottom();
         if (grow != 1) {
-            double fx = candil.getCenterX(), fy = candil.getBottom();
             g.transform(Mat3.translation(fx, fy).multiply(Mat3.scale(grow, grow))
                     .multiply(Mat3.translation(-fx, -fy)).toAffineTransform());
         }
-        if (alpha < 0.995) g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, (float) alpha));
-        candil.draw(g);
-        g.setComposite(oldComposite);
+        if (top >= 0.995 && bottom >= 0.995) {
+            candil.draw(g);
+            g.setTransform(old);
+            return;
+        }
+
+        // Lo que puede ocupar Candil: su brillo es un círculo de radio 30 con centro 15 arriba
+        // de los pies; con margen para el temblor, el estirón y los jirones que se levantan
+        AffineTransform world = g.getTransform();
+        Rectangle area = world.createTransformedShape(
+                new Rectangle2D.Double(fx - 37, fy - 54, 74, 76)).getBounds();
+        if (forming == null || forming.getWidth() < area.width || forming.getHeight() < area.height) {
+            int w = Math.max(area.width, forming == null ? 0 : forming.getWidth());
+            int h = Math.max(area.height, forming == null ? 0 : forming.getHeight());
+            forming = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB_PRE);
+        }
+
+        Graphics2D b = forming.createGraphics();
+        b.setComposite(AlphaComposite.Clear);
+        b.fillRect(0, 0, area.width, area.height);
+        b.setComposite(AlphaComposite.SrcOver);
+        b.setRenderingHints(g.getRenderingHints());
+        AffineTransform toImage = AffineTransform.getTranslateInstance(-area.x, -area.y);
+        toImage.concatenate(world);
+        b.setTransform(toImage);
+        candil.draw(b);
+
+        // La máscara va de la punta de la capucha (31 arriba de los pies) a los jirones; se
+        // dibuja en píxeles de la imagen, cubriéndola toda
+        double hoodY = toImage.transform(new Point2D.Double(fx, fy - 31), null).getY();
+        double hemY = toImage.transform(new Point2D.Double(fx, fy + 1), null).getY();
+        b.setTransform(new AffineTransform());
+        b.setComposite(AlphaComposite.SrcAtop);
+        b.setPaint(new GradientPaint(0, (float) hoodY, Ease.fade(FORMING_MIST, 0.6 * (1 - top)),
+                0, (float) hemY, Ease.fade(FORMING_MIST, 0.6 * (1 - bottom))));
+        b.fillRect(0, 0, area.width, area.height);
+        b.setComposite(AlphaComposite.DstIn);
+        b.setPaint(new GradientPaint(0, (float) hoodY, new Color(1f, 1f, 1f, (float) top),
+                0, (float) hemY, new Color(1f, 1f, 1f, (float) bottom)));
+        b.fillRect(0, 0, area.width, area.height);
+        b.dispose();
+
+        g.setTransform(new AffineTransform());
+        g.drawImage(forming, area.x, area.y, area.x + area.width, area.y + area.height,
+                0, 0, area.width, area.height, null);
         g.setTransform(old);
     }
 
@@ -293,8 +367,15 @@ public final class DarkStage {
         g.setPaint(new GradientPaint(0, 140, Ease.fade(BEAM, 0.08 * alpha * flicker), 0, (float) GROUND,
                 Ease.fade(BEAM, 0.3 * alpha * flicker)));
         g.fill(core);
-        g.setColor(Ease.fade(BEAM, 0.5 * alpha * flicker));
-        g.fill(new Ellipse2D.Double(134, GROUND - 2.2, 64, 4.4));
+        // Donde pega en la repisa: una mancha de luz aplastada en vertical, la misma campana de
+        // Glow con la matriz T(166, piso) · S(1, 0.14), que se desvanece sin orilla en la piedra
+        AffineTransform old = g.getTransform();
+        Composite oldComposite = g.getComposite();
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, (float) Ease.clamp01(0.75 * alpha * flicker)));
+        g.transform(Mat3.translation(166, GROUND).multiply(Mat3.scale(1.0, 0.14)).toAffineTransform());
+        floorGlow.draw(g, 0, 0, 58);
+        g.setComposite(oldComposite);
+        g.setTransform(old);
         // Polvo que brilla al cruzar el rayo: baja despacio y regresa arriba (módulo)
         for (int i = 0; i < 9; i++) {
             double u = (i / 9.0 + clock * (0.03 + 0.004 * i)) % 1;

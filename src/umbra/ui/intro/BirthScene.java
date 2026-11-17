@@ -23,6 +23,10 @@ public final class BirthScene extends Scene {
     private static final double BIRTH_X = 268;        // dónde cae la chispa y nace Candil
     private static final double LAND = 1.7;           // segundo en que la chispa toca el piso
     private static final double FORM_FROM = 2.1, FORM_TO = 3.3;   // entre estos segundos se forma Candil
+    private static final double HOOD_FORMED = 2.7;    // ya se formó la capucha, con los ojos
+    private static final double HEM_FROM = 2.5;       // empiezan a condensarse los jirones
+    /** Tamaño con el que empieza a formarse (1 = el normal): crece un poco mientras se condensa. */
+    private static final double FORM_SIZE = 0.86;
     private static final double GO = 3.8;             // empieza a ir hacia la luz
     private static final double LIGHT_X = 177;        // hasta dónde se mete en el rayo
     private static final double RETREAT = 5.15;       // regresa a la sombra
@@ -89,8 +93,10 @@ public final class BirthScene extends Scene {
 
     @Override
     public void draw(Graphics2D g) {
-        double formed = Ease.smooth(time, FORM_FROM, FORM_TO);
-        stage.draw(g, camera, 1, formed, Ease.lerp(0.62, 1, Ease.out(Ease.ramp(time, FORM_FROM, FORM_TO))));
+        // Candil se condensa de arriba abajo: primero la capucha y los ojos, luego los jirones
+        double hood = Ease.smooth(time, FORM_FROM, HOOD_FORMED);
+        double hem = Ease.smooth(time, HEM_FROM, FORM_TO);
+        stage.draw(g, camera, 1, hood, hem, Ease.lerp(FORM_SIZE, 1, Ease.out(Ease.ramp(time, FORM_FROM, FORM_TO))));
 
         Mat3 view = camera.getViewMatrix();
         double zoom = camera.getZoom();
