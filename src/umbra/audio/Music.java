@@ -31,6 +31,12 @@ public class Music {
     private FloatControl gain;       // control de volumen en decibeles (puede no existir)
     private double volume;           // volumen actual como amplitud: 0 = silencio, 1 = original
     private boolean muted;
+    private double duck;             // 0 = sin bajar, 1 = bajada completa (mientras habla la narración)
+
+    /** Cuánto baja la música mientras habla la narración, en decibeles. */
+    private static final double DUCK_DB = 4.5;
+    /** Tiempo en segundos para bajar del todo (rápido) y para recuperarse (lento). */
+    private static final double DUCK_DOWN_TIME = 0.4, DUCK_UP_TIME = 1.5;
 
     public Music(String resource) {
         this.resource = resource;
@@ -64,6 +70,9 @@ public class Music {
         double step = Config.MUSIC_VOLUME / Config.MUSIC_FADE_TIME * dt;
         if (volume < target)      volume = Math.min(target, volume + step);
         else if (volume > target) volume = Math.max(target, volume - step * 4);   // silenciar es más rápido
+        double duckTarget = VoiceOver.isPlaying() ? 1 : 0;
+        if (duck < duckTarget)      duck = Math.min(duckTarget, duck + dt / DUCK_DOWN_TIME);
+        else if (duck > duckTarget) duck = Math.max(duckTarget, duck - dt / DUCK_UP_TIME);
         applyVolume();
     }
 
@@ -86,7 +95,7 @@ public class Music {
      */
     private void applyVolume() {
         if (gain == null) return;
-        float db = volume <= 0.0001 ? gain.getMinimum() : (float) (20 * Math.log10(volume));
+        float db = volume <= 0.0001 ? gain.getMinimum() : (float) (20 * Math.log10(volume) - DUCK_DB * duck);
         gain.setValue(Math.max(gain.getMinimum(), Math.min(gain.getMaximum(), db)));
     }
 

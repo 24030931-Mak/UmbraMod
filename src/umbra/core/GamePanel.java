@@ -22,6 +22,7 @@ import javax.swing.JPanel;
 import javax.swing.Timer;
 
 import umbra.audio.Music;
+import umbra.audio.VoiceOver;
 import umbra.entities.LightSource;
 import umbra.entities.Player;
 import umbra.graphics.Background;
@@ -231,7 +232,10 @@ public class GamePanel extends JPanel {
     private void update(double dt) {
         // ---- Teclas que funcionan en todas las pantallas ----
         if (input.wasPressed(KeyEvent.VK_F3)) debug = !debug;
-        if (input.wasPressed(KeyEvent.VK_M)) music.toggleMute();
+        if (input.wasPressed(KeyEvent.VK_M)) {
+            music.toggleMute();
+            VoiceOver.setMuted(music.isMuted());   // el silencio global también calla la narración
+        }
         music.update(dt);   // entrada suave y silencio gradual
 
         updateFade(dt);
@@ -344,6 +348,7 @@ public class GamePanel extends JPanel {
 
     /** Empieza el nivel desde el principio (desde el menú o al jugar de nuevo). */
     private void startGame() {
+        VoiceOver.stop();   // si se salta la intro, la narración se corta
         world.reset();
         useCurrentLevel();
         logiWaiting = false;   // partida nueva: Logi sigue al ratón desde el principio
