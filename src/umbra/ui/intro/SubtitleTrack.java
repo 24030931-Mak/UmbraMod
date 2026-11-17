@@ -60,7 +60,7 @@ public final class SubtitleTrack {
     public static SubtitleTrack lantern() {
         return new SubtitleTrack()
                 .add(0.00, 4.35, "Bajo la tierra, el Gran Farol lo iluminaba todo.")
-                .add(4.45, 7.65, "Nada podía esconderse de su llama.");
+                .add(4.45, 7.40, "Nada podía esconderse de su llama.");   // 7.40 y no 7.65: la escena 1 acaba en el 7.45 del clip y el fundido debe terminar antes
     }
 
     /** Escena 2, voz_2.wav: el farol se quiebra. */

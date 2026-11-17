@@ -51,6 +51,9 @@ public abstract class Scene {
     /** [v0.8.7] La pista de subtítulos del clip de la escena (null = sin subtítulos). */
     public SubtitleTrack getSubtitles() { return null; }
 
+    /** true si la voz de esta escena ya se disparó (para el texto de respaldo cuando no suena). */
+    public final boolean hasSpoken() { return spoken; }
+
     /**
      * Los subtítulos que se pueden dibujar ahora: solo si la voz de ESTA escena ya se disparó y
      * suena (si no, se vería la frase de la escena anterior con la posición del clip viejo).
