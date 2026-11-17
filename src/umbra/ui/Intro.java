@@ -184,7 +184,7 @@ public class Intro {
         Scene scene = scenes()[index];
         double t = getSceneTime(), length = LENGTHS[index];
         scene.draw(g);
-        SubtitleRenderer.draw(g, scene.activeSubtitles(), VoiceOver.getPositionSeconds());   // sobre la escena, bajo el fundido
+        SubtitleRenderer.draw(g, scene.activeSubtitles(), VoiceOver.getPositionSeconds(), scene.subtitleAlpha());   // sobre la escena, bajo el fundido
 
         // Fundidos: el de entrada, el de salida y el de saltar; manda el más oscuro
         double black = 0;

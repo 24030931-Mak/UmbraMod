@@ -57,10 +57,15 @@ public final class SubtitleRenderer {
     }
 
     public static void draw(Graphics2D g, SubtitleTrack track, double audioTime) {
-        if (track == null) return;
+        draw(g, track, audioTime, 1);
+    }
+
+    /** [v0.8.7] Igual, con un factor de opacidad extra (0 a 1) que multiplica la del subtítulo. */
+    public static void draw(Graphics2D g, SubtitleTrack track, double audioTime, double factor) {
+        if (track == null || factor <= 0) return;
         SubtitleTrack.Segment s = track.active(audioTime);
         if (s == null) return;
-        double alpha = s.alpha(audioTime);
+        double alpha = s.alpha(audioTime) * Math.min(1, factor);
         if (alpha <= 0) return;
 
         int mid = (VEIL_TOP + VEIL_BOTTOM) / 2;

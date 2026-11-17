@@ -42,6 +42,9 @@ public abstract class Scene {
     /** Qué tan visible es el título UMBRA (0 a 1). Solo la última escena lo muestra. */
     public double titleAlpha() { return 0; }
 
+    /** [v0.8.7] Opacidad de los subtítulos (1 = normal; 0 = ocultos, p. ej. en el cuadro de impacto). */
+    public double subtitleAlpha() { return 1; }
+
     /** [v0.8.7] Ruta del clip de narración de la escena (null = no habla). */
     protected String voiceClip() { return null; }
 

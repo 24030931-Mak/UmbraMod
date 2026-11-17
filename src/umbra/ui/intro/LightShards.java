@@ -42,6 +42,10 @@ public final class LightShards {
     private static final double TRAIL_STEP = 0.046;    // segundos entre un punto de la estela y el siguiente
     /** Los trazos de la estela, del más grueso al más delgado (se multiplican por el tamaño al dibujar). */
     private static final float[] TRAIL_WIDTH = { 2.3f, 1.9f, 1.5f, 1.1f, 0.7f };
+    /** [v0.8.7] Segundos que dura el rebote tras el impacto. */
+    private static final double BOUNCE_LIFE = 0.45;
+    /** [v0.8.7] Segundos que dura el destello puntual al caer. */
+    private static final double FLASH = 0.22;
     private static final double VANISH = 0.25;         // segundos que tarda en apagarse al llegar
     private static final Color LIGHT = new Color(255, 232, 160);
     private static final Color WHITE = new Color(255, 252, 236);
@@ -49,6 +53,8 @@ public final class LightShards {
     /** Un pedazo: de dónde sale, con qué velocidad, cuándo y cuánto tarda en llegar. */
     private static final class Shard {
         double x0, y0, vx, vy, start, flight, size;
+        /** Punto de impacto y rebote amortiguado: sale de (tx, ty) y vuelve a caer en ty. */
+        double tx, ty, bvx, bvy;
     }
 
     /** Una chispa: sale del mismo punto, sin destino, y vive poco. */
@@ -80,6 +86,13 @@ public final class LightShards {
         s.y0 = y0;
         s.vx = (tx - x0) / flight;
         s.vy = (ty - y0) / flight - 0.5 * GRAVITY * flight;
+        s.tx = tx;
+        s.ty = ty;
+        // Rebote: v_impacto = vy0 + g·T; sale con 0.4·vx0 y -0.32·v_impacto. La altura se limita
+        // para que la segunda caída (2·|vy|/g) termine en ty antes de BOUNCE_LIFE, sin salto.
+        double vyImpact = Math.max(0, s.vy + GRAVITY * flight);
+        s.bvx = 0.4 * s.vx;
+        s.bvy = -Math.min(0.32 * vyImpact, 0.5 * GRAVITY * BOUNCE_LIFE);
         s.start = start;
         s.flight = flight;
         s.size = size;
@@ -141,8 +154,9 @@ public final class LightShards {
         }
         for (Shard s : shards) {
             double age = t - s.start;
-            if (age < 0 || age > s.flight + VANISH) continue;
-            double alpha = age <= s.flight ? Math.min(1, age / 0.08) : 1 - (age - s.flight) / VANISH;
+            double rest = s.flight + BOUNCE_LIFE;   // desde aquí se queda quieto en (tx, ty) y se apaga
+            if (age < 0 || age > rest + VANISH) continue;
+            double alpha = age <= rest ? Math.min(1, age / 0.08) : 1 - (age - rest) / VANISH;
             Vec2 head = view.apply(position(s, age));
 
             // Estela: posiciones de instantes anteriores, cada vez más delgada y transparente
@@ -157,6 +171,13 @@ public final class LightShards {
                 g.draw(new Line2D.Double(from.x, from.y, to.x, to.y));
                 from = to;
             }
+            // El destello puntual al caer: ilumina la boca donde llega
+            double hit = age - s.flight;
+            if (hit >= 0 && hit < FLASH) {
+                double k = 1 - hit / FLASH;
+                Vec2 tp = view.apply(new Vec2(s.tx, s.ty));
+                glow.draw(g, tp.x, tp.y, 34 * s.size * zoom * (0.5 + 0.5 * k));
+            }
             // La cabeza: una mancha de brillo y un centro casi blanco
             glow.draw(g, head.x, head.y, 15 * s.size * zoom * (0.6 + 0.4 * alpha));
             double r = 2.1 * s.size * zoom;
@@ -168,6 +189,12 @@ public final class LightShards {
 
     /** p(s) = p0 + v0·s + ½·g·s² */
     private static Vec2 position(Shard s, double age) {
+        if (age > s.flight) {
+            // Rebote amortiguado desde el punto de impacto; al caer otra vez se queda en (tx, ty)
+            double b = age - s.flight;
+            double y = s.ty + s.bvy * b + 0.5 * GRAVITY * b * b;
+            return new Vec2(s.tx + s.bvx * b, Math.min(y, s.ty));
+        }
         return new Vec2(s.x0 + s.vx * age, s.y0 + s.vy * age + 0.5 * GRAVITY * age * age);
     }
 

@@ -139,6 +139,12 @@ public final class ShatterScene extends Scene {
         return Ease.in(Ease.ramp(t, IMPLODE_AT, BREAK));
     }
 
+    /** Sin subtítulos durante el cuadro de impacto: su franja oscura se vería como una banda gris sobre el blanco. */
+    @Override
+    public double subtitleAlpha() {
+        return burst && time - breakTime < IMPACT ? 0 : 1;
+    }
+
     @Override
     public void draw(Graphics2D g) {
         if (!burst) {
