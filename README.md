@@ -61,7 +61,7 @@ Requisitos: **Java 8 o superior** (recomendado 17 o 21). No usa librerías exter
 | Clic | Fijar o soltar a Logi |
 | R | Reiniciar el nivel |
 | Tab | Abrir o cerrar el mapa |
-| M | Silenciar o encender la música |
+| M | Silenciar o encender la música y la voz |
 | F3 | Mostrar u ocultar los datos de depuración |
 | Enter, Esc, Espacio o clic | Saltar la intro |
 | I (en el menú) | Ver la intro otra vez |
@@ -97,7 +97,8 @@ Al cruzar de nivel, Logi aparece arriba de Candil y espera a que muevas el rató
 src/umbra/
 ├── Main.java                 Crea la ventana y arranca el juego
 ├── audio/
-│   └── Music.java            Música de ambiente en bucle (entrada suave, tecla M)
+│   ├── Music.java            Música de ambiente en bucle (entrada suave, tecla M; baja mientras habla la narración)
+│   └── VoiceOver.java        Narración de la intro: un clip a la vez, cargados de antemano, con reloj real
 ├── core/
 │   ├── Config.java           Constantes: física, vida, música, versión
 │   ├── GamePanel.java        Game loop, update y render
@@ -110,6 +111,7 @@ src/umbra/
 ├── graphics/
 │   ├── Background.java       Cueva por capas (parallax), niebla, esporas y viñeta
 │   ├── Camera.java           Cámara que avanza con Candil (matriz de vista)
+│   ├── CaveShapes.java       Formas de la cueva que comparten el juego y la intro (estalactitas, crestas)
 │   ├── LevelArt.java         Roca, musgo, plantas que se mecen, hongos, losas con runas
 │   ├── ParticleSystem.java   Rastro de luz, chispas, polvo, niebla y ceniza
 │   └── ShadowCaster.java     Proyección de sombras (envolvente convexa)
@@ -118,13 +120,15 @@ src/umbra/
 │   └── Mat3.java             Matriz 3x3 (traslación, rotación, escala)
 ├── res/
 │   ├── ambiente.wav          Música
-│   ├── intro.txt             Narración de la intro (una línea por escena; se puede editar)
+│   ├── voz_1.wav … voz_6.wav Narración de la intro, una por escena
+│   ├── intro.txt             Texto de respaldo de la intro: sale solo si la voz no puede sonar
 │   └── final.txt             Texto de la pantalla final
 ├── ui/
 │   ├── Intro.java            La intro: línea de tiempo de las seis escenas, fundidos y narración
 │   ├── TextSprite.java       Texto ya dibujado en una imagen, para que la intro vaya a 60 FPS
 │   ├── intro/                Escenas de la intro: el Gran Farol, la caverna dorada, las grietas,
-│   │                         los pedazos de luz, la neblina, el nacimiento de Candil y la llegada de Logi
+│   │                         los pedazos de luz, la neblina, el nacimiento de Candil, la llegada de Logi,
+│   │                         los planos con parallax y los subtítulos
 │   ├── Menu.java             Menú de inicio: el título y las opciones
 │   ├── LevelTitle.java       Título del nivel al empezar o al cruzar
 │   ├── Victory.java          Pantalla final
@@ -179,6 +183,14 @@ src/umbra/
 - [x] Sombras negras con una orilla tenue
 - [x] Logi ya no cae sobre Candil al reaparecer
 
+### v0.8.7 — Una intro más solemne, con voz
+- [x] Narración con voz en las seis escenas y subtítulos sincronizados con el audio; la música baja mientras se narra
+- [x] Profundidad: las cavernas se separan en planos con parallax, con claroscuro y un hilo de luz en las orillas
+- [x] El Gran Farol, alto y esbelto: pedestal tallado, cadenas hasta el techo y anillos que giran alrededor de la llama; ya no tiene ojos
+- [x] La rotura: la luz se contrae, un cuadro de impacto, una onda expansiva y pedazos que rebotan al caer
+- [x] La oscuridad baja también del techo; Candil se condensa de arriba abajo y Logi lanza un pulso de luz al fijarse
+- [x] El final sube hasta el Gran Farol apagado en lo alto de la chimenea, junto al título
+
 ### Después
 Las versiones siguen: el juego todavía puede crecer.
 - [ ] v0.9 — El mundo-cueva: zonas conectadas hacia los lados, arriba y abajo; mapa grande de la cueva; nivel 3 y la Cúpula; fragmentos del Gran Farol; guardar la partida
@@ -209,9 +221,17 @@ Las versiones siguen: el juego todavía puede crecer.
 | Sistema de partículas | `ParticleSystem` |
 | Mapa: escala y traslación fijas, y su recorte circular | `MapView`, `MiniMap` |
 | Neblina con máscara bilineal (orillas suaves) | `MapFog` |
+| Parallax por planos: la vista de cada plano según su profundidad | `IntroCamera.getViewMatrix(factor)`, `GoldenCavern`, `DarkCavern` |
+| Interpolación bilineal al escalar imágenes (con la tarjeta de video) | `Scene.drawImage()`, `GreatLantern.drawLayer()` |
+| Proyección 2.5D de un círculo: `T · R · S(1, 0.28)` | `GreatLantern.drawArcaneRings()` |
+| Tiro parabólico con rebote amortiguado | `LightShards` |
+| Máscara de degradado con composición alfa (`DST_IN`) | `DarkStage.drawCandil()` |
+| Sincronía de subtítulos con el reloj del audio | `VoiceOver`, `SubtitleTrack` |
 
 ## Música
 
 La música está en `src/umbra/res/ambiente.wav` y se repite sin fin (**M** la silencia). Para cambiarla, reemplaza ese archivo por otro **WAV** con el mismo nombre: de preferencia mono, de 22 050 o 44 100 Hz y de 3 minutos o menos. Java no lee MP3, así que hay que convertirla antes.
+
+La narración de la intro está en `src/umbra/res/voz_1.wav` … `voz_6.wav`, una por escena (WAV PCM de 16 bits, 44 100 Hz, estéreo). Mientras habla, la música baja un poco; **M** silencia las dos. Si una voz falta o no hay tarjeta de sonido, la intro muestra el texto de `intro.txt` en su lugar.
 
 La pieza actual es de prueba: fue generada con código (síntesis aditiva), así que no tiene derechos de terceros. Si se usa otra, aquí deben ir su autor y su licencia.
