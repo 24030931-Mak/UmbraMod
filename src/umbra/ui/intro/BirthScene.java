@@ -47,6 +47,17 @@ public final class BirthScene extends Scene {
               .depthOrigin(258, 384, 2.6);
     }
 
+    private static final SubtitleTrack SUBTITLES = SubtitleTrack.birth();
+
+    @Override
+    protected String voiceClip() { return "/umbra/res/voz_4.wav"; }
+
+    @Override
+    protected double voiceAt() { return 0.30; }
+
+    @Override
+    public SubtitleTrack getSubtitles() { return SUBTITLES; }
+
     @Override
     public void enter() {
         stage.reset(BIRTH_X);

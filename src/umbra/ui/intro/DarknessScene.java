@@ -22,6 +22,17 @@ public final class DarknessScene extends Scene {
               .key(length, GoldenStage.WIDE_X, GoldenStage.WIDE_Y + 14, 1.14);
     }
 
+    private static final SubtitleTrack SUBTITLES = SubtitleTrack.darkness();
+
+    @Override
+    protected String voiceClip() { return "/umbra/res/voz_3.wav"; }
+
+    @Override
+    protected double voiceAt() { return 1.10; }
+
+    @Override
+    public SubtitleTrack getSubtitles() { return SUBTITLES; }
+
     @Override
     public void enter() {
         GreatLantern lantern = stage.lantern;

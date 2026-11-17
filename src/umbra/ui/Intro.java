@@ -7,6 +7,7 @@ import java.awt.Graphics2D;
 import java.util.ArrayList;
 import java.util.List;
 
+import umbra.audio.VoiceOver;
 import umbra.core.Config;
 import umbra.entities.LightSource;
 import umbra.entities.Player;
@@ -18,6 +19,7 @@ import umbra.ui.intro.Ease;
 import umbra.ui.intro.GoldenStage;
 import umbra.ui.intro.LanternScene;
 import umbra.ui.intro.Scene;
+import umbra.ui.intro.SubtitleRenderer;
 import umbra.ui.intro.ShatterScene;
 import umbra.ui.intro.TitleScene;
 import umbra.ui.intro.TogetherScene;
@@ -102,7 +104,8 @@ public class Intro {
         index = 0;
         skipTime = -1;
         finished = false;
-        scenes()[0].enter();
+        VoiceOver.stop();
+        scenes()[0].start();
     }
 
     /** La termina ya: la pantalla se oscurece en SKIP_FADE segundos y la intro queda terminada. */
@@ -127,13 +130,14 @@ public class Intro {
         // ¿A qué escena le toca este segundo? Se avanza mientras el reloj ya pasó el final de la actual.
         while (index < all.length - 1 && time >= sceneStart(index + 1)) {
             index++;
-            all[index].enter();
+            all[index].start();
         }
         all[index].advance(dt, time - sceneStart(index));
     }
 
     /** Termina y suelta los escenarios (sus imágenes ocupan unos 75 MB); restart() los vuelve a crear. */
     private void finish() {
+        VoiceOver.stop();   // al terminar o saltar la intro, la narración se corta
         finished = true;
         scenes = null;
         dark = null;
@@ -162,7 +166,7 @@ public class Intro {
                 new TogetherScene(dark, LENGTHS[4]),
                 new TitleScene(dark, LENGTHS[5]),
             };
-            scenes[index].enter();
+            scenes[index].start();
         }
         return scenes;
     }
@@ -180,6 +184,7 @@ public class Intro {
         Scene scene = scenes()[index];
         double t = getSceneTime(), length = LENGTHS[index];
         scene.draw(g);
+        SubtitleRenderer.draw(g, scene.activeSubtitles(), VoiceOver.getPositionSeconds());   // sobre la escena, bajo el fundido
 
         // Fundidos: el de entrada, el de salida y el de saltar; manda el más oscuro
         double black = 0;

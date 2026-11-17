@@ -31,6 +31,17 @@ public final class ShatterScene extends Scene {
               .key(length, GoldenStage.WIDE_X, GoldenStage.WIDE_Y, GoldenStage.WIDE_ZOOM);
     }
 
+    private static final SubtitleTrack SUBTITLES = SubtitleTrack.shatter();
+
+    @Override
+    protected String voiceClip() { return "/umbra/res/voz_2.wav"; }
+
+    @Override
+    protected double voiceAt() { return 0.40; }
+
+    @Override
+    public SubtitleTrack getSubtitles() { return SUBTITLES; }
+
     @Override
     public void enter() {
         GreatLantern lantern = stage.lantern;

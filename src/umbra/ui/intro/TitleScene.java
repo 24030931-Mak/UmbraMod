@@ -24,6 +24,17 @@ public final class TitleScene extends Scene {
               .depthOrigin(920, 386, 3.4);
     }
 
+    private static final SubtitleTrack SUBTITLES = SubtitleTrack.title();
+
+    @Override
+    protected String voiceClip() { return "/umbra/res/voz_6.wav"; }
+
+    @Override
+    protected double voiceAt() { return 1.00; }
+
+    @Override
+    public SubtitleTrack getSubtitles() { return SUBTITLES; }
+
     @Override
     public void enter() {
         stage.reset(CANDIL_X);

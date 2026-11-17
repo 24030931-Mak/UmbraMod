@@ -5,6 +5,7 @@ import java.awt.RenderingHints;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 
+import umbra.audio.VoiceOver;
 import umbra.math.Mat3;
 
 /**
@@ -20,6 +21,8 @@ public abstract class Scene {
     protected final IntroCamera camera = new IntroCamera();
     /** Segundos desde que empezó la escena. */
     protected double time;
+    /** [v0.8.7] Si la narración de esta escena ya se disparó (se reinicia en start()). */
+    private boolean spoken;
 
     /** Deja la escena en su estado inicial. Se llama cada vez que la intro entra en ella. */
     public abstract void enter();
@@ -39,11 +42,39 @@ public abstract class Scene {
     /** Qué tan visible es el título UMBRA (0 a 1). Solo la última escena lo muestra. */
     public double titleAlpha() { return 0; }
 
+    /** [v0.8.7] Ruta del clip de narración de la escena (null = no habla). */
+    protected String voiceClip() { return null; }
+
+    /** [v0.8.7] En qué segundo de la escena empieza la narración. */
+    protected double voiceAt() { return 0; }
+
+    /** [v0.8.7] La pista de subtítulos del clip de la escena (null = sin subtítulos). */
+    public SubtitleTrack getSubtitles() { return null; }
+
+    /**
+     * Los subtítulos que se pueden dibujar ahora: solo si la voz de ESTA escena ya se disparó y
+     * suena (si no, se vería la frase de la escena anterior con la posición del clip viejo).
+     */
+    public final SubtitleTrack activeSubtitles() {
+        return spoken && VoiceOver.isPlaying() ? getSubtitles() : null;
+    }
+
+    /** La línea de tiempo entra en la escena: reinicia la bandera de la voz y llama a enter(). */
+    public final void start() {
+        spoken = false;
+        enter();
+    }
+
     /** La línea de tiempo llama a este método en cada paso, con el tiempo local de la escena. */
     public final void advance(double dt, double localTime) {
         time = localTime;
         camera.setTime(localTime);
         update(dt);
+        String clip = voiceClip();
+        if (!spoken && clip != null && localTime >= voiceAt()) {
+            spoken = true;
+            VoiceOver.play(clip);
+        }
     }
 
     /** Matriz de vista de la cámara de la escena (mundo -> pantalla). */

@@ -21,6 +21,17 @@ public final class LanternScene extends Scene {
               .key(length, GoldenStage.CLOSE_X, GoldenStage.CLOSE_Y, GoldenStage.CLOSE_ZOOM);
     }
 
+    private static final SubtitleTrack SUBTITLES = SubtitleTrack.lantern();
+
+    @Override
+    protected String voiceClip() { return "/umbra/res/voz_1.wav"; }
+
+    @Override
+    protected double voiceAt() { return 0.20; }
+
+    @Override
+    public SubtitleTrack getSubtitles() { return SUBTITLES; }
+
     @Override
     public void enter() {
         GreatLantern lantern = stage.lantern;

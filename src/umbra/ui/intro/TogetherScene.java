@@ -38,6 +38,17 @@ public final class TogetherScene extends Scene {
               .depthOrigin(640, 318, 1.5);    // ahí el fondo queda como sin parallax: el brillo, a la vista
     }
 
+    private static final SubtitleTrack SUBTITLES = SubtitleTrack.together();
+
+    @Override
+    protected String voiceClip() { return "/umbra/res/voz_5.wav"; }
+
+    @Override
+    protected double voiceAt() { return 0.50; }
+
+    @Override
+    public SubtitleTrack getSubtitles() { return SUBTITLES; }
+
     @Override
     public void enter() {
         stage.reset(CANDIL_X);
