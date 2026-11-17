@@ -194,11 +194,15 @@ public final class GreatLantern {
     private static void drawLayer(Graphics2D g, BufferedImage layer) {
         Object aa = g.getRenderingHint(RenderingHints.KEY_ANTIALIASING);
         Object quality = g.getRenderingHint(RenderingHints.KEY_RENDERING);
+        Object sampling = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
         g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, Scene.smoothScaling(g));   // bilineal con la tarjeta de video
         g.drawImage(layer, LEFT, TOP, WIDTH, HEIGHT, null);
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, aa);
         g.setRenderingHint(RenderingHints.KEY_RENDERING, quality);
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, sampling != null ? sampling
+                : RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);   // sin indicación, Java2D usa el vecino
     }
 
     /**

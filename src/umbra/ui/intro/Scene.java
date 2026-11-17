@@ -52,22 +52,49 @@ public abstract class Scene {
     }
 
     /**
-     * Dibuja una imagen ya hecha con la matriz 'view' aplicada, donde un píxel de la imagen mide
-     * 1 / pixelsPerUnit unidades del mundo y su esquina queda en (x, y) del mundo:
+     * Dibuja el rectángulo (sx, sy, w, h) de una imagen ya hecha con la matriz 'view' aplicada,
+     * donde un píxel de la imagen mide 1 / pixelsPerUnit unidades del mundo y la esquina del
+     * rectángulo queda en (x, y) del mundo:
      *     M = view · T(x, y) · S(1 / pixelsPerUnit)
-     * Se dibuja sin suavizado de bordes y con el vecino más cercano: una imagen grande escalada
-     * así cuesta menos de medio milisegundo; con interpolación bilineal, más de siete.
+     * Lo que rodea al rectángulo no se pinta, pero el muestreo bilineal sí lo lee (ver Plane).
+     * Sin suavizado de bordes (no hace falta: la imagen ya trae sus orillas suavizadas) y con el
+     * muestreo que diga smoothScaling.
      */
     public static void drawImage(Graphics2D g, BufferedImage img, Mat3 view, double x, double y,
-                                    double pixelsPerUnit) {
+                                    double pixelsPerUnit, int sx, int sy, int w, int h) {
         Object aa = g.getRenderingHint(RenderingHints.KEY_ANTIALIASING);
         Object quality = g.getRenderingHint(RenderingHints.KEY_RENDERING);
+        Object sampling = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
         g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
-        AffineTransform m = view.multiply(Mat3.translation(x, y))
-                .multiply(Mat3.scale(1 / pixelsPerUnit, 1 / pixelsPerUnit)).toAffineTransform();
-        g.drawImage(img, m, null);
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, smoothScaling(g));
+        AffineTransform old = g.getTransform();
+        g.transform(view.multiply(Mat3.translation(x, y))
+                .multiply(Mat3.scale(1 / pixelsPerUnit, 1 / pixelsPerUnit)).toAffineTransform());
+        g.drawImage(img, 0, 0, w, h, sx, sy, sx + w, sy + h, null);
+        g.setTransform(old);
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, aa);
         g.setRenderingHint(RenderingHints.KEY_RENDERING, quality);
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, sampling != null ? sampling
+                : RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);   // sin indicación, Java2D usa el vecino
+    }
+
+    /**
+     * Cómo muestrear una imagen escalada. Con el vecino más cercano, cada píxel de la pantalla
+     * toma el píxel de la imagen que le cae encima; en un acercamiento lento ese píxel cambia de
+     * golpe y las líneas finas "brincan" (parpadean). Con interpolación bilineal toma el promedio
+     * de los cuatro vecinos, pesado por qué tan cerca está de cada uno:
+     *     c = (1-u)(1-v)·c00 + u(1-v)·c10 + (1-u)v·c01 + uv·c11
+     * y la imagen se desliza suave.
+     *
+     * La tarjeta de video hace eso casi gratis (unos 0.3 ms por plano), y en el juego se dibuja
+     * en una imagen de la tarjeta de video (con Direct3D en Windows). Sin ella (sin aceleración, o
+     * al dibujar en un BufferedImage, como las pruebas) Java2D la calcula en el procesador y
+     * cuesta unos 9 ms por plano de pantalla completa: ahí se usa el vecino más cercano.
+     */
+    static Object smoothScaling(Graphics2D g) {
+        return g.getDeviceConfiguration().getImageCapabilities().isAccelerated()
+                ? RenderingHints.VALUE_INTERPOLATION_BILINEAR
+                : RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR;
     }
 }

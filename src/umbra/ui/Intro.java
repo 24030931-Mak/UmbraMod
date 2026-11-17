@@ -132,7 +132,7 @@ public class Intro {
         all[index].advance(dt, time - sceneStart(index));
     }
 
-    /** Termina y suelta los escenarios (sus imágenes ocupan unos 45 MB); restart() los vuelve a crear. */
+    /** Termina y suelta los escenarios (sus imágenes ocupan unos 75 MB); restart() los vuelve a crear. */
     private void finish() {
         finished = true;
         scenes = null;

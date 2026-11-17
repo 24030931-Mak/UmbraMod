@@ -43,7 +43,8 @@ public final class BirthScene extends Scene {
         camera.key(0, 262, 378, 2.5)
               .key(3.4, 252, 384, 2.68)
               .key(5.3, 232, 386, 2.74)
-              .key(length, 258, 384, 2.6);
+              .key(length, 258, 384, 2.6)
+              .depthOrigin(258, 384, 2.6);
     }
 
     @Override

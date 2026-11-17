@@ -20,7 +20,8 @@ public final class TitleScene extends Scene {
     public TitleScene(DarkStage stage, double length) {
         this.stage = stage;
         camera.key(0, 815, 374, 2.3)
-              .key(length, 920, 386, 3.4);
+              .key(length, 920, 386, 3.4)
+              .depthOrigin(920, 386, 3.4);
     }
 
     @Override

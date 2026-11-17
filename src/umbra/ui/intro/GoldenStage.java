@@ -42,10 +42,13 @@ public final class GoldenStage {
      * 'motes' (0 a 1) es qué tanto polvo dorado se ve.
      *
      * El Farol se dibuja con la matriz  vista · T(pie del Farol): sus coordenadas propias (pie
-     * en el origen) pasan al mundo y de ahí a la pantalla.
+     * en el origen) pasan al mundo y de ahí a la pantalla. Detrás de él van los planos lejano y
+     * medio de la caverna (cada uno con su vista) y, debajo, el piso donde se para, con la misma
+     * vista que el Farol para que no se "despegue" de su terraza al moverse la cámara.
      */
     public void draw(Graphics2D g, IntroCamera camera, double dim, double motes) {
         cavern.drawBack(g, camera);
+        cavern.drawGround(g, camera);
 
         AffineTransform old = g.getTransform();
         g.transform(camera.getViewMatrix()

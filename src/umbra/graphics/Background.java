@@ -237,15 +237,15 @@ public class Background {
         g.setColor(FAR);
         double[] ceiling = midpointDisplacement(rnd, 64, 55, 0.55);
         double[] floor = midpointDisplacement(rnd, 64, 80, 0.55);
-        g.fill(ridge(ceiling, w, 85, true));
-        g.fill(ridge(floor, w, 560, false));
+        g.fill(CaveShapes.ridge(ceiling, 0, w, 85, 0));
+        g.fill(CaveShapes.ridge(floor, 0, w, 560, Config.HEIGHT));
         for (int i = 0; i < w / 45; i++) {
             double x = rnd.nextDouble() * w;
-            g.fill(spike(x, heightAt(ceiling, w, 85, x) - 5, 10 + rnd.nextDouble() * 22, 40 + rnd.nextDouble() * 150, true));
+            g.fill(CaveShapes.spike(x, CaveShapes.heightAt(ceiling, 0, w, 85, x) - 5, 10 + rnd.nextDouble() * 22, 40 + rnd.nextDouble() * 150, true));
         }
         for (int i = 0; i < w / 160; i++) {
             double x = rnd.nextDouble() * w;
-            g.fill(spike(x, heightAt(floor, w, 560, x) + 5, 30 + rnd.nextDouble() * 40, 80 + rnd.nextDouble() * 160, false));
+            g.fill(CaveShapes.spike(x, CaveShapes.heightAt(floor, 0, w, 560, x) + 5, 30 + rnd.nextDouble() * 40, 80 + rnd.nextDouble() * 160, false));
         }
         g.dispose();
         return img;
@@ -260,11 +260,11 @@ public class Background {
 
         double[] ceiling = midpointDisplacement(rnd, 64, 40, 0.6);
         double[] floor = midpointDisplacement(rnd, 64, 50, 0.6);
-        g.fill(ridge(ceiling, w, 45, true));
-        g.fill(ridge(floor, w, 610, false));
+        g.fill(CaveShapes.ridge(ceiling, 0, w, 45, 0));
+        g.fill(CaveShapes.ridge(floor, 0, w, 610, Config.HEIGHT));
         for (int i = 0; i < w / 60; i++) {
             double x = rnd.nextDouble() * w;
-            g.fill(spike(x, heightAt(ceiling, w, 45, x) - 5, 14 + rnd.nextDouble() * 26, 50 + rnd.nextDouble() * 170, true));
+            g.fill(CaveShapes.spike(x, CaveShapes.heightAt(ceiling, 0, w, 45, x) - 5, 14 + rnd.nextDouble() * 26, 50 + rnd.nextDouble() * 170, true));
         }
 
         // Ruinas: pares de columnas, a veces unidas por un arco, a veces rotas. Cada ruina se
@@ -279,12 +279,12 @@ public class Background {
             double colW = 26 + rnd.nextDouble() * 14;
             double height = 160 + rnd.nextDouble() * 170;
             boolean arch = rnd.nextDouble() < 0.6;
-            double foot = heightAt(floor, w, 610, x) + 10;
+            double foot = CaveShapes.heightAt(floor, 0, w, 610, x) + 10;
             g.transform(Mat3.translation(x, foot).multiply(Mat3.scale(ruinScale, ruinScale))
                     .multiply(Mat3.translation(-x, -foot)).toAffineTransform());
             for (int k = 0; k < 2; k++) {
                 double cx = x + k * span;
-                double ground = heightAt(floor, w, 610, x + k * span * ruinScale) + 10;
+                double ground = CaveShapes.heightAt(floor, 0, w, 610, x + k * span * ruinScale) + 10;
                 double base = foot + (ground - foot) / ruinScale;
                 double h = arch ? height : height * (0.4 + rnd.nextDouble() * 0.6);
                 g.fill(column(cx, base, colW, h, rnd, !arch && rnd.nextDouble() < 0.7));
@@ -307,14 +307,14 @@ public class Background {
         g.setColor(NEAR);
 
         double[] floor = midpointDisplacement(rnd, 128, 45, 0.6);
-        g.fill(ridge(floor, w, 665, false));
+        g.fill(CaveShapes.ridge(floor, 0, w, 665, Config.HEIGHT));
         for (int i = 0; i < w / 110; i++) {
             double x = rnd.nextDouble() * w;
-            g.fill(spike(x, -5, 24 + rnd.nextDouble() * 50, 70 + rnd.nextDouble() * 210, true));
+            g.fill(CaveShapes.spike(x, -5, 24 + rnd.nextDouble() * 50, 70 + rnd.nextDouble() * 210, true));
         }
         for (int i = 0; i < w / 220; i++) {
             double x = rnd.nextDouble() * w;
-            g.fill(spike(x, heightAt(floor, w, 665, x) + 5, 40 + rnd.nextDouble() * 50, 60 + rnd.nextDouble() * 120, false));
+            g.fill(CaveShapes.spike(x, CaveShapes.heightAt(floor, 0, w, 665, x) + 5, 40 + rnd.nextDouble() * 50, 60 + rnd.nextDouble() * 120, false));
         }
         g.dispose();
         return img;
@@ -327,7 +327,7 @@ public class Background {
             if (rnd.nextBoolean()) {
                 front.add(root(x, rnd));
             } else {
-                front.add(spike(x, -5, 30 + rnd.nextDouble() * 40, 50 + rnd.nextDouble() * 60, true));
+                front.add(CaveShapes.spike(x, -5, 30 + rnd.nextDouble() * 40, 50 + rnd.nextDouble() * 60, true));
             }
             double bx = x + 150 + rnd.nextDouble() * 200;
             front.add(new Ellipse2D.Double(bx - 90, Config.HEIGHT - 28 - rnd.nextDouble() * 20, 180 + rnd.nextDouble() * 120, 90));
@@ -421,7 +421,7 @@ public class Background {
     }
 
     // =========================================================
-    //  FORMAS
+    //  FORMAS (los perfiles y las estalactitas están en CaveShapes)
     // =========================================================
 
     /**
@@ -446,37 +446,6 @@ public class Background {
             disp *= roughness;
         }
         return h;
-    }
-
-    /** Altura del perfil en la posición x (interpolación lineal entre los dos puntos vecinos). */
-    private static double heightAt(double[] h, double width, double base, double x) {
-        double t = Math.max(0, Math.min(1, x / width)) * (h.length - 1);
-        int i = Math.min((int) t, h.length - 2);
-        return base + h[i] + (h[i + 1] - h[i]) * (t - i);
-    }
-
-    /** Perfil de techo (cerrado contra el borde de arriba) o de suelo (contra el de abajo). */
-    private static Path2D ridge(double[] h, double width, double base, boolean ceiling) {
-        Path2D p = new Path2D.Double();
-        double edge = ceiling ? 0 : Config.HEIGHT;
-        p.moveTo(0, edge);
-        for (int i = 0; i < h.length; i++) {
-            p.lineTo(width * i / (h.length - 1), base + h[i]);
-        }
-        p.lineTo(width, edge);
-        p.closePath();
-        return p;
-    }
-
-    /** Estalactita (hacia abajo) o estalagmita (hacia arriba), con lados curvos. */
-    private static Path2D spike(double x, double baseY, double w, double len, boolean down) {
-        double dir = down ? 1 : -1;
-        Path2D p = new Path2D.Double();
-        p.moveTo(x - w / 2, baseY);
-        p.quadTo(x - w / 5, baseY + dir * len * 0.55, x, baseY + dir * len);
-        p.quadTo(x + w / 5, baseY + dir * len * 0.55, x + w / 2, baseY);
-        p.closePath();
-        return p;
     }
 
     /** Columna con capitel, o rota en la parte de arriba. */

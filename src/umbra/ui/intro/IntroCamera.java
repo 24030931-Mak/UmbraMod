@@ -45,11 +45,27 @@ public final class IntroCamera {
     private final List<Key> keys = new ArrayList<>();
     private double x, y, zoom = 1;
     private double shakeX, shakeY;
+    /** La pose de la cámara en la que todos los planos coinciden (ver getViewMatrix(depth)). */
+    private double originX = Config.WIDTH / 2.0, originY = Config.HEIGHT / 2.0, originZoom = 1;
 
     /** Agrega un cuadro clave (en orden de tiempo). Regresa la misma cámara, para encadenar. */
     public IntroCamera key(double t, double x, double y, double zoom) {
         keys.add(new Key(t, x, y, zoom));
         if (keys.size() == 1) setTime(t);
+        return this;
+    }
+
+    /**
+     * La pose en la que todos los planos se ven alineados, como si fueran uno solo (por omisión,
+     * "de lejos": el centro de la pantalla con zoom 1, que es como empieza la toma de la caverna
+     * dorada). Las escenas 4 a 6 usan la pose final de cada toma (entre ellas hay fundido a
+     * negro): cada una termina encuadrada como se diseñó y el parallax se nota mientras la cámara
+     * llega ahí. Regresa la misma cámara, para encadenar.
+     */
+    public IntroCamera depthOrigin(double x, double y, double zoom) {
+        originX = x;
+        originY = y;
+        originZoom = zoom;
         return this;
     }
 
@@ -104,15 +120,24 @@ public final class IntroCamera {
     }
 
     /**
-     * La vista de una capa con profundidad. 'depth' multiplica cuánto se aleja la cámara de su
-     * posición "de lejos" (zoom 1, centro del escenario): con depth > 1 la capa está entre la
-     * cámara y la escena, y al acercarse crece y se sale de la pantalla más rápido (parallax).
-     * Con depth = 1 es la vista normal.
+     * La vista de un plano a cierta profundidad (parallax). 'depth' dice qué tanto de lo que se
+     * mueve la cámara desde su pose de origen (depthOrigin) le toca a ese plano:
+     *     zoom del plano  = zoom₀ · (zoom / zoom₀)^depth
+     *     punto que mira  = origen + (punto - origen) · depth
+     *     V = T(centro de la pantalla + temblor) · S(zoom del plano) · T(-punto que mira)
+     * Con depth = 1 es la vista normal. Con depth < 1 el plano está lejos: al moverse o acercarse
+     * la cámara, se mueve y crece menos (el acercamiento va en el exponente porque se siente en
+     * su logaritmo, ver arriba). Con depth > 1 el plano está entre la cámara y la escena, y crece
+     * y se sale de la pantalla más rápido. En la pose de origen todos los planos coinciden.
      */
     public Mat3 getViewMatrix(double depth) {
-        double z = Math.pow(zoom, depth);
+        double z = zoom, px = x, py = y;
+        if (depth != 1) {
+            z = originZoom * Math.pow(zoom / originZoom, depth);
+            px = originX + (x - originX) * depth;
+            py = originY + (y - originY) * depth;
+        }
         double cx = Config.WIDTH / 2.0, cy = Config.HEIGHT / 2.0;
-        double px = cx + (x - cx) * depth, py = cy + (y - cy) * depth;
         return Mat3.translation(cx + shakeX, cy + shakeY)
                 .multiply(Mat3.scale(z, z))
                 .multiply(Mat3.translation(-px, -py));
