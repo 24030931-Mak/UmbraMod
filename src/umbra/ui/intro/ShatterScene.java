@@ -45,7 +45,6 @@ public final class ShatterScene extends Scene {
     @Override
     public void enter() {
         GreatLantern lantern = stage.lantern;
-        lantern.setEyes(1);
         lantern.setBroken(false);
         lantern.setCrack(0);
         lantern.setEmber(0);
@@ -58,22 +57,17 @@ public final class ShatterScene extends Scene {
         stage.update(dt);
         GreatLantern lantern = stage.lantern;
         if (time < BREAK) {
-            // Las grietas avanzan en tres tandas; la llama se agita y mira hacia la grieta
+            // Las grietas avanzan en tres tandas; la llama se agita
             double crack = 0;
             for (int i = 0; i < CRACK_AT.length; i++) {
                 crack += CRACK_SHARE[i] * Ease.out(Ease.ramp(time, CRACK_AT[i], CRACK_AT[i] + 0.55));
             }
             lantern.setCrack(crack);
             lantern.setAgitation(Ease.smooth(time, 0.4, 2.4));
-            double startled = Ease.smooth(time, CRACK_AT[0], CRACK_AT[0] + 0.25);
-            double shut = Ease.smooth(time, BREAK - 0.32, BREAK - 0.1);   // aprieta los ojos antes del destello
-            lantern.setEyes((1 + 0.3 * startled) * (1 - shut));
-            lantern.setLook(-0.9 * startled, -0.5 * startled);
         } else {
             if (!burst) {
                 burst = true;
                 lantern.setBroken(true);
-                lantern.setEyes(0);
                 lantern.setAgitation(0);
                 lantern.setCrack(1);
                 stage.shards.burst(GoldenCavern.LANTERN_X, GoldenCavern.LANTERN_Y + GreatLantern.FLAME_Y,

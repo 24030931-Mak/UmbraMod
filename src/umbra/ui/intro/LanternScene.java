@@ -8,8 +8,6 @@ import java.awt.Graphics2D;
  */
 public final class LanternScene extends Scene {
 
-    private static final double EYES_OPEN = 4.7;   // segundo en que la llama abre los ojos
-
     private final GoldenStage stage;
 
     public LanternScene(GoldenStage stage, double length) {
@@ -35,8 +33,6 @@ public final class LanternScene extends Scene {
     @Override
     public void enter() {
         GreatLantern lantern = stage.lantern;
-        lantern.setEyes(0);
-        lantern.setLook(0, 0);
         lantern.setAgitation(0);
         lantern.setCrack(0);
         lantern.setBroken(false);
@@ -47,12 +43,6 @@ public final class LanternScene extends Scene {
     @Override
     protected void update(double dt) {
         stage.update(dt);
-        // Abre los ojos, parpadea una vez y mira a un lado y al otro
-        double open = Ease.smooth(time, EYES_OPEN, EYES_OPEN + 0.55);
-        double blink = Ease.window(time, 6.05, 6.13, 6.17, 6.27);
-        stage.lantern.setEyes(open * (1 - 0.9 * blink));
-        double glance = Ease.smooth(time, 5.5, 5.8);
-        stage.lantern.setLook(0.85 * glance * Math.sin((time - 5.5) * 2.4), -0.2 * glance);
     }
 
     @Override

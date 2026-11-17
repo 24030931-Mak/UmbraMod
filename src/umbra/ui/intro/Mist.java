@@ -39,10 +39,8 @@ public final class Mist {
 
     private static final Color DARK = new Color(5, 6, 14);
     private static final Color HAZE = new Color(44, 54, 92);
-    private static final Color EYE = new Color(238, 246, 255);
 
     private final BufferedImage[] front = new BufferedImage[2];   // uno por lado
-    private final Glow eyeGlow = new Glow(64, new Color(130, 170, 255), 0.35, 0.4);
 
     public Mist(long seed) {
         Random rnd = new Random(seed);
@@ -86,21 +84,6 @@ public final class Mist {
         }
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, aa);
         g.setRenderingHint(RenderingHints.KEY_RENDERING, quality);
-    }
-
-    /**
-     * Dos ojos blancos en la neblina: dos óvalos con un halo azulado. 'open' los abre (0 a 1):
-     * su alto crece con open, como un párpado.
-     */
-    public void drawEyes(Graphics2D g, double cx, double cy, double open) {
-        if (open <= 0.02) return;
-        double w = 13, h = 21 * open, gap = 21;
-        for (int side = -1; side <= 1; side += 2) {
-            double x = cx + side * gap;
-            eyeGlow.draw(g, x, cy, 38 * Math.min(1, open * 1.5));
-            g.setColor(Ease.fade(EYE, Math.min(1, open * 2.5)));
-            g.fill(new Ellipse2D.Double(x - w / 2, cy - h / 2, w, h));
-        }
     }
 
     /**

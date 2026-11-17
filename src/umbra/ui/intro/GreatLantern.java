@@ -67,7 +67,6 @@ public final class GreatLantern {
     private static final Color OUTER = new Color(255, 135, 40);
     private static final Color MIDDLE = new Color(255, 200, 70);
     private static final Color CORE = new Color(255, 248, 215);
-    private static final Color EYES = new Color(50, 22, 12);
 
     private static final Stroke RIB = new BasicStroke(5.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
     private static final Stroke INNER_RIB = new BasicStroke(4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
@@ -82,9 +81,7 @@ public final class GreatLantern {
     private final Glow ember = new Glow(48, new Color(255, 140, 60), 1.1, 0.5);
 
     private double time, flamePhase;
-    private double eyes;            // 0 = cerrados (no se ven); 1 = abiertos; más de 1 = muy abiertos
     private double agitation;       // 0 = tranquila, 1 = se sacude
-    private double lookX, lookY;    // hacia dónde miran los ojos (de -1 a 1)
     private double crack;           // cuánto han avanzado las grietas (0 a 1)
     private boolean broken;         // roto y apagado
     private double emberGlow;       // brasa que queda en el mechero al romperse (0 a 1)
@@ -135,12 +132,6 @@ public final class GreatLantern {
     // =========================================================
     //  ESTADO (lo fijan las escenas)
     // =========================================================
-
-    /** Los ojos de la llama: 0 = cerrados, 1 = abiertos, hasta 1.3 = muy abiertos. */
-    public void setEyes(double open) { this.eyes = Math.max(0, open); }
-
-    /** Hacia dónde miran los ojos, de -1 a 1 en cada eje. */
-    public void setLook(double x, double y) { lookX = x; lookY = y; }
 
     /** Qué tan agitada está la llama: 0 = tranquila, 1 = se sacude y parpadea. */
     public void setAgitation(double a) { this.agitation = Ease.clamp01(a); }
@@ -224,14 +215,6 @@ public final class GreatLantern {
         fillLayer(g, flameLayer(0.42 * r, 0.5 * len, 0.6 * amp, flamePhase + 0.8, 0.4 * lean), CORE, 248 * flick);
         g.translate(0, -0.22 * r);
 
-        if (eyes > 0.03) {
-            // Los párpados se abren de arriba a abajo: el alto del ojo crece con 'eyes'
-            double w = 0.27 * r * Math.min(1, 0.55 + 0.45 * eyes), h = 0.52 * r * eyes;
-            double ex = 0.1 * r * lookX, ey = -0.12 * r + 0.08 * r * lookY;
-            g.setColor(Ease.fade(EYES, Math.min(1, eyes * 3) * 0.95));
-            g.fill(new Ellipse2D.Double(ex - 0.36 * r - w / 2, ey - h / 2, w, h));
-            g.fill(new Ellipse2D.Double(ex + 0.36 * r - w / 2, ey - h / 2, w, h));
-        }
         g.translate(0, -HEAD_Y);
     }
 

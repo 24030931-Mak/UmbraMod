@@ -9,9 +9,6 @@ import java.awt.Graphics2D;
  */
 public final class DarknessScene extends Scene {
 
-    /** Los ojos: dónde aparecen (px de pantalla) y entre qué segundos. */
-    private static final double EYES_X = 318, EYES_Y = 334, EYES_FROM = 3.2, EYES_TO = 5.0;
-
     private final GoldenStage stage;
     private final double coveredAt;   // segundo en que la neblina ya cubrió todo
 
@@ -37,7 +34,6 @@ public final class DarknessScene extends Scene {
     public void enter() {
         GreatLantern lantern = stage.lantern;
         lantern.setBroken(true);
-        lantern.setEyes(0);
         lantern.setCrack(1);
         stage.shards.clear();
     }
@@ -56,10 +52,5 @@ public final class DarknessScene extends Scene {
             stage.draw(g, camera, Ease.lerp(GoldenStage.DUSK, 0.9, Ease.smooth(time, 0, 3.5)), 0.35 * (1 - cover));
         }
         stage.mist.draw(g, cover, time);
-
-        // Dos ojos en la neblina: se abren, parpadean una vez y se cierran
-        double open = Ease.window(time, EYES_FROM, EYES_FROM + 0.35, EYES_TO - 0.3, EYES_TO);
-        double blink = Ease.window(time, 4.1, 4.17, 4.21, 4.3);
-        stage.mist.drawEyes(g, EYES_X + 5 * (time - EYES_FROM), EYES_Y, open * (1 - 0.92 * blink));
     }
 }
