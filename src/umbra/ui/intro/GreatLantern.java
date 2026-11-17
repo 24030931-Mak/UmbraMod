@@ -98,6 +98,9 @@ public final class GreatLantern {
     private static final int CHAIN_LEFT = -140, CHAIN_TOP = (int) CHAIN_END - 20, CHAIN_WIDTH = 280,
             CHAIN_HEIGHT = (int) (RING_TOP - CHAIN_END) + 32;
     private static final double RES = 2.5;
+    /** El rectángulo de la silueta de lejos (distantSilhouette): de las puntas de las cadenas al pie. */
+    static final int DISTANT_LEFT = CHAIN_LEFT, DISTANT_TOP = CHAIN_TOP, DISTANT_WIDTH = WIDTH,
+            DISTANT_HEIGHT = TOP + HEIGHT - CHAIN_TOP;
 
     /**
      * Los anillos de astrolabio: radio, inclinación (radianes; uno hacia cada lado, para que se
@@ -184,9 +187,24 @@ public final class GreatLantern {
         cracks = new Cracks(seed, CRACK_X, CRACK_Y, new double[][] {
             { -88, -190 }, { -66, -312 }, { 14, -356 }, { 80, -282 }, { 86, -168 }, { 4, -104 }, { -66, -118 } });
 
-        // El vidrio roto: a la panza se le resta toda la franja de en medio, con las dos orillas
-        // en picos al azar. Quedan los colmillos de abajo (sobre el plato) y los de arriba (bajo
-        // el collar).
+        brokenGlass = breakGlass(rnd);
+        glassShards = fallenShards(rnd);
+
+        litBack = render(false);
+        brokenBack = render(true);
+        litChains = renderChains(true);
+        coldChains = renderChains(false);
+        pillar = renderPillar();
+        inkBack = renderSilhouette();
+        inkChains = inked(coldChains);
+    }
+
+    /**
+     * El vidrio roto: a la panza se le resta toda la franja de en medio, con las dos orillas
+     * en picos al azar. Quedan los colmillos de abajo (sobre el plato) y los de arriba (bajo
+     * el collar).
+     */
+    private static Area breakGlass(Random rnd) {
         Path2D hole = new Path2D.Double();
         int teeth = 11;
         hole.moveTo(-110, -310);
@@ -202,12 +220,15 @@ public final class GreatLantern {
         }
         hole.lineTo(-110, -128);
         hole.closePath();
-        brokenGlass = new Area(glass);
-        brokenGlass.subtract(new Area(hole));
+        Area broken = new Area(glassShape());
+        broken.subtract(new Area(hole));
+        return broken;
+    }
 
-        // Pedazos de vidrio caídos sobre el pedestal: triángulos chicos
-        glassShards = new Path2D[11];
-        for (int i = 0; i < glassShards.length; i++) {
+    /** Pedazos de vidrio caídos sobre el pedestal: triángulos chicos. */
+    private static Path2D[] fallenShards(Random rnd) {
+        Path2D[] shards = new Path2D[11];
+        for (int i = 0; i < shards.length; i++) {
             double x = -118 + rnd.nextDouble() * 236, s = 4 + rnd.nextDouble() * 7;
             double y = Math.abs(x) > 104 ? -21 : Math.abs(x) > 80 ? -41 : -67;   // sobre el escalón que le toca
             Path2D p = new Path2D.Double();
@@ -215,16 +236,9 @@ public final class GreatLantern {
             p.lineTo(x + s * (0.2 + rnd.nextDouble() * 0.8), y);
             p.lineTo(x - s * 0.3 + rnd.nextDouble() * s, y - s * (0.5 + rnd.nextDouble() * 0.7));
             p.closePath();
-            glassShards[i] = p;
+            shards[i] = p;
         }
-
-        litBack = render(false);
-        brokenBack = render(true);
-        litChains = renderChains(true);
-        coldChains = renderChains(false);
-        pillar = renderPillar();
-        inkBack = renderSilhouette();
-        inkChains = inked(coldChains);
+        return shards;
     }
 
     // =========================================================
@@ -516,7 +530,7 @@ public final class GreatLantern {
     private BufferedImage render(boolean isBroken) {
         BufferedImage img = new BufferedImage((int) (WIDTH * RES), (int) (HEIGHT * RES), BufferedImage.TYPE_INT_ARGB_PRE);
         Graphics2D g = layerGraphics(img, LEFT, TOP);
-        drawPedestal(g, !isBroken, isBroken);
+        drawPedestal(g, !isBroken, isBroken ? glassShards : null);
         drawGlass(g, !isBroken, isBroken);
         g.dispose();
         return img;
@@ -543,9 +557,14 @@ public final class GreatLantern {
      * imagen es premultiplicada, cada canal se guarda ya multiplicado: c · a / 255.
      */
     private static BufferedImage inked(BufferedImage src) {
+        return inked(src, INK);
+    }
+
+    /** Lo mismo, de cualquier color (0xRRGGBB). */
+    private static BufferedImage inked(BufferedImage src, int ink) {
         int w = src.getWidth(), h = src.getHeight();
         int[] px = (int[]) src.getRaster().getDataElements(0, 0, w, h, null);
-        int ir = (INK >> 16) & 255, ig = (INK >> 8) & 255, ib = INK & 255;
+        int ir = (ink >> 16) & 255, ig = (ink >> 8) & 255, ib = ink & 255;
         for (int i = 0; i < px.length; i++) {
             int a = Math.min(255, (px[i] >>> 24) * INK_BOOST);
             px[i] = (a << 24) | (ir * a / 255 << 16) | (ig * a / 255 << 8) | (ib * a / 255);
@@ -553,6 +572,44 @@ public final class GreatLantern {
         BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB_PRE);
         out.getRaster().setDataElements(0, 0, w, h, px);
         return out;
+    }
+
+    /**
+     * [v0.8.7] El Farol roto y colgado, visto de muy lejos (DarkCavern lo pone en la chimenea del
+     * fondo de las escenas 4 a 6): las cadenas, el pedestal con sus vidrios caídos, el vidrio
+     * quebrado, el mechero sin llama y el hierro, todo de un solo color, como la silueta del
+     * cuadro de impacto (ver inked). Son las mismas formas del Farol de cerca, y con la misma
+     * semilla el vidrio se rompe igual, pero sin crear uno entero: sus imágenes son grandes y
+     * aquí no hacen falta.
+     *
+     * La imagen tiene 'res' píxeles por unidad propia y cubre, desde la esquina (DISTANT_LEFT,
+     * DISTANT_TOP), DISTANT_WIDTH x DISTANT_HEIGHT unidades: de las puntas de las cadenas al pie.
+     * Su matriz es S(res) · T(-DISTANT_LEFT, -DISTANT_TOP).
+     *
+     * @param ink el color de la silueta (0xRRGGBB)
+     */
+    static BufferedImage distantSilhouette(long seed, double res, int ink) {
+        Random rnd = new Random(seed);
+        Area brokenGlass = breakGlass(rnd);   // el mismo orden que el constructor
+        Path2D[] shards = fallenShards(rnd);
+        BufferedImage img = new BufferedImage((int) Math.ceil(DISTANT_WIDTH * res), (int) Math.ceil(DISTANT_HEIGHT * res),
+                BufferedImage.TYPE_INT_ARGB_PRE);
+        Graphics2D g = img.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+        g.scale(res, res);
+        g.translate(-DISTANT_LEFT, -DISTANT_TOP);
+        drawChains(g, false);
+        drawPedestal(g, false, shards);
+        g.setColor(GLASS_COLD);
+        g.fill(brokenGlass);
+        drawBurner(g, false);
+        g.setStroke(THIN);
+        g.setColor(GLASS_EDGE_COLD);
+        g.draw(brokenGlass);
+        drawIron(g, false);
+        g.dispose();
+        return inked(img, ink);
     }
 
     /** Las dos cadenas, de hierro cálido (encendido) o frío (apagado). */
@@ -606,8 +663,9 @@ public final class GreatLantern {
      * de hierro. Cada escalón es un trapecio (los lados se cierran un poco hacia arriba) con las
      * dos esquinas de arriba cortadas por un chaflán recto a 45°: el corte avanza lo mismo en x
      * que en y. La cara del chaflán mira arriba y afuera, así que le da la luz: va más clara.
+     * Si el Farol está roto, 'shards' son los vidrios caídos sobre los escalones (si no, null).
      */
-    private void drawPedestal(Graphics2D g, boolean lit, boolean isBroken) {
+    private static void drawPedestal(Graphics2D g, boolean lit, Path2D[] shards) {
         Color top = lit ? STONE_LIT : STONE_COLD, side = lit ? STONE_SIDE : STONE_SIDE_COLD;
         Color iron = lit ? IRON_LIT : IRON_COLD, shine = lit ? IRON_SHINE : IRON_SHINE_COLD;
         Color edge = Ease.fade(lit ? new Color(255, 240, 200) : shine, 0.75);
@@ -673,9 +731,9 @@ public final class GreatLantern {
         g.setPaint(new GradientPaint(-70, 0, iron, 0, 0, Ease.mix(iron, shine, 0.45), true));
         g.fill(bowl);
 
-        if (isBroken) {   // vidrios caídos
+        if (shards != null) {   // vidrios caídos
             g.setColor(Ease.fade(GLASS_EDGE_COLD, 0.6));
-            for (Path2D shard : glassShards) g.fill(shard);
+            for (Path2D shard : shards) g.fill(shard);
         }
     }
 
@@ -694,7 +752,11 @@ public final class GreatLantern {
             cracks.draw(g, 1, 0);
             g.setClip(oldClip);
         }
-        // El mechero: la base, un vástago y la copa donde se apoya la cabeza de la llama
+        drawBurner(g, lit);
+    }
+
+    /** El mechero: la base, un vástago y la copa donde se apoya la cabeza de la llama. */
+    private static void drawBurner(Graphics2D g, boolean lit) {
         g.setColor(lit ? IRON_LIT : IRON_COLD);
         g.fill(new Rectangle2D.Double(-20, -104, 40, 8));
         g.fill(new Rectangle2D.Double(-6, BURNER_TOP + 20, 12, -BURNER_TOP - 118));

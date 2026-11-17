@@ -29,10 +29,11 @@ import umbra.math.Vec2;
  * repisas con la paleta de graphics.LevelArt. Encima de todo, unas esporas y una franja de niebla.
  *
  * Se dibuja una sola vez, a 2.5 veces la resolución (la cámara de estas escenas se acerca entre
- * 1.5 y 3.4 veces), en dos planos que se pintan cada uno con su propia vista
+ * 1.25 y 2.74 veces), en dos planos que se pintan cada uno con su propia vista
  * (IntroCamera.getViewMatrix(profundidad)):
- *   - lejano (0.55, opaco): el cielo de la cueva, el brillo de la chimenea del techo y las
- *     capas de roca lejana y media, con sus ruinas;
+ *   - lejano (0.55, opaco): el cielo de la cueva, el brillo de la chimenea del techo con la
+ *     silueta del Gran Farol roto colgada en ella, y las capas de roca lejana y media, con sus
+ *     ruinas;
  *   - del mundo (1, transparente): las estalactitas cercanas, las dos repisas con su musgo y sus
  *     hongos, y las dos rocas. Es la misma vista de Candil, de Logi y de las sombras.
  * Así, cuando la cámara se mueve o se acerca, la cueva del fondo se mueve menos que las repisas.
@@ -47,6 +48,18 @@ public final class DarkCavern {
     private static final double FAR_DEPTH = 0.55;
     /** Lo que el plano lejano se extiende más allá del escenario, en unidades del mundo. */
     private static final double MARGIN = 60;
+    /**
+     * El Gran Farol apagado, colgado en lo alto de la chimenea: su tamaño (respecto al de las
+     * escenas 1 a 3), dónde queda su pie, la semilla con que se rompió su vidrio (la del Farol
+     * de GoldenStage: se ve roto igual) y el color de su silueta, un azul casi negro. El pie
+     * queda justo arriba de lo que alcanza a ver la escena 5 al final (y = 78): no se asoma
+     * cortado por la orilla de la pantalla y aparece hasta que sube la cámara de la escena 6. Va
+     * un poco a la izquierda del centro de la chimenea para que la estalactita cercana de
+     * x = 640 (plano del mundo) no le tape el alero.
+     */
+    private static final double LANTERN_SCALE = 0.22, LANTERN_X = FAR_GLOW_X - 8, LANTERN_FOOT_Y = 74;
+    private static final long LANTERN_SEED = 17;
+    private static final int LANTERN_INK = 0x0B0E1A;
 
     // ---- Paleta: la del fondo y las repisas del juego ----
     private static final Color SKY_TOP = new Color(5, 8, 16), SKY_BOTTOM = new Color(17, 24, 41);
@@ -187,6 +200,8 @@ public final class DarkCavern {
         g.setPaint(new RadialGradientPaint(new Point2D.Double(FAR_GLOW_X, FAR_GLOW_Y - 20), 240, new float[] { 0f, 0.4f, 1f },
                 new Color[] { new Color(255, 200, 120, 105), new Color(190, 130, 100, 40), new Color(120, 110, 140, 0) }));
         g.fill(new Rectangle2D.Double(x0, y0, w, 380 - y0));
+        // Allá arriba, contra ese resplandor, cuelga el Gran Farol roto (las rocas lo tapan después)
+        drawDeadLantern(g);
 
         // Capas de roca: lejos (más clara) y en medio (con ruinas)
         g.setColor(FAR);
@@ -229,6 +244,31 @@ public final class DarkCavern {
         }
         g.dispose();
         return Plane.whole(img, x0, y0, SCALE);
+    }
+
+    /**
+     * [v0.8.7] La silueta fría del Gran Farol roto y apagado, colgado de sus dos cadenas en la
+     * chimenea, a LANTERN_SCALE de su tamaño (GreatLantern.distantSilhouette: las mismas formas,
+     * sin llama y con el vidrio quebrado). La imagen viene en unidades del Farol, con res píxeles
+     * por unidad; la matriz que la lleva al mundo es
+     *     M = T(pie) · S(LANTERN_SCALE) · T(esquina de la silueta) · S(1 / res)
+     * Como res = LANTERN_SCALE · SCALE, en la imagen del plano cada píxel de la silueta cae en
+     * un píxel: solo se mueve, no se estira. Se pinta una sola vez, con el plano.
+     */
+    private static void drawDeadLantern(Graphics2D g) {
+        double res = LANTERN_SCALE * SCALE;
+        BufferedImage ruin = GreatLantern.distantSilhouette(LANTERN_SEED, res, LANTERN_INK);
+        AffineTransform old = g.getTransform();
+        Object sampling = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
+        g.translate(LANTERN_X, LANTERN_FOOT_Y);
+        g.scale(LANTERN_SCALE, LANTERN_SCALE);
+        g.translate(GreatLantern.DISTANT_LEFT, GreatLantern.DISTANT_TOP);
+        g.scale(1 / res, 1 / res);
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g.drawImage(ruin, 0, 0, null);
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, sampling != null ? sampling
+                : RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        g.setTransform(old);
     }
 
     /**
