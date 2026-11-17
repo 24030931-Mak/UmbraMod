@@ -128,7 +128,7 @@ public final class GreatLantern {
      * ahí el pilar no se notaría y, de cerca, es lo que llena la pantalla (lo más caro). Los dos
      * cortes quedan escondidos detrás de piezas opacas: el collar y el plato de hierro.
      */
-    private static final int PILLAR_UP_END = -362, PILLAR_DOWN_START = -104;
+    private static final int PILLAR_UP_END = -372, PILLAR_DOWN_START = -90;   // cortes dentro del collar (-379..-363) y del plato (desde -100)
     /** La transparencia del pilar en su parte más fuerte (de 0 a 255): tenue, no un reflector. */
     private static final int PILLAR_ALPHA = 80;
 

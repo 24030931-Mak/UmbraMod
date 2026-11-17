@@ -4,7 +4,7 @@ import java.awt.Graphics2D;
 
 /**
  * [v0.8.6] Escena 1: la caverna dorada, sin una sola sombra, y al centro el Gran Farol. La
- * cámara se acerca despacio a la llama de adentro, que abre dos ojos oscuros.
+ * cámara se acerca despacio a la llama de adentro, rodeada por sus anillos (sin ojos desde la v0.8.7).
  */
 public final class LanternScene extends Scene {
 
