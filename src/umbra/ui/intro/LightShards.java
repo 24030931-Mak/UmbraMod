@@ -190,8 +190,9 @@ public final class LightShards {
     /** p(s) = p0 + v0·s + ½·g·s² */
     private static Vec2 position(Shard s, double age) {
         if (age > s.flight) {
-            // Rebote amortiguado desde el punto de impacto; al caer otra vez se queda en (tx, ty)
-            double b = age - s.flight;
+            // Rebote amortiguado desde el punto de impacto (tx, ty); al caer otra vez se queda donde aterriza
+            // Hasta el segundo aterrizaje (b = 2·|bvy|/g); después se queda quieto, también en x
+            double b = Math.min(age - s.flight, 2 * Math.abs(s.bvy) / GRAVITY);
             double y = s.ty + s.bvy * b + 0.5 * GRAVITY * b * b;
             return new Vec2(s.tx + s.bvx * b, Math.min(y, s.ty));
         }
