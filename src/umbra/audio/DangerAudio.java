@@ -141,6 +141,14 @@ public final class DangerAudio {
         }
     }
 
+    /**
+     * Genera y abre los clips de antemano (no suena). Generar ~4,6 s de audio y abrir los clips
+     * tarda cientos de milisegundos: si se hiciera en el primer setDanger(), congelaría un cuadro.
+     */
+    public static void preload() {
+        init();
+    }
+
     /** Actualiza qué tan cerca está Logi de Candil (0.0 = seguro, 1.0 = peligro crítico). */
     public static void setDanger(double level) {
         init();

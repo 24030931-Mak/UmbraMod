@@ -94,11 +94,11 @@ public class LevelArt {
     }
 
     /** Hongo: tallo y sombrero que giran juntos alrededor de la base. Su brillo pulsa. */
-   private static class Mushroom extends Plant {
+    private static class Mushroom extends Plant {
         double capW;
         Color cap;
         BufferedImage glow;
-        double energy; // [NUEVO] 0 = reposo, 1 = excitado por proximidad
+        double energy;   // 0 = reposo, 1 = excitado por la cercanía de Logi o el roce de Candil
     }
 
     /** Mata de briznas: cada brizna se dobla más en la punta que en la base. */
@@ -138,8 +138,12 @@ public class LevelArt {
         }
     }
 
-    /** Avanza el tiempo y mece las plantas: Candil las empuja al pasar y luego regresan solas. */
-    /** Avanza el tiempo, mece las plantas y activa reacciones bioluminiscentes con partículas. */
+    /**
+     * Avanza el tiempo y mece las plantas: Candil las empuja al pasar y luego regresan solas.
+     * Además, los hongos se excitan si Logi está a menos de 110 px o Candil los roza (suben su
+     * 'energy'), las briznas sueltan esporas cuando Candil corre entre ellas y las runas sueltan
+     * chispas si Logi está cerca.
+     */
     public void update(double dt, Player player, LightSource light, ParticleSystem particles) {
         time += dt;
         for (Mushroom m : mushrooms) {
@@ -147,7 +151,7 @@ public class LevelArt {
             boolean touched = touches(player, m);
             double distLight = (light != null) ? Math.hypot(light.getX() - m.x, light.getY() - (m.y - m.height)) : 999;
             double targetEnergy = (touched || distLight < 110) ? 1.0 : 0.0;
-            // Interpolación exponencial suave hacia el estado de energía deseado
+            // Interpolación exponencial: energy se acerca a su meta una fracción por cuadro (dt·5), sin saltos
             m.energy += (targetEnergy - m.energy) * Math.min(1.0, dt * 5.0);
 
             if (particles != null && m.energy > 0.35 && Math.random() < dt * (touched ? 14.0 : 4.0)) {
@@ -169,6 +173,8 @@ public class LevelArt {
             }
         }
     }
+
+    /** Versión sin luz ni partículas (solo mece las plantas). */
     public void update(double dt, Player player) {
         update(dt, player, null, null);
     }
@@ -221,6 +227,7 @@ public class LevelArt {
         for (Mushroom m : mushrooms) {
             if (!visible(m.x, camX)) continue;
             Vec2 cap = drawMushroom(g, m);
+            // Pulso lento; si el hongo está excitado, brilla más y su halo crece (matriz T · S sobre la imagen)
             float basePulse = (float) (0.50 + 0.25 * Math.sin(time * 1.3 + m.phase));
             float a = Math.min(1.0f, (float) (basePulse + 0.45 * m.energy));
             g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, a));

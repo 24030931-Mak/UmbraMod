@@ -22,8 +22,20 @@ import umbra.world.Exploration;
 import umbra.world.Level;
 
 /**
- * [v1.0] Visor rúnico de la esquina superior derecha: mapa circular centrado en Candil
- * con proyección del halo de Logi, pulso del jugador y bisel de piedra tallada con runas.
+ * El círculo de la esquina superior derecha: un mapa chico, siempre a la vista al jugar,
+ * que muestra solo el nivel actual centrado en Candil.
+ *
+ * Vista: una matriz de mundo a pantalla que centra a Candil en el círculo y escala para que
+ * VIEW px del mundo quepan en el diámetro; el mundo "se desliza" debajo del círculo:
+ *     pantalla = T(centro) * S(k) * T(-candil) * mundo,   k = DIAMETER / VIEW
+ * El recorte es una elipse (círculo) con el mismo centro. Adentro, el mismo estilo del mapa
+ * grande: repisas y bloques, luz cálida en lo recorrido y la neblina compartida (MapFog).
+ *
+ * [v1.1] Encima se agregan: el halo de luz de Logi (un degradado radial dibujado en el mundo,
+ * con su radio real), una lente que oscurece las orillas (otro degradado radial, ya en
+ * pantalla), un anillo que pulsa alrededor de Candil y un marco de astrolabio: dos anillos,
+ * ocho marcas de brújula y cuatro runas en los puntos cardinales, que se calculan con
+ * seno y coseno del ángulo.
  */
 public class MiniMap {
 
@@ -68,7 +80,7 @@ public class MiniMap {
         g.transform(view.toAffineTransform());
 
         double w = level.getWidth(), h = Config.HEIGHT;
-        double half = VIEW / 2.0;
+        double half = VIEW / 2.0;   // lo que se ve alrededor de Candil: un cuadro de VIEW x VIEW
         Rectangle2D visible = new Rectangle2D.Double(candil.x - half, candil.y - half, VIEW, VIEW);
 
         // 2. Geometría del nivel (suelo, plataformas y bloques tallados)
@@ -85,6 +97,8 @@ public class MiniMap {
 
         // 3. Niebla de exploración compartida
         Shape levelClip = g.getClip();
+        // La imagen cubre la cuadrícula completa: se recorta al nivel, con 1 px de pantalla de
+        // holgura para que la neblina tape también los píxeles donde la repisa se suaviza (antialias)
         double slack = 1 / SCALE;
         g.clip(new Rectangle2D.Double(-slack, -slack, w + 2 * slack, h + 2 * slack));
         MapFog.glow(g, ex, 1);
@@ -104,26 +118,28 @@ public class MiniMap {
                     }));
             g.fill(new Ellipse2D.Double(logi.x - lightR, logi.y - lightR, lightR * 2, lightR * 2));
 
-            double r = 3.2 / SCALE;
+            double r = 3.2 / SCALE;   // 3.2 px de pantalla, pasados a unidades del mundo
             g.setColor(LOGI);
             g.fill(new Ellipse2D.Double(logi.x - r, logi.y - r, 2 * r, 2 * r));
         }
 
         // 5. Volver a coordenadas de pantalla: lente oscura en bordes y marcador pulsante de Candil
         g.setTransform(onScreen);
+        // Lente: transparente hasta el 72 % del radio y cada vez más oscuro hacia la orilla
         g.setPaint(new RadialGradientPaint(
                 new Point2D.Double(CENTER_X, CENTER_Y), (float) RADIUS,
                 new float[] { 0.72f, 1f },
                 new Color[] { new Color(0, 0, 0, 0), new Color(3, 5, 12, 165) }));
         g.fill(circle);
 
+        // El anillo crece y se apaga con un seno: pulse va de 0 a 1 y regresa
         double pulse = 0.5 + 0.5 * Math.sin(time * 3.2);
         double ringR = 5.5 + 3.0 * pulse;
         g.setStroke(new BasicStroke(1.2f));
         g.setColor(new Color(CANDIL.getRed(), CANDIL.getGreen(), CANDIL.getBlue(), (int) (150 * (1.0 - 0.5 * pulse))));
         g.draw(new Ellipse2D.Double(CENTER_X - ringR, CENTER_Y - ringR, ringR * 2, ringR * 2));
 
-        g.setColor(CANDIL);
+        g.setColor(CANDIL);   // Candil: el punto del centro
         g.fill(new Ellipse2D.Double(CENTER_X - 3, CENTER_Y - 3, 6, 6));
 
         // 6. Marco exterior tipo astrolabio de piedra con marcas de escala y 4 runas cardinales
@@ -146,7 +162,7 @@ public class MiniMap {
         g.setColor(RING);
         g.draw(new Ellipse2D.Double(CENTER_X - RADIUS, CENTER_Y - RADIUS, DIAMETER, DIAMETER));
 
-        // 8 marcas de brújula alrededor del borde
+        // 8 marcas de brújula alrededor del borde: la marca i está en el ángulo i·45°; las cardinales (pares) son más largas
         g.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         for (int i = 0; i < 8; i++) {
             double ang = i * (Math.PI / 4.0);
@@ -160,6 +176,7 @@ public class MiniMap {
         }
 
         // 4 pequeñas runas romboidales (igual que las losas de LevelArt) en los puntos cardinales
+        // Las runas respiran: su transparencia sigue un seno del tiempo
         int runeAlpha = (int) (130 + 75 * Math.sin(time * 2.4));
         g.setColor(new Color(RUNE_GLOW.getRed(), RUNE_GLOW.getGreen(), RUNE_GLOW.getBlue(), runeAlpha));
         for (int i = 0; i < 4; i++) {

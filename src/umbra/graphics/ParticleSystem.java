@@ -11,9 +11,15 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * [v1.1] Sistema de partículas extendido:
- * - Soporta primitivas circulares (Ellipse2D) y destellos poligonales rotatorios (Path2D + AffineTransform).
- * - Integra gravedad, fricción lineal (drag) y turbulencia sinusoidal.
+ * [v1.0] Sistema de partículas: muchas partículas pequeñas, cada una con posición, velocidad
+ * y tiempo de vida. En cada cuadro se mueven (con su propia gravedad), pierden vida y se
+ * desvanecen: su transparencia depende de life / maxLife. Las que llegan a 0 se quitan.
+ *
+ * [v1.1] Además de círculos (Ellipse2D), hay destellos de cuatro puntas (Path2D) que giran:
+ * se dibujan con una matriz de transformación T(x, y) · R(ángulo) · S(tamaño) sobre una forma
+ * unitaria que se crea una sola vez. Cada partícula puede llevar fricción (drag: la velocidad
+ * se multiplica por drag^(60·dt), así no depende de los cuadros por segundo) y una oscilación
+ * horizontal con coseno (turbulencia).
  *
  * Efectos de Candil:
  *   emit         chispas al aterrizar
@@ -24,11 +30,13 @@ import java.util.Random;
  * Efectos de Logi y Ambiente:
  *   emitSpark       chispa que sale de la llama y flota hacia arriba
  *   emitAsh         ceniza y brasas que va dejando atrás cuando se mueve
- *   emitPinPulse    [NUEVO] anillo radial de destellos al fijar/soltar a Logi
- *   emitShadowMote  [NUEVO] motas ambientales con oscilación armónica
+ *   emitPinPulse    anillo radial de destellos al fijar/soltar a Logi
+ *   emitShadowMote  motas que flotan en la sombra, con oscilación armónica
+ *   emitBioSpore    esporas que sueltan los hongos y las plantas cuando Logi o Candil los tocan
  */
 public class ParticleSystem {
 
+    /** Tope para que nunca se acumulen demasiadas. */
     private static final int MAX_PARTICLES = 900;
 
     /** Geometría de la partícula. */
@@ -37,6 +45,7 @@ public class ParticleSystem {
     /** Geometría precalculada de un destello de 4 puntas (radio unitario = 1.0). */
     private static final Path2D SPARKLE_SHAPE = createSparkleShape();
 
+    /** Destello de cuatro puntas: ocho vértices que alternan entre la punta (radio 1) y un punto interior (0.25). */
     private static Path2D createSparkleShape() {
         Path2D p = new Path2D.Double();
         double inner = 0.25;
@@ -52,6 +61,7 @@ public class ParticleSystem {
         return p;
     }
 
+    /** Una partícula: posición, velocidad y vida restante (en segundos). */
     private static class Particle {
         double x, y;
         double vx, vy;
@@ -62,14 +72,14 @@ public class ParticleSystem {
         double waveAmp, waveFreq;   // turbulencia sinusoidal horizontal
         double age;
         Color color;
-        boolean halo;
+        boolean halo;   // con un halo suave alrededor
         ShapeType shape = ShapeType.CIRCLE;
     }
 
     private final List<Particle> particles = new ArrayList<>();
     private final Random rnd = new Random();
 
-    /** Chispas al aterrizar en el punto (x, y). */
+    /** Chispas al aterrizar en el punto (x, y): saltan hacia arriba y a los lados. */
     public void emit(double x, double y, int count) {
         for (int i = 0; i < count; i++) {
             add(x + rand(-6, 6), y - 1, rand(-120, 120), rand(-160, -40), rand(0.3, 0.6),
@@ -77,20 +87,28 @@ public class ParticleSystem {
         }
     }
 
-    /** Estela de vapor de Candil. */
+    /**
+     * Una bocanada de la estela de vapor de Candil: niebla translúcida (el alfa del color es su
+     * opacidad máxima) que sube despacio y se deshace. Dentro de la sombra es violeta, como
+     * "sumergida".
+     */
     public void emitVapor(double x, double y, boolean inShadow) {
         Color c = inShadow ? new Color(170, 150, 235, 120) : new Color(185, 200, 228, 130);
         add(x + rand(-5, 5), y + rand(-6, 6), rand(-14, 14), rand(-26, -6), rand(0.45, 0.8),
                 rand(2.5, 4), -10, c, true);
     }
 
-    /** Polvo de luz que se desprende de Candil fuera de la sombra. */
+    /** Polvo de luz que se desprende de Candil y sube mientras pierde vida. */
     public void emitDust(double x, double y) {
         add(x + rand(-9, 9), y + rand(-12, 12), rand(-15, 15), rand(-45, -20), rand(0.5, 0.9),
                 rand(1.2, 2.2), -20, new Color(190, 220, 245), false);
     }
 
-    /** Candil se desmorona en 40 partículas. */
+    /**
+     * Candil se desmorona en 40 partículas: se deshace en niebla (bocanadas translúcidas que
+     * suben y se dispersan) y ceniza (copos grises que caen despacio). Sus dos ojos se quedan
+     * quietos donde estaban y son lo último en apagarse.
+     */
     public void emitCrumble(Rectangle2D body) {
         double eyeX = body.getCenterX(), eyeY = body.getY() + 9;
         Color eye = new Color(235, 245, 255);
@@ -99,17 +117,21 @@ public class ParticleSystem {
         for (int i = 0; i < 38; i++) {
             double px = body.getX() + rnd.nextDouble() * body.getWidth();
             double py = body.getY() + rnd.nextDouble() * body.getHeight();
-            if (i % 3 == 0) {
+            if (i % 3 == 0) {   // ceniza
                 add(px, py, rand(-60, 60), rand(-90, -20), rand(0.7, 1.15), rand(1, 1.8), 220,
                         new Color(122, 118, 120), false);
-            } else {
+            } else {            // niebla
                 add(px, py, rand(-70, 70), rand(-80, 10), rand(0.6, 1.1), rand(2.5, 4.5), -40,
                         new Color(170, 186, 214, 150), true);
             }
         }
     }
 
-    /** [NUEVO] Anillo radial de destellos poligonales al fijar o soltar a Logi. */
+    /**
+     * Anillo de 16 destellos que salen en todas direcciones al fijar (dorados) o soltar (azules)
+     * a Logi. Cada uno sale en el ángulo theta = 2π·i/16 (con un poco de azar), a velocidad
+     * (cos θ, sin θ)·speed, y se frena solo con la fricción (drag) mientras gira.
+     */
     public void emitPinPulse(double x, double y, boolean pinned) {
         int count = 16;
         Color c = pinned ? new Color(255, 225, 140) : new Color(170, 215, 255);
@@ -126,7 +148,7 @@ public class ParticleSystem {
             p.maxLife = p.life;
             p.size = rand(3.5, 5.5);
             p.gravity = 0;
-            p.drag = 0.90; // desaceleración exponencial suave
+            p.drag = 0.90;   // desaceleración exponencial suave
             p.angle = rand(0, Math.PI);
             p.angularVel = rand(-6, 6);
             p.color = c;
@@ -136,7 +158,7 @@ public class ParticleSystem {
         }
     }
 
-    /** [NUEVO] Mota ambiental flotante con oscilación sinusoidal horizontal. */
+    /** Mota que flota en la sombra: sube despacio y se bambolea de lado con una onda (waveAmp, waveFreq). */
     public void emitShadowMote(double x, double y) {
         if (particles.size() >= MAX_PARTICLES) return;
         Particle p = new Particle();
@@ -155,7 +177,8 @@ public class ParticleSystem {
         p.shape = ShapeType.CIRCLE;
         particles.add(p);
     }
-    /** [NUEVO] Espora bioluminiscente que sueltan los hongos y plantas al interactuar con ellos. */
+
+    /** Espora bioluminiscente que sueltan los hongos y las plantas al interactuar con ellos (gravedad negativa: sube). */
     public void emitBioSpore(double x, double y, Color color) {
         if (particles.size() >= MAX_PARTICLES) return;
         Particle p = new Particle();
@@ -174,6 +197,7 @@ public class ParticleSystem {
         p.shape = ShapeType.CIRCLE;
         particles.add(p);
     }
+
     public void update(double dt) {
         for (Particle p : particles) {
             p.age += dt;
@@ -194,11 +218,12 @@ public class ParticleSystem {
 
     public void draw(Graphics2D g) {
         for (Particle p : particles) {
-            double t = p.life / p.maxLife;
-            // Si es mota ambiental (waveAmp > 0), hace fade-in al nacer y fade-out al morir
+            double t = p.life / p.maxLife;   // 1 al nacer, 0 al morir
+            // Las que ondulan (waveAmp > 0) aparecen y se apagan suave: la envolvente sin(π·t) vale 0 en t = 0 y t = 1, y 1 en medio.
+            // Las demás se desvanecen con t², más rápido al final.
             double envelope = (p.waveAmp > 0) ? Math.sin(Math.PI * t) : (t * t);
             int alpha = (int) (255 * envelope);
-            alpha = alpha * p.color.getAlpha() / 255;
+            alpha = alpha * p.color.getAlpha() / 255;   // el alfa del color es su opacidad máxima (el vapor)
 
             if (p.halo) {
                 double h = p.size * 2.4;
@@ -206,10 +231,11 @@ public class ParticleSystem {
                 g.fill(new Ellipse2D.Double(p.x - h, p.y - h, h * 2, h * 2));
             }
 
-            double s = p.size * (0.5 + 0.5 * t);
+            double s = p.size * (0.5 + 0.5 * t);   // y se encoge
             g.setColor(withAlpha(p.color, alpha));
 
             if (p.shape == ShapeType.SPARKLE) {
+                // M = T(x, y) · R(ángulo) · S(s): la forma unitaria queda en su sitio, girada y del tamaño justo
                 AffineTransform prev = g.getTransform();
                 g.translate(p.x, p.y);
                 g.rotate(p.angle);
@@ -222,21 +248,33 @@ public class ParticleSystem {
         }
     }
 
+    /** Cuántas partículas hay vivas (para el modo debug). */
     public int size() {
         return particles.size();
     }
 
+    /** Quita todas (al empezar el nivel de nuevo). */
     public void clear() {
         particles.clear();
     }
 
-    /** Chispa de Logi. */
+    /**
+     * [v1.0] Una chispa de Logi: sale de la llama y flota hacia arriba (la gravedad negativa la
+     * acelera un poco hacia arriba) mientras se desvanece y se apaga.
+     */
     public void emitSpark(double x, double y) {
         add(x + rand(-6, 6), y + rand(-10, 2), rand(-18, 18), rand(-45, -20), rand(0.9, 1.5),
                 rand(1.1, 1.9), -30, new Color(255, 215, 120), true);
     }
 
-    /** Ceniza de la cola de Logi. */
+    /**
+     * [v1.0] Ceniza de la cola de Logi. (vx, vy) es la velocidad de Logi: la ceniza sale detrás de
+     * ella y se va quedando atrás, despacio. Con d = v / |v| (hacia donde va) y n = (-d.y, d.x)
+     * (perpendicular a d), sale en
+     *     p = (x, y) - d·(4 a 24) + n·(-5 a 5)     con velocidad     -d·(30 a 90) + n·(-30 a 30).
+     * Al azar, una de cada tres es una brasa naranja que brilla y flota; las demás, ceniza gris que
+     * cae despacio.
+     */
     public void emitAsh(double x, double y, double vx, double vy) {
         double speed = Math.hypot(vx, vy);
         double dx = speed > 0 ? vx / speed : 0, dy = speed > 0 ? vy / speed : 0;

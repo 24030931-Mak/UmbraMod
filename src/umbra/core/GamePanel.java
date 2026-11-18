@@ -21,9 +21,9 @@ import java.util.List;
 import javax.swing.JPanel;
 import javax.swing.Timer;
 
+import umbra.audio.DangerAudio;
 import umbra.audio.Music;
 import umbra.audio.VoiceOver;
-import umbra.audio.DangerAudio;
 import umbra.entities.LightSource;
 import umbra.entities.Player;
 import umbra.graphics.Background;
@@ -154,6 +154,7 @@ public class GamePanel extends JPanel {
         setDoubleBuffered(true);
         setFocusable(true);
         setFocusTraversalKeysEnabled(false);   // Swing se queda con Tab para cambiar el foco; el juego lo necesita
+        DangerAudio.preload();   // sintetiza el zumbido y el desmoronarse ahora, no en el primer cuadro (congelaría la intro)
 
         addKeyListener(input);
         addMouseListener(input);
@@ -236,7 +237,7 @@ public class GamePanel extends JPanel {
         if (input.wasPressed(KeyEvent.VK_M)) {
             music.toggleMute();
             VoiceOver.setMuted(music.isMuted());   // el silencio global también calla la narración
-            DangerAudio.setMuted(music.isMuted()); // <-- usa music.isMuted()
+            DangerAudio.setMuted(music.isMuted());   // y el zumbido de peligro y el desmoronarse
         }
         music.update(dt);   // entrada suave y silencio gradual
 
@@ -244,7 +245,7 @@ public class GamePanel extends JPanel {
         boolean leaving = onBlack != null;   // oscureciendo para cambiar de pantalla: no se aceptan teclas
 
         if (screen != Screen.PLAYING) {
-            DangerAudio.setDanger(0.0); // <-- apaga el latido en INTRO, MENU y VICTORY
+            DangerAudio.setDanger(0.0);   // el zumbido de peligro solo suena jugando
         }
 
         switch (screen) {
@@ -328,7 +329,6 @@ public class GamePanel extends JPanel {
             fadeTo(this::showIntro);
         } else if (input.wasPressed(KeyEvent.VK_ESCAPE)) {
             quit.run();
-
         }
     }
 
@@ -451,6 +451,7 @@ public class GamePanel extends JPanel {
         // ---- El mapa: pausa el juego; Tab o Esc lo cierran (Esc no va al menú) ----
         if (mapView.isOpen()) {
             mapView.update(dt);
+            DangerAudio.setDanger(0.0);   // el juego está en pausa: el zumbido se apaga
             if (input.wasPressed(KeyEvent.VK_TAB) || input.wasPressed(KeyEvent.VK_ESCAPE)) closeMap();
             return;
         }
@@ -469,7 +470,7 @@ public class GamePanel extends JPanel {
         // ---- Luz: sigue al ratón suavemente; con un clic se fija o se suelta ----
         // El ratón está en coordenadas de pantalla y la luz vive en el mundo:
         // la cámara convierte de una a otra con la inversa de su matriz de vista.
-       if (input.wasClicked()) {
+        if (input.wasClicked()) {
             light.togglePinned();
             particles.emitPinPulse(light.getX(), light.getY(), light.isPinned());
         }
@@ -490,7 +491,6 @@ public class GamePanel extends JPanel {
         level.update(dt);
         background.update(dt);         // niebla y esporas
         background.setLight(light.getX(), light.getY());
-        // Tensión sonora según proximidad entre Logi y Candil (solo mientras Candil está vivo)
         // Tensión sonora según proximidad entre Logi y Candil (solo mientras Candil está vivo)
         if (player.isDead() || levelComplete) {
             DangerAudio.setDanger(0.0);

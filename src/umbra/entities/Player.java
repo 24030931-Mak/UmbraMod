@@ -373,7 +373,6 @@ public class Player {
         dead = true;
         life = 0;
         vx = vy = 0;
-        umbra.audio.DangerAudio.playCrumble();
     }
 
     /**

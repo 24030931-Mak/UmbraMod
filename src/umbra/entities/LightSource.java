@@ -64,7 +64,7 @@ public class LightSource {
     private static final Color DARK_OUTER = new Color(150, 34, 40);
     private static final Color DARK_MIDDLE = new Color(226, 96, 52);
     private static final Color DARK_CORE = new Color(255, 190, 130);
-    // [NUEVO] Paleta fría cuando Logi está fija (pinned) y paleta roja de advertencia (agitation)
+    // Paleta fría cuando Logi está fija (pinned) y paleta roja de advertencia (agitation)
     private static final Color PIN_OUTER = new Color(60, 165, 255);
     private static final Color PIN_MIDDLE = new Color(135, 215, 255);
     private static final Color PIN_CORE = new Color(235, 250, 255);
@@ -86,7 +86,7 @@ public class LightSource {
     private double time;                   // reloj de la animación (s)
     private double flamePhase;             // fase de las ondas de la llama: corre más rápido si está agitada
     private double flickerPhase;           // fase del parpadeo rápido de la llama agitada
-    private double motion, rise, agitation, etherealMix, pinMix;   // [NUEVO] pinMix suaviza el cambio al fijar  // parámetros de la forma, de 0 a 1
+    private double motion, rise, agitation, etherealMix, pinMix;   // parámetros de la forma, de 0 a 1 (pinMix: suaviza el cambio de color al fijar)
     private double tailX = 0, tailY = -1;  // hacia dónde apunta la cola (vector de largo <= 1)
     private double lookX, lookY;           // hacia dónde miran los ojos (vector de largo <= 1)
     private double blinkTimer = 2.5;       // segundos para el siguiente parpadeo
@@ -199,7 +199,6 @@ public class LightSource {
         double speed = Math.hypot(vx, vy);
         double fast = smoothstep(SLOW, FAST, speed);   // la meta de motion
         double up = speed > 0 ? -vy / speed : 0;       // 1 = sube derecho, -1 = baja derecho
-        
 
         motion += (fast - motion) * k;
         rise += (smoothstep(SPIRAL_SPEED, FAST, speed) * smoothstep(0.55, 0.85, up) - rise) * k;
@@ -254,8 +253,7 @@ public class LightSource {
         blinkLeft = Math.max(0, blinkLeft - dt);
     }
 
-    /** Halo de luz: degradado radial que se desvanece hacia afuera. */
-    /** Halo de luz: degradado radial con temperatura de color dinámica según estado. */
+    /** Halo de luz: degradado radial que se desvanece hacia afuera; cambia de color (azul fija, rojo agitada) y late un poco. */
     public void drawGlow(Graphics2D g) {
         float pulse = (float) (1.0 + 0.03 * Math.sin(time * 2.2) + 0.05 * agitation * Math.sin(flickerPhase));
         float r = (float) Config.LIGHT_RADIUS * pulse;
@@ -289,9 +287,8 @@ public class LightSource {
      * Flota con un vaivén suave, pero solo el dibujo: la luz sigue en (x, y).
      */
     public void drawCore(Graphics2D g) {
-        
-        AffineTransform old = g.getTransform();
         Paint oldPaint = g.getPaint();
+        AffineTransform old = g.getTransform();
         double cx = x, cy = y + BOB * Math.sin(time * BOB_SPEED);   // flota
         double e = etherealMix;
         double tail = Math.hypot(tailX, tailY);   // 1 = cola bien definida; 0 = llama redonda
@@ -304,29 +301,30 @@ public class LightSource {
                 + 0.08 * Math.sin(time * 1.9) * (1 - motion)          // vaivén en calma
                 + 0.25 * agitation * Math.sin(flickerPhase * 0.55);   // agitada: se sacude
 
-        // 1. Halo cálido
+        // Colores de la llama: normal -> azul si está fija -> rojo si Candil está cerca -> más oscuro con los ojos oscuros
+        double d = 0.5 * eyeDarkness;   // [v0.8.6] la llama se enfría solo a medias: lo que cambia son los ojos
+        Color cOuter = mix(mix(mix(OUTER, PIN_OUTER, pinMix), DANGER_OUTER, agitation * 0.85), DARK_OUTER, d);
+        Color cMiddle = mix(mix(mix(MIDDLE, PIN_MIDDLE, pinMix), DANGER_MIDDLE, agitation * 0.85), DARK_MIDDLE, d);
+        Color cCore = mix(mix(CORE, PIN_CORE, pinMix), DARK_CORE, d);
+        Color cHalo = mix(mix(HALO, PIN_HALO, pinMix), DANGER_HALO, agitation * 0.85);
+
+        // 1. Halo cálido (con el color de la llama: azul fija, rojo agitada)
         float hr = (float) (HEAD * (2.6 + 2 * e));
         g.setPaint(new RadialGradientPaint(new Point2D.Double(cx, cy), hr, new float[] { 0f, 1f },
-                new Color[] { withAlpha(HALO, (80 + 40 * e) * (1 - 0.4 * eyeDarkness)), withAlpha(HALO, 0) }));
+                new Color[] { withAlpha(cHalo, (80 + 40 * e) * (1 - 0.4 * eyeDarkness)), withAlpha(cHalo, 0) }));
         g.fill(new Ellipse2D.Double(cx - hr, cy - hr, 2 * hr, 2 * hr));
 
         // 2 y 3. La llama en coordenadas locales: M = T(cx, cy) · R(angle)
         g.transform(Mat3.translation(cx, cy).multiply(Mat3.rotation(angle)).toAffineTransform());
         if (e > 0.01) drawWisps(g, r, len, 255 * e);
         Path2D outer = layer(0, r, len, amp, flamePhase);
-        double d = 0.5 * eyeDarkness;
-        Color cOuter = mix(mix(mix(OUTER, PIN_OUTER, pinMix), DANGER_OUTER, agitation * 0.85), DARK_OUTER, d);
-        Color cMiddle = mix(mix(mix(MIDDLE, PIN_MIDDLE, pinMix), DANGER_MIDDLE, agitation * 0.85), DARK_MIDDLE, d);
-        Color cCore = mix(mix(CORE, PIN_CORE, pinMix), DARK_CORE, d);
-        Color cHalo = mix(mix(HALO, PIN_HALO, pinMix), DANGER_HALO, agitation * 0.85);
-
-        // 1. Halo cálido/dinámico (mueve este bloque o actualiza su color con cHalo)
         fillLayer(g, outer, cOuter, 225 * flick * (1 - 0.8 * e));
         if (rise > 0.02) drawSpiral(g, outer, r, len, 205 * rise * tail * flick);
         fillLayer(g, layer(-0.1 * HEAD, 0.7 * r, 0.75 * len, 0.8 * amp, flamePhase + 0.4), cMiddle,
                 235 * flick * (1 - 0.45 * e));
         fillLayer(g, layer(-0.18 * HEAD, 0.42 * r, 0.5 * len, 0.6 * amp, flamePhase + 0.8), cCore,
                 245 * flick * (1 - 0.1 * e));
+        g.setTransform(old);   // los ojos y el anillo van en coordenadas del mundo, no en las de la llama
 
         // 4. Ojos
         drawEyes(g, cx, cy, (235 + 20 * eyeDarkness) * (1 - 0.35 * e));
@@ -337,7 +335,6 @@ public class LightSource {
             g.draw(new Ellipse2D.Double(x - 19, y - 19, 38, 38));
         }
         g.setPaint(oldPaint);
-        g.setTransform(old);
     }
 
     /**
