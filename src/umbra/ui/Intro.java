@@ -23,6 +23,7 @@ import umbra.ui.intro.SubtitleRenderer;
 import umbra.ui.intro.ShatterScene;
 import umbra.ui.intro.TitleScene;
 import umbra.ui.intro.TogetherScene;
+import java.awt.geom.AffineTransform;
 
 /**
  * [v0.8.6] La intro: cómo se rompió el Gran Farol y cómo nacieron Candil y Logi, en seis
@@ -184,7 +185,9 @@ public class Intro {
         }
         Scene scene = scenes()[index];
         double t = getSceneTime(), length = LENGTHS[index];
+        AffineTransform oldTx = g.getTransform(); // Guarda la posición normal de la pantalla
         scene.draw(g);
+        g.setTransform(oldTx);                    // Restaura la pantalla para que no quede girada
         SubtitleRenderer.draw(g, scene.activeSubtitles(), VoiceOver.getPositionSeconds(), scene.subtitleAlpha());   // sobre la escena, bajo el fundido
 
         // Fundidos: el de entrada, el de salida y el de saltar; manda el más oscuro

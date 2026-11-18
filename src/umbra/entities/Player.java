@@ -369,8 +369,11 @@ public class Player {
 
     /** Se desmorona de inmediato (por ejemplo, por estar demasiado cerca de la luz). */
     public void crumble() {
-        life = 0;
+        if (dead) return;
         dead = true;
+        life = 0;
+        vx = vy = 0;
+        umbra.audio.DangerAudio.playCrumble();
     }
 
     /**
