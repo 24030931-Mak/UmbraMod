@@ -54,7 +54,7 @@ public class MiniMap {
                 .multiply(Mat3.translation(-candil.x, -candil.y));
         g.transform(view.toAffineTransform());
 
-        double w = level.getWidth(), h = Config.HEIGHT;
+        double w = level.getWidth(), h = level.getHeight();
         double half = VIEW / 2.0;   // lo que se ve alrededor de Candil: un cuadro de VIEW x VIEW
         Rectangle2D visible = new Rectangle2D.Double(candil.x - half, candil.y - half, VIEW, VIEW);
         MapPainter.drawTerrain(g, level, h, visible);
