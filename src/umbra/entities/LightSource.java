@@ -86,6 +86,7 @@ public class LightSource {
     private double time;                   // reloj de la animación (s)
     private double flamePhase;             // fase de las ondas de la llama: corre más rápido si está agitada
     private double flickerPhase;           // fase del parpadeo rápido de la llama agitada
+    private boolean pinTint = true;     // ¿se tiñe de azul al fijarse?
     private double motion, rise, agitation, etherealMix, pinMix;   // parámetros de la forma, de 0 a 1 (pinMix: suaviza el cambio de color al fijar)
     private double tailX = 0, tailY = -1;  // hacia dónde apunta la cola (vector de largo <= 1)
     private double lookX, lookY;           // hacia dónde miran los ojos (vector de largo <= 1)
@@ -138,6 +139,9 @@ public class LightSource {
 
     /** [v1.0] Etérea: fuego sin bordes fijos (Logi del menú y de la pantalla final). */
     public void setEthereal(boolean e) { ethereal = e; }
+
+    /** Si es false, Logi no se tiñe de azul al fijarse (en la intro sigue cálida; el anillo se dibuja igual). */
+    public void setPinTint(boolean on) { pinTint = on; }
 
     /**
      * [v0.8.6] Oscurece los ojos de Logi, de 0 (como siempre) a 1: se vuelven negros y más
@@ -205,7 +209,7 @@ public class LightSource {
         double near = 1 - smoothstep(AGITATED_DISTANCE - 40, AGITATED_DISTANCE + 40, candilDistance());
         agitation += (near - agitation) * k;
         etherealMix += ((ethereal ? 1 : 0) - etherealMix) * k;
-        pinMix += ((pinned && !ethereal ? 1 : 0) - pinMix) * k;
+        pinMix += ((pinned && pinTint && !ethereal ? 1 : 0) - pinMix) * k;
 
         // Las ondas de la llama corren más rápido si está agitada y más lento si es etérea.
         // Se acumula la fase (en vez de usar sin(frecuencia · tiempo)) para que al cambiar la
