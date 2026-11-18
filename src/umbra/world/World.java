@@ -6,8 +6,8 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * El mundo: los niveles en fila, de izquierda a derecha. La salida derecha de cada nivel
- * conecta con la entrada izquierda del siguiente, y se puede volver.
+ * El mundo: las zonas del juego, conectadas por pasos en sus cuatro orillas (izquierda,
+ * derecha, arriba y abajo), cada una con su posición en el plano. Los pasos van y vuelven.
  *
  * Solo guarda cuál nivel es el actual y cuáles ya se visitaron (para la leyenda
  * "Pasaste al nivel 2" y para el mapa) y qué zonas de cada nivel ya se recorrieron. Los niveles se crean una sola vez.
@@ -27,6 +27,7 @@ public class World {
             explored[i] = new Exploration(levels.get(i).getWidth(), levels.get(i).getHeight());
         }
         connectLevels();
+        checkTargets();
         reset();
     }
 
@@ -46,6 +47,18 @@ public class World {
             if (i > 0 && l.getLeftEntry() != null && levels.get(i - 1).getRightEntry() != null) {
                 Level prev = levels.get(i - 1);
                 l.addConnectPassage(new Passage(Passage.Side.LEFT, 0, l.getHeight(), prev, prev.getRightEntry(), null));
+            }
+        }
+    }
+
+    /** Todo paso debe llevar a una zona de este mundo: si no, cruzarlo rompería el juego. */
+    private void checkTargets() {
+        for (int i = 0; i < levels.size(); i++) {
+            for (Passage p : levels.get(i).getPassages()) {
+                if (!levels.contains(p.getTarget())) {
+                    throw new IllegalArgumentException("El paso " + p.getSide() + " de la zona " + i
+                            + " (" + levels.get(i).getName() + ") lleva a una zona que no es de este mundo");
+                }
             }
         }
     }

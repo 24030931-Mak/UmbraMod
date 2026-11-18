@@ -83,6 +83,7 @@ public class GamePanel extends JPanel {
     /** Cuánto se coloca Logi arriba de Candil al llegar a otro nivel (px). */
     private static final double ARRIVAL_LIFT = 220;
     private static final double ARRIVAL_MIN_Y = 20;   // Logi nunca aparece más arriba (el techo de la zona es y = 0)
+    private static final double ARRIVAL_MIN_X = 20;   // y tampoco a menos de esto de las orillas izquierda y derecha
     /** [B1] Cuadros de lógica que se espera, a lo más, a que se pinte el cuadro negro. */
     private static final int MAX_BLACK_WAITS = 10;
     /** [B1] Cuántas zonas guardan su fondo y su decoración ya generados: la actual y la anterior. */
@@ -245,6 +246,11 @@ public class GamePanel extends JPanel {
     private Scenery sceneryFor(int index) {
         Scenery s = sceneries.get(index);   // también la marca como la más reciente
         if (s == null) {
+            if (sceneries.size() >= SCENERY_CACHE) {   // primero se suelta la más vieja: así nunca hay tres juntas en memoria
+                java.util.Iterator<Integer> it = sceneries.keySet().iterator();
+                it.next();
+                it.remove();
+            }
             Level lv = world.get(index);
             s = new Scenery(new Background(lv.getWidth(), lv.getHeight(), lv.getBackgroundSeed(), lv.getRuinScale()),
                     new LevelArt(lv, lv.getDecorSeed()));   // roca, musgo, hongos y runas
@@ -469,7 +475,8 @@ public class GamePanel extends JPanel {
         double dy = ly - cy;
         if (dy * dy < ARRIVAL_SAFE_DISTANCE * ARRIVAL_SAFE_DISTANCE) {
             double dx = Math.sqrt(ARRIVAL_SAFE_DISTANCE * ARRIVAL_SAFE_DISTANCE - dy * dy);
-            lx = cx + dx <= level.getWidth() - ARRIVAL_MIN_Y ? cx + dx : cx - dx;
+            lx = cx + dx <= level.getWidth() - ARRIVAL_MIN_X ? cx + dx : cx - dx;
+            lx = Math.max(ARRIVAL_MIN_X, Math.min(level.getWidth() - ARRIVAL_MIN_X, lx));
         }
         light.snapTo(lx, ly);
         logiWaiting = true;
@@ -738,6 +745,7 @@ public class GamePanel extends JPanel {
     /** El menú: la cueva moviéndose despacio, Logi siguiendo al ratón, el título y las opciones. */
     private void drawMenu(Graphics2D g2) {
         double camX = 300 + 250 * Math.sin(menuTime * 0.05);
+        camX = Math.min(camX, Math.max(0, level.getWidth() - Config.WIDTH));   // zonas angostas: la capa cercana no alcanzaría
         background.drawBack(g2, camX, 0);   // la cueva del menú se ve desde arriba de la zona
         AffineTransform onScreen = g2.getTransform();
         g2.transform(Mat3.translation(-Math.round(camX), 0).toAffineTransform());

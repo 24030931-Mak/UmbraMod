@@ -100,7 +100,8 @@ public class MapView {
 
             double cx = x0 + (ox + level.getWidth() / 2) * s;
             double bottom = y0 + (oy + h) * s;
-            String label = world.isVisited(i) ? level.getNumber() + " \u00b7 " + level.getName() : "???";
+            String label = !world.isVisited(i) ? "???"
+                    : level.getNumber() == null || level.getNumber().isEmpty() ? level.getName() : level.getNumber() + " \u00b7 " + level.getName();
             g.setFont(Text.CHAPTER);
             // debajo de la zona; si hay otra justo debajo, dentro de la zona, abajo
             Text.centered(g, label, cx, hasZoneBelow(world, i, s) ? bottom - 14 : bottom + 40, Text.STORY_COLOR, 1, 0);

@@ -31,9 +31,9 @@ public class Camera {
     /** Qué tan rápido alcanza su destino (mayor = más rápido). */
     private static final double SMOOTHING = 8.0;
 
-    /** Por encima de esta velocidad de caída (px/s) la cámara se adelanta; a MAX_FALL llega al máximo. */
+    /** Por encima de esta velocidad de caída (px/s) la cámara se adelanta; a Config.MAX_FALL_SPEED llega al máximo. */
     private static final double FALL_START = 400;
-    private static final double FALL_FULL = 900;
+    private static final double FALL_FULL = Config.MAX_FALL_SPEED;
     /** Cuánto se adelanta hacia abajo (px) a la velocidad máxima de caída. */
     private static final double FALL_LEAD = 110;
 
