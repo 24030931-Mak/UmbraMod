@@ -29,13 +29,20 @@ import umbra.math.Mat3;
  * se vea igual cada vez que se juega.
  *
  * Parallax: cada capa se desplaza con la cámara multiplicada por un factor de profundidad,
- * es decir, con la matriz de traslación  T(-camX * factor, 0).
+ * es decir, con la matriz de traslación  T(-camX * factor, -camY * factor).
  *   factor < 1: la capa está lejos y se mueve más lento que el nivel.
  *   factor > 1: la capa está entre el jugador y la pantalla (primer plano) y se mueve más rápido.
  *   factor = 1: sería la misma matriz de vista de la cámara (Camera.getViewMatrix).
  *
  * Las capas lejanas son más claras que las cercanas (perspectiva atmosférica: entre más
  * lejos, más niebla hay en medio), y eso da sensación de profundidad.
+ *
+ * [B1] Zonas altas: si la zona mide más de 720 px de alto, cada capa mide de alto lo que la
+ * cámara recorre con su factor (720 + (alto - 720) * factor). El techo y sus estalactitas quedan
+ * arriba, el piso y sus picos abajo, y en medio hay paredes de pozo, pilares de roca y
+ * salientes con estalactitas (drawShaft). La niebla se repite a lo alto, la del abismo y el
+ * abismo oscurecido solo se ven cerca del fondo de la zona, y la viñeta es de la pantalla.
+ * Con 720 de alto todo sale igual que antes, píxel a píxel.
  */
 public class Background {
 
@@ -61,9 +68,21 @@ public class Background {
     private static final int[] SPORE_SIZES = { 6, 9, 12 };
     private static final float[] SPORE_ALPHAS = { 0.15f, 0.3f, 0.45f, 0.6f, 0.75f };
 
-    private final double worldWidth;
+    /** [B1] Separación aproximada entre dos franjas de niebla de fondo en una zona alta (px de la capa). */
+    private static final double FOG_BAND_GAP = 600;
+
+    // [B1] Las paredes de pozo de cada capa (ver Shaft): grosor de la pared, cada cuánto (en X) hay
+    // un pilar, ancho del pilar, cada cuánto (en Y) sale una saliente, cuánto sale, y el tamaño
+    // de sus estalactitas. Las capas cercanas tienen paredes más delgadas y salientes más grandes.
+    private static final Shaft FAR_SHAFT = new Shaft(115, 720, 80, 250, 95, 18, 110, false, false);
+    private static final Shaft MID_SHAFT = new Shaft(70, 1150, 60, 320, 120, 24, 150, true, false);
+    private static final Shaft NEAR_SHAFT = new Shaft(34, 2300, 46, 420, 150, 42, 210, false, true);
+
+    private final double worldWidth, worldHeight;
+    private final double maxY;        // lo más abajo que llega la cámara (0 en una zona de 720 de alto)
     private final double ruinScale;   // tamaño de las ruinas de la capa media (1 = las del nivel 1)
     private final BufferedImage sky, far, mid, near, fogBack, fogPit, overlay;
+    private final BufferedImage abyss;   // [B1] el abismo oscurecido, aparte de la viñeta (solo en zonas altas)
     private final BufferedImage[][] sporeSprites;
     private final List<Shape> front = new ArrayList<>();
     private final List<Spore> spores = new ArrayList<>();
@@ -75,26 +94,49 @@ public class Background {
         int size;   // índice en SPORE_SIZES
     }
 
+    /** Las paredes de pozo de una capa (solo en zonas altas). */
+    private static final class Shaft {
+        final double wall, pillarEvery, pillarW, ledgeEvery, ledgeDepth, spikeW, spikeLen;
+        final boolean ruins;            // columnas rotas sobre las salientes (capa media, como sus ruinas)
+        final boolean partialPillars;   // pilares que cuelgan del techo o suben del piso (solo la cercana)
+        Shaft(double wall, double pillarEvery, double pillarW, double ledgeEvery, double ledgeDepth,
+                double spikeW, double spikeLen, boolean ruins, boolean partialPillars) {
+            this.wall = wall; this.pillarEvery = pillarEvery; this.pillarW = pillarW;
+            this.ledgeEvery = ledgeEvery; this.ledgeDepth = ledgeDepth;
+            this.spikeW = spikeW; this.spikeLen = spikeLen; this.ruins = ruins;
+            this.partialPillars = partialPillars;
+        }
+    }
+
     public Background(double worldWidth, long seed) {
-        this(worldWidth, seed, 1);
+        this(worldWidth, Config.HEIGHT, seed, 1);
+    }
+
+    public Background(double worldWidth, long seed, double ruinScale) {
+        this(worldWidth, Config.HEIGHT, seed, ruinScale);
     }
 
     /**
      * 'ruinScale' agranda las columnas y los arcos de la capa media: el nivel 2, "Las
      * Galerías", tiene ruinas más grandes que el nivel 1 (1 = el tamaño del nivel 1).
+     * [B1] 'worldHeight' es el alto de la zona; con más de 720 la cueva se vuelve un pozo.
      */
-    public Background(double worldWidth, long seed, double ruinScale) {
+    public Background(double worldWidth, double worldHeight, long seed, double ruinScale) {
         this.worldWidth = worldWidth;
+        this.worldHeight = worldHeight;
+        this.maxY = Math.max(0, worldHeight - Config.HEIGHT);
         this.ruinScale = ruinScale;
         Random rnd = new Random(seed);
         sky = renderSky();
-        far = renderFar(rnd);
-        mid = renderMid(rnd);
+        // [B1] En una zona alta, las capas lejana y media son paredes de pozo de arriba abajo
+        far = maxY == 0 ? renderFar(rnd) : renderShaftLayer(rnd, FAR_DEPTH, FAR, FAR_SHAFT, true);
+        mid = maxY == 0 ? renderMid(rnd) : renderShaftLayer(rnd, MID_DEPTH, MID, MID_SHAFT, false);
         near = renderNear(rnd);
         BufferedImage fog = renderFog(rnd);
         fogBack = withAlpha(fog, 0.6f);
         fogPit = withAlpha(fog, 0.45f);
-        overlay = renderOverlay();
+        overlay = renderOverlay(maxY == 0);
+        abyss = maxY == 0 ? null : renderAbyss();
         sporeSprites = renderSporeSprites();
         buildFront(rnd);
         createSpores(rnd);
@@ -109,23 +151,38 @@ public class Background {
         for (Spore s : spores) {
             s.y -= s.speed * dt;
             if (s.y < -20) {              // salió por arriba: vuelve a nacer abajo
-                s.y = Config.HEIGHT + 20;
+                s.y = worldHeight + 20;
             }
         }
     }
 
     /** Lo que va detrás del nivel, en coordenadas de pantalla: cielo, capas lejanas y niebla. */
-    public void drawBack(Graphics2D g, double camX) {
+    public void drawBack(Graphics2D g, double camX, double camY) {
         g.drawImage(sky, 0, 0, null);
-        drawLayer(g, far, camX, FAR_DEPTH);
-        drawLayer(g, mid, camX, MID_DEPTH);
-        drawFog(g, fogBack, camX, FOG_DEPTH, 290, 9);
-        drawLayer(g, near, camX, NEAR_DEPTH);
+        drawLayer(g, far, camX, camY, FAR_DEPTH);
+        drawLayer(g, mid, camX, camY, MID_DEPTH);
+        if (maxY == 0) {
+            drawFog(g, fogBack, camX, FOG_DEPTH, 290, 9, 0);
+        } else {
+            // Zona alta: varias franjas repartidas a lo alto de la capa (factor 0.5), la primera a
+            // 290 px del techo y la última a la misma altura sobre el piso; cada una corrida de lado
+            int span = shiftY(FOG_DEPTH);
+            int bands = (int) Math.max(1, Math.round(span / FOG_BAND_GAP));
+            long top = Math.round(camY * FOG_DEPTH);
+            for (int k = 0; k <= bands; k++) {
+                long y = 290 + Math.round((double) span * k / bands) - top;
+                if (y > -fogBack.getHeight() && y < Config.HEIGHT) {
+                    drawFog(g, fogBack, camX, FOG_DEPTH, (int) y, 9, k * 389);
+                }
+            }
+        }
+        drawLayer(g, near, camX, camY, NEAR_DEPTH);
     }
 
     /** Las esporas, en coordenadas del mundo (se dibujan con la matriz de vista ya aplicada). */
-    public void drawSpores(Graphics2D g, double camX) {
+    public void drawSpores(Graphics2D g, double camX, double camY) {
         for (Spore s : spores) {
+            if (s.y < camY - 20 || s.y > camY + Config.HEIGHT + 20) continue;   // arriba o abajo de la pantalla
             double x = s.x + Math.sin(time * 0.8 + s.phase) * s.sway;
             if (x < camX - 20 || x > camX + Config.WIDTH + 20) continue;   // fuera de la pantalla
             // Titilan: el brillo sigue una onda seno y se elige la imagen más parecida
@@ -138,25 +195,33 @@ public class Background {
     }
 
     /** Lo que va delante del nivel, en coordenadas de pantalla: neblina del abismo, primer plano y viñeta. */
-    public void drawFront(Graphics2D g, double camX) {
-        drawFog(g, fogPit, camX, PIT_FOG_DEPTH, 575, -16);
+    public void drawFront(Graphics2D g, double camX, double camY) {
+        // La neblina del abismo va pegada al fondo de la zona (factor 0.9): en una zona alta solo
+        // se ve cuando la cámara anda cerca del piso
+        long pitY = 575 + shiftY(PIT_FOG_DEPTH) - Math.round(camY * PIT_FOG_DEPTH);
+        if (pitY < Config.HEIGHT) drawFog(g, fogPit, camX, PIT_FOG_DEPTH, (int) pitY, -16, 0);
 
         // Primer plano: raíces y rocas muy oscuras que pasan más rápido que el nivel
         AffineTransform old = g.getTransform();
-        g.transform(Mat3.translation(-Math.round(camX * FRONT_DEPTH), 0).toAffineTransform());
+        g.transform(Mat3.translation(-Math.round(camX * FRONT_DEPTH), -Math.round(camY * FRONT_DEPTH)).toAffineTransform());
         g.setColor(FRONT);
         for (Shape s : front) g.fill(s);
         g.setTransform(old);
 
-        // Abismo oscurecido abajo + viñeta en las orillas (una sola imagen ya hecha)
+        // Abismo oscurecido abajo + viñeta en las orillas (una sola imagen ya hecha). En una zona
+        // alta el abismo va aparte, pegado al fondo de la zona, y la viñeta se queda en la pantalla.
+        if (abyss != null) {
+            long y = 600 + Math.round(maxY) - Math.round(camY);
+            if (y < Config.HEIGHT) g.drawImage(abyss, 0, (int) y, null);
+        }
         g.drawImage(overlay, 0, 0, null);
     }
 
-    /** Dibuja una capa ya generada con la matriz de parallax T(-camX * depth, 0). */
-    private static void drawLayer(Graphics2D g, BufferedImage layer, double camX, double depth) {
+    /** Dibuja una capa ya generada con la matriz de parallax T(-camX * depth, -camY * depth). */
+    private static void drawLayer(Graphics2D g, BufferedImage layer, double camX, double camY, double depth) {
         AffineTransform old = g.getTransform();
         // Se redondea a píxeles enteros para que la imagen no se vea borrosa al moverse
-        g.transform(Mat3.translation(-Math.round(camX * depth), 0).toAffineTransform());
+        g.transform(Mat3.translation(-Math.round(camX * depth), -Math.round(camY * depth)).toAffineTransform());
         g.drawImage(layer, 0, 0, null);
         g.setTransform(old);
     }
@@ -164,10 +229,11 @@ public class Background {
     /**
      * Una franja de niebla que se repite de lado a lado. Se mueve sola (speed, en px/s)
      * y además con la cámara (parallax). El operador módulo hace que se repita sin cortes.
+     * 'shift' la corre de lado, para que dos franjas de la misma zona no se vean iguales.
      */
-    private void drawFog(Graphics2D g, BufferedImage fog, double camX, double depth, int y, double speed) {
+    private void drawFog(Graphics2D g, BufferedImage fog, double camX, double depth, int y, double speed, double shift) {
         int w = fog.getWidth();
-        double offset = (time * speed - camX * depth) % w;
+        double offset = (time * speed - camX * depth + shift) % w;
         if (offset > 0) offset -= w;
         for (double x = offset; x < Config.WIDTH; x += w) {
             g.drawImage(fog, (int) Math.round(x), y, null);
@@ -181,6 +247,20 @@ public class Background {
     /** Ancho que necesita una capa para cubrir todo el nivel con su factor de profundidad. */
     private int layerWidth(double depth) {
         return (int) Math.ceil(Config.WIDTH + (worldWidth - Config.WIDTH) * depth) + 2;
+    }
+
+    /**
+     * [B1] Cuánto baja una capa cuando la cámara llega al fondo de la zona: round(maxY * factor).
+     * Lo que va en el piso se dibuja así de más abajo y se ve justo donde se vería en una zona
+     * de 720. Es 0 en las zonas de 720 de alto.
+     */
+    private int shiftY(double depth) {
+        return (int) Math.round(maxY * depth);
+    }
+
+    /** [B1] Alto de una capa: 720 más lo que baja (y 2 px de sobra, como en el ancho, si es alta). */
+    private int layerHeight(double depth) {
+        return maxY == 0 ? Config.HEIGHT : Config.HEIGHT + shiftY(depth) + 2;
     }
 
     static Graphics2D smooth(BufferedImage img) {
@@ -299,30 +379,209 @@ public class Background {
         return img;
     }
 
+    /**
+     * [B1] Capa lejana o media de una zona alta. Con un factor tan pequeño, el techo y el piso de
+     * hoy se verían a casi cualquier altura (la capa lejana solo recorre 0.15 de lo que baja la
+     * cámara), así que aquí la capa es el pozo mismo: paredes, pilares y salientes de arriba
+     * abajo, con un techo delgado arriba y un piso bajo abajo que solo se asoman cerca del techo
+     * y del fondo de la zona.
+     */
+    private BufferedImage renderShaftLayer(Random rnd, double depth, Color color, Shaft sh, boolean rays) {
+        int w = layerWidth(depth), h = layerHeight(depth), s = shiftY(depth);
+        BufferedImage img = newImage(w, h);
+        Graphics2D g = smooth(img);
+        g.setColor(color);
+        double[] ceiling = midpointDisplacement(rnd, 64, 18, 0.6);
+        double[] floor = midpointDisplacement(rnd, 64, 18, 0.6);
+        g.fill(CaveShapes.ridge(ceiling, 0, w, 22, 0));
+        g.fill(CaveShapes.ridge(floor, 0, w, Config.HEIGHT - 40 + s, h));
+        drawShaft(g, rnd, w, h, sh, rays);
+        g.dispose();
+        return img;
+    }
+
     /** Capa cercana: rocas oscuras abajo y estalactitas grandes arriba. */
     private BufferedImage renderNear(Random rnd) {
-        int w = layerWidth(NEAR_DEPTH);
-        BufferedImage img = newImage(w, Config.HEIGHT);
+        int w = layerWidth(NEAR_DEPTH), h = layerHeight(NEAR_DEPTH), s = shiftY(NEAR_DEPTH);
+        BufferedImage img = newImage(w, h);
         Graphics2D g = smooth(img);
         g.setColor(NEAR);
 
         double[] floor = midpointDisplacement(rnd, 128, 45, 0.6);
-        g.fill(CaveShapes.ridge(floor, 0, w, 665, Config.HEIGHT));
+        g.fill(CaveShapes.ridge(floor, 0, w, 665 + s, h));
         for (int i = 0; i < w / 110; i++) {
             double x = rnd.nextDouble() * w;
             g.fill(CaveShapes.spike(x, -5, 24 + rnd.nextDouble() * 50, 70 + rnd.nextDouble() * 210, true));
         }
         for (int i = 0; i < w / 220; i++) {
             double x = rnd.nextDouble() * w;
-            g.fill(CaveShapes.spike(x, CaveShapes.heightAt(floor, 0, w, 665, x) + 5, 40 + rnd.nextDouble() * 50, 60 + rnd.nextDouble() * 120, false));
+            g.fill(CaveShapes.spike(x, CaveShapes.heightAt(floor, 0, w, 665 + s, x) + 5, 40 + rnd.nextDouble() * 50, 60 + rnd.nextDouble() * 120, false));
         }
+        if (maxY > 0) drawShaft(g, rnd, w, h, NEAR_SHAFT, false);
         g.dispose();
         return img;
+    }
+
+    // =========================================================
+    //  [B1] PAREDES DE POZO (solo en las zonas altas)
+    // =========================================================
+
+    /**
+     * Lo que hay entre el techo y el piso de una capa alta de w x h: una pared de roca a cada
+     * lado, pilares que bajan del techo al piso (si la capa es ancha) y salientes con
+     * estalactitas colgando. Todo va del color de la capa, así que se une con el techo y el
+     * piso sin bordes. En la capa lejana, además, rayos de luz que entran por grietas de las
+     * paredes (se dibujan primero: la pared tapa dónde nacen).
+     */
+    private void drawShaft(Graphics2D g, Random rnd, int w, int h, Shaft sh, boolean rays) {
+        Color color = g.getColor();
+        if (rays) {
+            for (double y = 420 + rnd.nextDouble() * 300; y < h - 520; y += 520 + rnd.nextDouble() * 420) {
+                int dir = rnd.nextBoolean() ? 1 : -1;
+                double x0 = dir > 0 ? sh.wall : w - sh.wall;
+                double len = 320 + rnd.nextDouble() * 280, mouth = 10 + rnd.nextDouble() * 16, spread = 60 + rnd.nextDouble() * 90;
+                Path2D ray = new Path2D.Double();
+                ray.moveTo(x0, y - mouth);
+                ray.lineTo(x0, y + mouth);
+                ray.lineTo(x0 + dir * len, y + len * 0.6 + spread);
+                ray.lineTo(x0 + dir * len, y + len * 0.6 - spread * 0.3);
+                ray.closePath();
+                g.setPaint(new GradientPaint((float) x0, (float) y, alpha(FOG, 30),
+                        (float) (x0 + dir * len), (float) (y + len * 0.6), alpha(FOG, 0)));
+                g.fill(ray);
+            }
+            g.setPaint(color);
+        }
+
+        int segs = segmentsFor(h);
+        // Las dos paredes: un perfil fractal a lo alto (como el techo, pero de lado)
+        for (int side = 0; side < 2; side++) {
+            int dir = side == 0 ? 1 : -1;
+            double edge = side == 0 ? -2 : w + 2;
+            double[] prof = midpointDisplacement(rnd, segs, sh.wall * 0.45, 0.62);
+            Path2D p = new Path2D.Double();
+            p.moveTo(edge, 0);
+            for (int i = 0; i <= segs; i++) {
+                p.lineTo(edge + dir * Math.max(sh.wall * 0.3, sh.wall + prof[i]), (double) h * i / segs);
+            }
+            p.lineTo(edge, h);
+            p.closePath();
+            g.fill(p);
+            for (double y = 260 + rnd.nextDouble() * sh.ledgeEvery; y < h - 300; y += sh.ledgeEvery * (0.7 + rnd.nextDouble() * 0.8)) {
+                double face = edge + dir * Math.max(sh.wall * 0.3, sh.wall + CaveShapes.heightAt(prof, 0, h, 0, y));
+                ledge(g, rnd, face - dir * 6, y, dir, sh);
+            }
+        }
+
+        // Pilares: columnas naturales de roca que van del techo al piso, solo en capas anchas
+        if (w >= sh.pillarEvery * 1.4) {
+            for (double x = sh.pillarEvery * (0.5 + rnd.nextDouble() * 0.4); x < w - sh.pillarEvery * 0.4;
+                    x += sh.pillarEvery * (0.75 + rnd.nextDouble() * 0.6)) {
+                pillar(g, rnd, x, h, sh, segs);
+            }
+        }
+    }
+
+    /** Tramos del perfil de una pared: una potencia de 2, con un punto cada ~24 px. */
+    private static int segmentsFor(int h) {
+        int n = 16;
+        while (n * 24 < h) n *= 2;
+        return n;
+    }
+
+    /**
+     * Pilar de roca alrededor de x = cx. Hay tres clases: columna del techo al piso (se abre al
+     * llegar a los dos, como cuando una estalactita y una estalagmita se juntan), una estalactita
+     * gigante que cuelga del techo, o una estalagmita gigante que sube del piso; las dos últimas
+     * se afinan hasta la punta: ancho * ((distancia a la punta) / largo)^0.6. Cada orilla tiene su
+     * propio perfil fractal, el ancho se abomba y el centro se tuerce con dos perfiles más lentos,
+     * y salen salientes a los dos lados donde es grueso.
+     */
+    private void pillar(Graphics2D g, Random rnd, double cx, int h, Shaft sh, int segs) {
+        // 0: del techo al piso; 1: cuelga del techo; 2: sube del piso. Solo la capa cercana tiene
+        // de las que terminan en punta: en las lejanas la punta casi no se movería y se vería a
+        // cualquier altura, como un techo a media zona.
+        int kind = sh.partialPillars ? rnd.nextInt(3) : 0;
+        double tip = kind == 1 ? h * (0.45 + rnd.nextDouble() * 0.3) : kind == 2 ? h * (0.3 + rnd.nextDouble() * 0.3) : 0;
+        double[] a = midpointDisplacement(rnd, segs, sh.pillarW * 0.3, 0.6);
+        double[] b = midpointDisplacement(rnd, segs, sh.pillarW * 0.3, 0.6);
+        double[] bulge = midpointDisplacement(rnd, 8, 0.45, 0.5);   // abombado: el ancho cambia despacio
+        double[] wander = midpointDisplacement(rnd, 8, 55, 0.5);    // el centro se tuerce despacio
+        double half = sh.pillarW * (0.4 + rnd.nextDouble() * 0.3);
+        double[] left = new double[segs + 1], right = new double[segs + 1], thick = new double[segs + 1];
+        Path2D p = new Path2D.Double();
+        boolean started = false;
+        if (kind == 2) {
+            p.moveTo(cx + CaveShapes.heightAt(wander, 0, h, 0, tip), tip);
+            started = true;
+        }
+        for (int i = 0; i <= segs; i++) {
+            double y = (double) h * i / segs;
+            double f = kind == 1 ? (y >= tip ? 0 : Math.pow((tip - y) / tip, 0.6))
+                     : kind == 2 ? (y <= tip ? 0 : Math.pow((y - tip) / (h - tip), 0.6)) : 1;
+            thick[i] = f;
+            if (f <= 0) continue;
+            double c = cx + CaveShapes.heightAt(wander, 0, h, 0, y);
+            double w = half * Math.max(0.35, 1 + CaveShapes.heightAt(bulge, 0, h, 0, y));
+            double top = kind == 2 ? 0 : Math.max(0, 1 - y / 340);
+            double bottom = kind == 1 ? 0 : Math.max(0, 1 - (h - y) / 420);
+            double flare = (top * top + bottom * bottom) * sh.pillarW * 1.6;
+            left[i] = c - Math.max(4, w + a[i]) * f - flare;
+            right[i] = c + Math.max(4, w + b[i]) * f + flare;
+            if (started) p.lineTo(left[i], y); else { p.moveTo(left[i], y); started = true; }
+        }
+        if (kind == 1) p.lineTo(cx + CaveShapes.heightAt(wander, 0, h, 0, tip), tip);
+        for (int i = segs; i >= 0; i--) {
+            if (thick[i] > 0) p.lineTo(right[i], (double) h * i / segs);
+        }
+        p.closePath();
+        g.fill(p);
+        for (double y = 300 + rnd.nextDouble() * sh.ledgeEvery; y < h - 340; y += sh.ledgeEvery * (0.6 + rnd.nextDouble() * 0.8)) {
+            int i = (int) Math.round(y / h * segs);
+            if (thick[i] < 0.45) continue;   // cerca de la punta es muy delgado para una saliente
+            boolean toRight = rnd.nextBoolean();
+            double face = CaveShapes.heightAt(toRight ? right : left, 0, h, 0, y);
+            ledge(g, rnd, face + (toRight ? -6 : 6), y, toRight ? 1 : -1, sh);
+        }
+    }
+
+    /**
+     * Saliente de roca que sale de una pared en x0 hacia 'dir' (1 = derecha): lomo curvo arriba,
+     * panza abajo, y de 1 a 3 estalactitas colgando. En la capa media, a veces, una columna rota
+     * encima (del tamaño de las ruinas de la zona).
+     */
+    private void ledge(Graphics2D g, Random rnd, double x0, double y, int dir, Shaft sh) {
+        double d = sh.ledgeDepth * (0.45 + rnd.nextDouble() * 0.75);   // cuánto sale de la pared
+        double t = 12 + rnd.nextDouble() * 16;                         // grosor cerca de la punta
+        Path2D p = new Path2D.Double();
+        p.moveTo(x0, y - t * 3);                                                    // se une a la pared más arriba
+        p.quadTo(x0 + dir * d * 0.55, y - t * 1.3, x0 + dir * d, y - t * 0.4);      // lomo
+        p.quadTo(x0 + dir * d * 1.06, y + t * 0.3, x0 + dir * d * 0.92, y + t * 0.6); // punta redondeada
+        p.quadTo(x0 + dir * d * 0.45, y + t * 0.9, x0, y + t * 2);                  // panza
+        p.closePath();
+        g.fill(p);
+        int n = 1 + rnd.nextInt(3);
+        for (int k = 0; k < n; k++) {
+            double f = 0.15 + rnd.nextDouble() * 0.7;                  // qué tan lejos de la pared, de 0 a 1
+            double base = y + t * (0.6 + (0.92 - f) * 1.5) - 4;        // la panza en ese punto (metida 4 px)
+            g.fill(CaveShapes.spike(x0 + dir * d * f, base, sh.spikeW * (0.5 + rnd.nextDouble() * 0.6),
+                    sh.spikeLen * (0.35 + rnd.nextDouble() * 0.75), true));
+        }
+        if (sh.ruins && d > sh.ledgeDepth * 0.75 && rnd.nextDouble() < 0.45) {
+            // Columna rota sobre el lomo, escalada desde su pie: T(cx, pie) * S(s) * T(-cx, -pie)
+            double cx = x0 + dir * d * 0.5, foot = y - t * 1.25 + 6;
+            Graphics2D gc = (Graphics2D) g.create();
+            gc.transform(Mat3.translation(cx, foot).multiply(Mat3.scale(ruinScale, ruinScale))
+                    .multiply(Mat3.translation(-cx, -foot)).toAffineTransform());
+            gc.fill(column(cx, foot, 18 + rnd.nextDouble() * 10, 50 + rnd.nextDouble() * 70, rnd, true));
+            gc.dispose();
+        }
     }
 
     /** Primer plano: pocas raíces y rocas, solo en las orillas de arriba y abajo para no tapar el juego. */
     private void buildFront(Random rnd) {
         double w = layerWidth(FRONT_DEPTH);
+        int s = shiftY(FRONT_DEPTH);   // en una zona alta, las rocas de abajo van al fondo de la zona
         for (double x = rnd.nextDouble() * 300; x < w; x += 350 + rnd.nextDouble() * 500) {
             if (rnd.nextBoolean()) {
                 front.add(root(x, rnd));
@@ -330,7 +589,7 @@ public class Background {
                 front.add(CaveShapes.spike(x, -5, 30 + rnd.nextDouble() * 40, 50 + rnd.nextDouble() * 60, true));
             }
             double bx = x + 150 + rnd.nextDouble() * 200;
-            front.add(new Ellipse2D.Double(bx - 90, Config.HEIGHT - 28 - rnd.nextDouble() * 20, 180 + rnd.nextDouble() * 120, 90));
+            front.add(new Ellipse2D.Double(bx - 90, Config.HEIGHT + s - 28 - rnd.nextDouble() * 20, 180 + rnd.nextDouble() * 120, 90));
         }
     }
 
@@ -369,13 +628,16 @@ public class Background {
     /**
      * Capa que va encima de todo el mundo: el abismo oscurecido abajo, para que los huecos
      * se vean profundos, y la viñeta: un degradado radial (estirado a lo ancho) que
-     * oscurece las orillas de la pantalla.
+     * oscurece las orillas de la pantalla. [B1] En una zona alta el abismo va aparte
+     * (renderAbyss) y esta imagen es solo la viñeta.
      */
-    private static BufferedImage renderOverlay() {
+    private static BufferedImage renderOverlay(boolean withAbyss) {
         BufferedImage img = newImage(Config.WIDTH, Config.HEIGHT);
         Graphics2D g = smooth(img);
-        g.setPaint(new GradientPaint(0, 600, new Color(2, 3, 8, 0), 0, Config.HEIGHT, new Color(2, 3, 8, 200)));
-        g.fillRect(0, 600, Config.WIDTH, Config.HEIGHT - 600);
+        if (withAbyss) {
+            g.setPaint(new GradientPaint(0, 600, new Color(2, 3, 8, 0), 0, Config.HEIGHT, new Color(2, 3, 8, 200)));
+            g.fillRect(0, 600, Config.WIDTH, Config.HEIGHT - 600);
+        }
 
         double sy = (double) Config.HEIGHT / Config.WIDTH;
         g.scale(1, sy);   // el círculo del degradado se vuelve una elipse del tamaño de la pantalla
@@ -383,6 +645,17 @@ public class Background {
         g.setPaint(new RadialGradientPaint(new Point2D.Double(Config.WIDTH / 2.0, Config.HEIGHT / 2.0 / sy), r,
                 new float[] { 0.55f, 1f }, new Color[] { new Color(0, 0, 0, 0), new Color(0, 0, 0, 190) }));
         g.fill(new Rectangle2D.Double(0, 0, Config.WIDTH, Config.HEIGHT / sy));
+        g.dispose();
+        return img;
+    }
+
+    /** [B1] El abismo oscurecido de una zona alta: el mismo degradado, en una franja de 120 px. */
+    private static BufferedImage renderAbyss() {
+        int h = Config.HEIGHT - 600;
+        BufferedImage img = newImage(Config.WIDTH, h);
+        Graphics2D g = smooth(img);
+        g.setPaint(new GradientPaint(0, 0, new Color(2, 3, 8, 0), 0, h, new Color(2, 3, 8, 200)));
+        g.fillRect(0, 0, Config.WIDTH, h);
         g.dispose();
         return img;
     }
@@ -407,11 +680,12 @@ public class Background {
     }
 
     private void createSpores(Random rnd) {
-        int count = (int) (worldWidth / 28);
+        // Las mismas por pantalla: en una zona alta hay más, repartidas a lo alto
+        int count = maxY == 0 ? (int) (worldWidth / 28) : (int) (worldWidth / 28 * worldHeight / Config.HEIGHT);
         for (int i = 0; i < count; i++) {
             Spore s = new Spore();
             s.x = rnd.nextDouble() * worldWidth;
-            s.y = rnd.nextDouble() * Config.HEIGHT;
+            s.y = rnd.nextDouble() * worldHeight;
             s.speed = 6 + rnd.nextDouble() * 14;
             s.phase = rnd.nextDouble() * Math.PI * 2;
             s.size = rnd.nextInt(SPORE_SIZES.length);

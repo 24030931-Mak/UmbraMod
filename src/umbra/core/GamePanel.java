@@ -16,7 +16,9 @@ import java.awt.geom.AffineTransform;
 import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.swing.JPanel;
 import javax.swing.Timer;
@@ -81,6 +83,10 @@ public class GamePanel extends JPanel {
     /** Cuánto se coloca Logi arriba de Candil al llegar a otro nivel (px). */
     private static final double ARRIVAL_LIFT = 220;
     private static final double ARRIVAL_MIN_Y = 20;   // Logi nunca aparece más arriba (el techo de la zona es y = 0)
+    /** [B1] Cuadros de lógica que se espera, a lo más, a que se pinte el cuadro negro. */
+    private static final int MAX_BLACK_WAITS = 10;
+    /** [B1] Cuántas zonas guardan su fondo y su decoración ya generados: la actual y la anterior. */
+    private static final int SCENERY_CACHE = 2;
     /** Cuánto debe moverse el ratón (px en pantalla) para que Logi, en espera, vuelva a seguirlo. */
     private static final double MOUSE_WAKE_DISTANCE = 4;
     /** Qué tan cerca de Candil (px) deben quedar las zonas del nivel para contar como recorridas. */
@@ -107,9 +113,17 @@ public class GamePanel extends JPanel {
     private final LightSource menuLight = new LightSource(Config.WIDTH / 2.0, Config.HEIGHT / 3.0);
 
     private final World world;
-    // Fondo y decoración de cada nivel: se generan una sola vez al abrir el juego
-    private final Background[] backgrounds;
-    private final LevelArt[] arts;
+    /**
+     * [B1] Fondo y decoración ya generados, por número de zona: solo la actual y la anterior
+     * (así ir y volver por un paso es instantáneo). Se generan al entrar a cada zona.
+     */
+    private final Map<Integer, Scenery> sceneries = new LinkedHashMap<Integer, Scenery>(4, 0.75f, true) {
+        private static final long serialVersionUID = 1L;
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<Integer, Scenery> eldest) {
+            return size() > SCENERY_CACHE;
+        }
+    };
 
     private Level level;        // el nivel actual (world.current())
     private Player player;
@@ -136,6 +150,16 @@ public class GamePanel extends JPanel {
     private double fadeTime = FADE_TIME;   // segundos que dura el fundido en curso
     private int fadeDir;        // +1 oscureciendo, -1 aclarando, 0 quieto
     private Runnable onBlack;   // qué hacer cuando la pantalla quede negra
+    /**
+     * [B1] Lo que se hará en negro entra a una zona cuyo fondo todavía no está generado. Generarlo
+     * detiene el juego un momento (unos 0.1 a 0.15 s), así que antes se espera a que se pinte un
+     * cuadro todo negro (blackShown): la pantalla nunca se queda congelada a medio fundido.
+     */
+    private boolean buildOnBlack;
+    private boolean blackShown;   // ya se pintó un cuadro con la pantalla en negro en este fundido
+    private int blackWaits;       // cuadros de lógica que lleva esperando ese cuadro negro
+    /** [B1] Se generó un fondo (el juego se detuvo un momento): el reloj del bucle vuelve a empezar. */
+    private boolean resyncClock;
     private double menuTime;    // para mover despacio la cueva del menú
     /** Lo que hace Esc en el menú: cerrar el juego. Es un campo para que las pruebas lo puedan observar. */
     private Runnable quit = () -> System.exit(0);
@@ -154,13 +178,11 @@ public class GamePanel extends JPanel {
     }
 
     /**
-     * Los fondos y el decorado de cada nivel se generan una sola vez aquí, así que
-     * Level.setScenery debe llamarse antes de construir el panel.
+     * [B1] El fondo y el decorado de cada zona se generan al entrar a ella (el del primer nivel,
+     * aquí), así que Level.setScenery debe llamarse antes de construir el panel.
      */
     public GamePanel(World world) {
         this.world = world;
-        backgrounds = new Background[world.size()];
-        arts = new LevelArt[world.size()];
         setPreferredSize(new Dimension(Config.WIDTH, Config.HEIGHT));
         setBackground(BACKGROUND);
         setDoubleBuffered(true);
@@ -176,13 +198,7 @@ public class GamePanel extends JPanel {
             public void mousePressed(MouseEvent e) { requestFocusInWindow(); }
         });
 
-        // Semillas fijas: cada cueva siempre es igual; cada nivel guarda las suyas y la escala de sus ruinas
-        for (int i = 0; i < world.size(); i++) {
-            Level lv = world.get(i);
-            backgrounds[i] = new Background(lv.getWidth(), lv.getBackgroundSeed(), lv.getRuinScale());
-            arts[i] = new LevelArt(lv, lv.getDecorSeed());   // roca, musgo, hongos y runas
-        }
-        loadLevel(0);
+        loadLevel(0);   // genera el fondo y la decoración del primer nivel (los demás, al entrar)
         if (screen == Screen.PLAYING) levelTitle.show(level.getNumber(), level.getName());
         menuLight.setEthereal(true);   // en el menú y en la pantalla final, Logi es fuego etéreo
 
@@ -215,9 +231,27 @@ public class GamePanel extends JPanel {
     /** Apunta level, fondo, decoración y cámara al nivel actual del mundo. */
     private void useCurrentLevel() {
         level = world.current();
-        background = backgrounds[world.currentIndex()];
-        levelArt = arts[world.currentIndex()];
+        Scenery s = sceneryFor(world.currentIndex());
+        background = s.background;
+        levelArt = s.art;
         camera = new Camera(level.getWidth(), level.getHeight());
+    }
+
+    /**
+     * [B1] El fondo y la decoración de la zona 'index': del caché si ya estaban; si no, se
+     * generan aquí (semillas fijas: cada cueva siempre es igual; cada zona guarda las suyas y
+     * la escala de sus ruinas) y entran al caché, que olvida la zona usada hace más tiempo.
+     */
+    private Scenery sceneryFor(int index) {
+        Scenery s = sceneries.get(index);   // también la marca como la más reciente
+        if (s == null) {
+            Level lv = world.get(index);
+            s = new Scenery(new Background(lv.getWidth(), lv.getHeight(), lv.getBackgroundSeed(), lv.getRuinScale()),
+                    new LevelArt(lv, lv.getDecorSeed()));   // roca, musgo, hongos y runas
+            sceneries.put(index, s);
+            resyncClock = true;
+        }
+        return s;
     }
 
     // =========================================================
@@ -236,6 +270,13 @@ public class GamePanel extends JPanel {
             update(STEP);
             input.endUpdate();
             accumulator -= STEP;
+        }
+        if (resyncClock) {
+            // Se acaba de generar un fondo con la pantalla en negro: ese tiempo no cuenta, si no el
+            // siguiente cuadro haría de golpe varios pasos y el fundido de regreso daría un salto
+            resyncClock = false;
+            lastTime = System.nanoTime();
+            accumulator = 0;
         }
 
         repaint();
@@ -268,13 +309,19 @@ public class GamePanel extends JPanel {
 
     /** Pide un cambio de pantalla: oscurece, hace 'action' cuando ya no se ve nada, y aclara. */
     private void fadeTo(Runnable action) {
-        fadeTo(action, FADE_TIME);
+        fadeTo(action, FADE_TIME, -1);
     }
 
-    /** Igual, pero el fundido (cada mitad) dura 'seconds'. */
-    private void fadeTo(Runnable action, double seconds) {
+    /**
+     * Igual, pero el fundido (cada mitad) dura 'seconds'. [B1] 'zone' es la zona a la que entra
+     * 'action' (-1 si no entra a ninguna): si su fondo no está generado, se generará en negro.
+     */
+    private void fadeTo(Runnable action, double seconds, int zone) {
         if (onBlack != null) return;   // ya hay un cambio en camino
         onBlack = action;
+        buildOnBlack = zone >= 0 && !sceneries.containsKey(zone);
+        blackShown = false;
+        blackWaits = 0;
         fadeTime = seconds;
         fadeDir = 1;
     }
@@ -284,6 +331,10 @@ public class GamePanel extends JPanel {
         fade += fadeDir * dt / fadeTime;
         if (fade >= 1) {
             fade = 1;
+            // [B1] Va a generar un fondo: primero se deja pintar un cuadro negro (si el juego corre
+            // en su ventana; en las pruebas, que llaman a update sin pintar, no se espera)
+            if (buildOnBlack && !blackShown && timer != null && timer.isRunning() && blackWaits++ < MAX_BLACK_WAITS) return;
+            buildOnBlack = false;
             fadeDir = -1;
             Runnable action = onBlack;
             onBlack = null;
@@ -330,7 +381,7 @@ public class GamePanel extends JPanel {
         boolean confirm = input.wasPressed(KeyEvent.VK_ENTER) || input.wasPressed(KeyEvent.VK_SPACE)
                 || input.wasClicked();
         if (confirm) {
-            fadeTo(this::startGame);
+            fadeTo(this::startGame, FADE_TIME, 0);
         } else if (input.wasPressed(KeyEvent.VK_I)) {
             fadeTo(this::showIntro);
         } else if (input.wasPressed(KeyEvent.VK_ESCAPE)) {
@@ -353,7 +404,7 @@ public class GamePanel extends JPanel {
         if (!victory.isReady()) {
             if (confirm) victory.skip();   // muestra todo el texto de una vez
         } else if (confirm) {
-            fadeTo(this::startGame);
+            fadeTo(this::startGame, FADE_TIME, 0);
         } else if (input.wasPressed(KeyEvent.VK_ESCAPE)) {
             fadeTo(this::backToMenu);
         }
@@ -561,7 +612,7 @@ public class GamePanel extends JPanel {
             } else if (!player.isDead() && onBlack == null) {
                 // Tocar la orilla con paso: fundido corto y cambio de nivel (vivo y sin otro fundido)
                 Passage passage = level.passageAt(player.getBounds());
-                if (passage != null) fadeTo(() -> crossPassage(passage), PASSAGE_FADE_TIME);
+                if (passage != null) fadeTo(() -> crossPassage(passage), PASSAGE_FADE_TIME, world.indexOf(passage.getTarget()));
             }
         }
 
@@ -677,6 +728,7 @@ public class GamePanel extends JPanel {
         if (fade > 0) {   // fundido a negro entre pantallas
             g2.setColor(new Color(0, 0, 0, (int) Math.round(255 * fade)));
             g2.fillRect(0, 0, Config.WIDTH, Config.HEIGHT);
+            if (fade >= 1) blackShown = true;
         }
 
         g2.dispose();
@@ -686,13 +738,13 @@ public class GamePanel extends JPanel {
     /** El menú: la cueva moviéndose despacio, Logi siguiendo al ratón, el título y las opciones. */
     private void drawMenu(Graphics2D g2) {
         double camX = 300 + 250 * Math.sin(menuTime * 0.05);
-        background.drawBack(g2, camX);
+        background.drawBack(g2, camX, 0);   // la cueva del menú se ve desde arriba de la zona
         AffineTransform onScreen = g2.getTransform();
         g2.transform(Mat3.translation(-Math.round(camX), 0).toAffineTransform());
-        background.drawSpores(g2, camX);
+        background.drawSpores(g2, camX, 0);
         g2.setTransform(onScreen);
         menuLight.drawGlow(g2);
-        background.drawFront(g2, camX);
+        background.drawFront(g2, camX, 0);
         menu.drawVeil(g2);
         menuLight.drawCore(g2);   // Logi etérea: encima del velo (para que brille), pero detrás del texto
         menu.drawText(g2);
@@ -702,25 +754,25 @@ public class GamePanel extends JPanel {
     private void drawWorld(Graphics2D g2) {
         // El orden importa: lo que se dibuja después queda encima.
         // 0. Fondo de la cueva: cada capa con su propio parallax (coordenadas de pantalla)
-        double camX = camera.getX();
-        background.drawBack(g2, camX);
+        double camX = camera.getX(), camY = camera.getY();
+        background.drawBack(g2, camX, camY);
 
         // El mundo se dibuja con la matriz de vista de la cámara (mundo -> pantalla)
         AffineTransform onScreen = g2.getTransform();
         g2.transform(camera.getViewMatrix().toAffineTransform());
         light.drawGlow(g2);              // 1. halo de luz sobre el fondo
-        levelArt.drawBehind(g2, camX);   //    columnas rotas (decoración)
+        levelArt.drawBehind(g2, camX, camY);   // columnas rotas (decoración)
         drawShadows(g2);                 // 2. sombras (el refugio de Candil)
-        levelArt.drawFront(g2, camX, light); // 3. repisas de roca, hongos, losas y runas
+        levelArt.drawFront(g2, camX, camY, light); // 3. repisas de roca, hongos, losas y runas
         level.draw(g2);                  //    salida
-        background.drawSpores(g2, camX); // 4. esporas flotando
+        background.drawSpores(g2, camX, camY); // 4. esporas flotando
         particles.draw(g2);              // 5. partículas
         player.draw(g2);                 // 6. jugador
         if (screen == Screen.PLAYING) light.drawCore(g2);   // 7. Logi (en la pantalla final, la etérea)
 
         // Lo demás no usa la matriz de vista: se dibuja en coordenadas de pantalla
         g2.setTransform(onScreen);
-        background.drawFront(g2, camX);  // 8. neblina del abismo, primer plano y viñeta
+        background.drawFront(g2, camX, camY);  // 8. neblina del abismo, primer plano y viñeta
     }
 
     /** Barra de vida a la derecha, justo debajo del círculo del mapa: el color pasa de rojo (vacía) a azul claro (llena). */
@@ -795,5 +847,12 @@ public class GamePanel extends JPanel {
             frameCount = 0;
             fpsTimer = now;
         }
+    }
+
+    /** [B1] El fondo y la decoración de una zona, ya generados. */
+    private static final class Scenery {
+        final Background background;
+        final LevelArt art;
+        Scenery(Background background, LevelArt art) { this.background = background; this.art = art; }
     }
 }

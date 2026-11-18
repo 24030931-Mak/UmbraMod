@@ -173,24 +173,24 @@ public class LevelArt {
     }
 
     /** Decoración que va detrás de las sombras: columnas rotas. */
-    public void drawBehind(Graphics2D g, double camX) {
-        drawSprites(g, props, camX);
+    public void drawBehind(Graphics2D g, double camX, double camY) {
+        drawSprites(g, props, camX, camY);
     }
 
     /** Repisas, plantas, hongos, losas y runas. Logi enciende las runas cercanas. */
-    public void drawFront(Graphics2D g, double camX, LightSource light) {
-        drawSprites(g, platforms, camX);
+    public void drawFront(Graphics2D g, double camX, double camY, LightSource light) {
+        drawSprites(g, platforms, camX, camY);
 
         Stroke oldStroke = g.getStroke();
         g.setStroke(BLADE_STROKE);
         for (Tuft t : tufts) {
-            if (visible(t.x, camX)) drawTuft(g, t);
+            if (visible(t.x, t.y, camX, camY)) drawTuft(g, t);
         }
         g.setStroke(oldStroke);
 
         Composite old = g.getComposite();
         for (Mushroom m : mushrooms) {
-            if (!visible(m.x, camX)) continue;
+            if (!visible(m.x, m.y, camX, camY)) continue;
             Vec2 cap = drawMushroom(g, m);
             float a = (float) (0.55 + 0.3 * Math.sin(time * 1.3 + m.phase));   // pulso lento
             g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, a));
@@ -198,7 +198,7 @@ public class LevelArt {
             g.setComposite(old);
         }
 
-        drawSprites(g, blocks, camX);
+        drawSprites(g, blocks, camX, camY);
         for (Rune r : runes) {
             // Entre más cerca está Logi, más brilla: 1 a RUNE_NEAR px o menos, 0 a RUNE_FAR o más
             double d = Math.hypot(light.getX() - r.x, light.getY() - r.y);
@@ -211,17 +211,20 @@ public class LevelArt {
         g.setComposite(old);
     }
 
-    private static boolean visible(double x, double camX) {
-        return x > camX - 40 && x < camX + Config.WIDTH + 40;
+    /** ¿La base (x, y) de una planta queda en la pantalla, con 40 px de holgura? [B1] También en Y. */
+    private static boolean visible(double x, double y, double camX, double camY) {
+        return x > camX - 40 && x < camX + Config.WIDTH + 40
+            && y > camY - 40 && y < camY + Config.HEIGHT + 40;
     }
 
     private static void drawCentered(Graphics2D g, BufferedImage img, double x, double y) {
         g.drawImage(img, (int) Math.round(x - img.getWidth() / 2.0), (int) Math.round(y - img.getHeight() / 2.0), null);
     }
 
-    private static void drawSprites(Graphics2D g, List<Sprite> sprites, double camX) {
+    private static void drawSprites(Graphics2D g, List<Sprite> sprites, double camX, double camY) {
         for (Sprite s : sprites) {
             if (s.x + s.img.getWidth() < camX || s.x > camX + Config.WIDTH) continue;   // fuera de la pantalla
+            if (s.y + s.img.getHeight() < camY || s.y > camY + Config.HEIGHT) continue;  // [B1] arriba o abajo
             g.drawImage(s.img, (int) Math.round(s.x), (int) Math.round(s.y), null);
         }
     }
