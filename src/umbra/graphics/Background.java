@@ -24,7 +24,7 @@ import umbra.core.Config;
 import umbra.math.Mat3;
 
 /**
- * [v1.0] Ambiente de cueva: fondo por capas con parallax, niebla, esporas y viñeta.
+ * [v1.0] Ambiente de cueva: fondo por capas con parallax, niebla, esporas, rayos de luz y viñeta.
  * Todo se genera con código (sin imágenes) y con una semilla fija, para que la cueva
  * se vea igual cada vez que se juega.
  *
@@ -37,11 +37,17 @@ import umbra.math.Mat3;
  * Las capas lejanas son más claras que las cercanas (perspectiva atmosférica: entre más
  * lejos, más niebla hay en medio), y eso da sensación de profundidad.
  *
+ * Los rayos de luz ya no van pintados en la capa lejana: se dibujan cada cuadro, para que
+ * se balanceen y pulsen (con su propio parallax, 0.25).
+ *
  * [B1] Zonas altas: si la zona mide más de 720 px de alto, cada capa mide de alto lo que la
  * cámara recorre con su factor (720 + (alto - 720) * factor). El techo y sus estalactitas quedan
  * arriba, el piso y sus picos abajo, y en medio hay paredes de pozo, pilares de roca y
  * salientes con estalactitas (drawShaft). La niebla se repite a lo alto, la del abismo y el
  * abismo oscurecido solo se ven cerca del fondo de la zona, y la viñeta es de la pantalla.
+ * Los rayos animados nacen en el techo de la zona y suben con la cámara (parallax 0.25 también
+ * en Y), y los cristales de la capa media van solo junto al piso. Su azar se toma al final,
+ * después de todo lo demás: el pozo sale igual que antes, con los rayos y los cristales encima.
  * Con 720 de alto todo sale igual que antes, píxel a píxel.
  */
 public class Background {
@@ -63,6 +69,9 @@ public class Background {
     private static final double NEAR_DEPTH = 0.6;
     private static final double PIT_FOG_DEPTH = 0.9;
     private static final double FRONT_DEPTH = 1.3;
+    /** Los rayos de luz animados: su factor de profundidad y su largo, del techo hacia abajo (px). */
+    private static final double GOD_RAY_DEPTH = 0.25;
+    private static final float GOD_RAY_LENGTH = 580;
 
     /** Esporas pre-dibujadas: 3 tamaños x 5 brillos, para no escalar ni cambiar transparencias al dibujar. */
     private static final int[] SPORE_SIZES = { 6, 9, 12 };
@@ -83,15 +92,23 @@ public class Background {
     private final double ruinScale;   // tamaño de las ruinas de la capa media (1 = las del nivel 1)
     private final BufferedImage sky, far, mid, near, fogBack, fogPit, overlay;
     private final BufferedImage abyss;   // [B1] el abismo oscurecido, aparte de la viñeta (solo en zonas altas)
+    private double[] shaftMidFloor;      // [B1] el perfil del piso de la capa media del pozo, para sus cristales
     private final BufferedImage[][] sporeSprites;
     private final List<Shape> front = new ArrayList<>();
     private final List<Spore> spores = new ArrayList<>();
+    private final List<GodRay> godRays = new ArrayList<>();
     private double time;
+    private double lightX = -9999, lightY = -9999;   // dónde está Logi (en el mundo); lejos al empezar
 
     /** Una espora: sube despacio, se mece de lado y titila. Vive en coordenadas del mundo. */
     private static class Spore {
         double x, y, speed, phase, sway;
         int size;   // índice en SPORE_SIZES
+    }
+
+    /** Haz de luz volumétrico que entra desde el techo y pulsa suavemente (x, anchos y desvío son del trapecio; phase y speed, de su vaivén). */
+    private static class GodRay {
+        double x, topW, bottomW, skew, phase, speed;
     }
 
     /** Las paredes de pozo de una capa (solo en zonas altas). */
@@ -140,6 +157,10 @@ public class Background {
         sporeSprites = renderSporeSprites();
         buildFront(rnd);
         createSpores(rnd);
+        createGodRays(rnd);
+        // [B1] En una zona alta los cristales se agregan al final, sobre el piso de la capa media:
+        // así su azar no cambia nada de lo que ya tenía el pozo
+        if (maxY > 0) addShaftCrystals(rnd);
     }
 
     // =========================================================
@@ -156,10 +177,17 @@ public class Background {
         }
     }
 
-    /** Lo que va detrás del nivel, en coordenadas de pantalla: cielo, capas lejanas y niebla. */
+    /** Recibe la posición actual de Logi para iluminar esporas cercanas. */
+    public void setLight(double lx, double ly) {
+        this.lightX = lx;
+        this.lightY = ly;
+    }
+
+    /** Lo que va detrás del nivel, en coordenadas de pantalla: cielo, capas lejanas, rayos de luz animados y niebla. */
     public void drawBack(Graphics2D g, double camX, double camY) {
         g.drawImage(sky, 0, 0, null);
         drawLayer(g, far, camX, camY, FAR_DEPTH);
+        drawGodRays(g, camX, camY);
         drawLayer(g, mid, camX, camY, MID_DEPTH);
         if (maxY == 0) {
             drawFog(g, fogBack, camX, FOG_DEPTH, 290, 9, 0);
@@ -179,18 +207,63 @@ public class Background {
         drawLayer(g, near, camX, camY, NEAR_DEPTH);
     }
 
-    /** Las esporas, en coordenadas del mundo (se dibujan con la matriz de vista ya aplicada). */
+    /**
+     * Los rayos de luz: cada uno es un trapecio (angosto arriba, ancho y desviado abajo) con un
+     * degradado vertical que se desvanece. El balanceo (sway) mueve el borde de abajo con un
+     * seno, y la transparencia pulsa con otro seno de frecuencia distinta. Se mueven con la
+     * matriz de parallax T(-camX * 0.25, -camY * 0.25), como una capa lejana. [B1] Nacen en el
+     * techo de la zona (y = 0 de su capa): en una zona alta suben con la cámara, así que su
+     * origen queda arriba de la pantalla y nunca a media altura; cuando ya no se ve ni la punta
+     * (la cámara bajó más de 580 / 0.25 px), no se dibujan.
+     */
+    private void drawGodRays(Graphics2D g, double camX, double camY) {
+        long top = -Math.round(camY * GOD_RAY_DEPTH);
+        if (top + GOD_RAY_LENGTH <= 0) return;   // la cámara ya bajó: los rayos quedaron arriba
+        AffineTransform old = g.getTransform();
+        g.transform(Mat3.translation(-Math.round(camX * GOD_RAY_DEPTH), top).toAffineTransform());
+        for (GodRay r : godRays) {
+            double sway = Math.sin(time * r.speed + r.phase) * 24.0;
+            double pulse = 0.55 + 0.45 * Math.sin(time * (r.speed * 1.4) + r.phase);
+            int maxAlpha = (int) (34 * pulse);
+
+            Path2D ray = new Path2D.Double();
+            ray.moveTo(r.x - r.topW / 2, 0);
+            ray.lineTo(r.x + r.topW / 2, 0);
+            ray.lineTo(r.x + r.bottomW / 2 + r.skew + sway, GOD_RAY_LENGTH);
+            ray.lineTo(r.x - r.bottomW / 2 + r.skew + sway, GOD_RAY_LENGTH);
+            ray.closePath();
+
+            g.setPaint(new GradientPaint(0, 0, alpha(new Color(145, 190, 245), maxAlpha), 0, GOD_RAY_LENGTH, alpha(FOG, 0)));
+            g.fill(ray);
+        }
+        g.setTransform(old);
+    }
+
+    /**
+     * Las esporas, en coordenadas del mundo (se dibujan con la matriz de vista ya aplicada).
+     * Las que están a menos de 180 px de Logi brillan más y llevan un puntito cálido encima:
+     * 'lit' vale 1 pegada a Logi y 0 a 180 px o más.
+     */
     public void drawSpores(Graphics2D g, double camX, double camY) {
         for (Spore s : spores) {
             if (s.y < camY - 20 || s.y > camY + Config.HEIGHT + 20) continue;   // arriba o abajo de la pantalla
             double x = s.x + Math.sin(time * 0.8 + s.phase) * s.sway;
             if (x < camX - 20 || x > camX + Config.WIDTH + 20) continue;   // fuera de la pantalla
-            // Titilan: el brillo sigue una onda seno y se elige la imagen más parecida
-            double glow = 0.5 + 0.5 * Math.sin(time * 1.7 + s.phase * 2);
+
+            double dist = Math.hypot(x - lightX, s.y - lightY);
+            double lit = Math.max(0, 1.0 - dist / 180.0);
+
+            // Titilan: el brillo sigue una onda seno (más lo que les suma Logi) y se elige la imagen más parecida
+            double glow = Math.min(1.0, (0.45 + 0.45 * Math.sin(time * 1.7 + s.phase * 2)) + 0.5 * lit);
             int a = (int) Math.round(glow * (SPORE_ALPHAS.length - 1));
             BufferedImage sprite = sporeSprites[s.size][a];
             int half = sprite.getWidth() / 2;
             g.drawImage(sprite, (int) Math.round(x) - half, (int) Math.round(s.y) - half, null);
+
+            if (lit > 0.25) {
+                g.setColor(alpha(new Color(255, 225, 160), (int) (130 * lit)));
+                g.fill(new Ellipse2D.Double(x - 1.5, s.y - 1.5, 3, 3));
+            }
         }
     }
 
@@ -294,25 +367,11 @@ public class Background {
         return img;
     }
 
-    /** Capa lejana: paredes de una caverna enorme, estalactitas finas y rayos de luz. */
+    /** Capa lejana: paredes de una caverna enorme y estalactitas finas (los rayos de luz se dibujan aparte, animados). */
     private BufferedImage renderFar(Random rnd) {
         int w = layerWidth(FAR_DEPTH);
         BufferedImage img = newImage(w, Config.HEIGHT);
         Graphics2D g = smooth(img);
-
-        // Rayos de luz que entran por grietas del techo
-        for (int i = 0; i < 4; i++) {
-            double x = rnd.nextDouble() * w;
-            double top = 30 + rnd.nextDouble() * 40, bottom = 140 + rnd.nextDouble() * 100;
-            Path2D ray = new Path2D.Double();
-            ray.moveTo(x - top / 2, 0);
-            ray.lineTo(x + top / 2, 0);
-            ray.lineTo(x + top / 2 + bottom, 560);
-            ray.lineTo(x - top / 2 + bottom * 0.3, 560);
-            ray.closePath();
-            g.setPaint(new GradientPaint(0, 0, alpha(FOG, 34), 0, 560, alpha(FOG, 0)));
-            g.fill(ray);
-        }
 
         g.setColor(FAR);
         double[] ceiling = midpointDisplacement(rnd, 64, 55, 0.55);
@@ -331,7 +390,7 @@ public class Background {
         return img;
     }
 
-    /** Capa media: ruinas de columnas y arcos sobre el suelo, y estalactitas. */
+    /** Capa media: ruinas de columnas y arcos sobre el suelo, cristales y estalactitas. */
     private BufferedImage renderMid(Random rnd) {
         int w = layerWidth(MID_DEPTH);
         BufferedImage img = newImage(w, Config.HEIGHT);
@@ -375,8 +434,45 @@ public class Background {
             }
             g.setTransform(plain);
         }
+
+        drawCrystals(g, rnd, w, floor, 610, 0, w);
+
         g.dispose();
         return img;
+    }
+
+    /**
+     * Cristales bioluminiscentes: cúmulos de tres astillas (triángulos finos) en el suelo, casi
+     * transparentes. Hay w / 190 cúmulos, repartidos entre x0 y x1 sobre el perfil del suelo
+     * 'floor' (con su línea base en floorY).
+     */
+    private static void drawCrystals(Graphics2D g, Random rnd, int w, double[] floor, double floorY, double x0, double x1) {
+        for (int i = 0; i < w / 190; i++) {
+            double cx = x0 + rnd.nextDouble() * (x1 - x0);
+            double cy = CaveShapes.heightAt(floor, 0, w, floorY, cx) + 4;
+            for (int c = 0; c < 3; c++) {
+                double ang = -Math.PI / 2 + (rnd.nextDouble() - 0.5) * 0.9;
+                double len = 8 + rnd.nextDouble() * 12;
+                Path2D shard = new Path2D.Double();
+                shard.moveTo(cx - 2, cy);
+                shard.lineTo(cx + Math.cos(ang) * len, cy + Math.sin(ang) * len);
+                shard.lineTo(cx + 2, cy);
+                shard.closePath();
+                g.setColor(alpha(new Color(90, 185, 210), 65));
+                g.fill(shard);
+            }
+        }
+    }
+
+    /**
+     * [B1] Los cristales de la capa media en una zona alta: solo junto al piso del pozo (al fondo
+     * de la capa), entre las dos paredes, nunca a media altura. Se dibujan sobre la capa ya hecha.
+     */
+    private void addShaftCrystals(Random rnd) {
+        Graphics2D g = smooth(mid);
+        drawCrystals(g, rnd, mid.getWidth(), shaftMidFloor, Config.HEIGHT - 40 + shiftY(MID_DEPTH),
+                MID_SHAFT.wall, mid.getWidth() - MID_SHAFT.wall);
+        g.dispose();
     }
 
     /**
@@ -395,6 +491,7 @@ public class Background {
         double[] floor = midpointDisplacement(rnd, 64, 18, 0.6);
         g.fill(CaveShapes.ridge(ceiling, 0, w, 22, 0));
         g.fill(CaveShapes.ridge(floor, 0, w, Config.HEIGHT - 40 + s, h));
+        if (depth == MID_DEPTH) shaftMidFloor = floor;   // para los cristales (addShaftCrystals)
         drawShaft(g, rnd, w, h, sh, rays);
         g.dispose();
         return img;
@@ -691,6 +788,21 @@ public class Background {
             s.size = rnd.nextInt(SPORE_SIZES.length);
             s.sway = 5 + rnd.nextDouble() * 12;
             spores.add(s);
+        }
+    }
+
+    /** Reparte los rayos de luz a lo largo de la capa lejana (ancho con parallax 0.25), con tamaños y fases al azar. */
+    private void createGodRays(Random rnd) {
+        double w = layerWidth(GOD_RAY_DEPTH);
+        for (double x = 140 + rnd.nextDouble() * 180; x < w; x += 360 + rnd.nextDouble() * 320) {
+            GodRay r = new GodRay();
+            r.x = x;
+            r.topW = 24 + rnd.nextDouble() * 35;
+            r.bottomW = 130 + rnd.nextDouble() * 110;
+            r.skew = 40 + rnd.nextDouble() * 70;
+            r.phase = rnd.nextDouble() * Math.PI * 2;
+            r.speed = 0.4 + rnd.nextDouble() * 0.5;
+            godRays.add(r);
         }
     }
 

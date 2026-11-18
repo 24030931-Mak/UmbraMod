@@ -23,6 +23,7 @@ import java.util.Map;
 import javax.swing.JPanel;
 import javax.swing.Timer;
 
+import umbra.audio.DangerAudio;
 import umbra.audio.Music;
 import umbra.audio.VoiceOver;
 import umbra.entities.LightSource;
@@ -189,6 +190,7 @@ public class GamePanel extends JPanel {
         setDoubleBuffered(true);
         setFocusable(true);
         setFocusTraversalKeysEnabled(false);   // Swing se queda con Tab para cambiar el foco; el juego lo necesita
+        DangerAudio.preload();   // sintetiza el zumbido y el desmoronarse ahora, no en el primer cuadro (congelaría la intro)
 
         addKeyListener(input);
         addMouseListener(input);
@@ -295,11 +297,16 @@ public class GamePanel extends JPanel {
         if (input.wasPressed(KeyEvent.VK_M)) {
             music.toggleMute();
             VoiceOver.setMuted(music.isMuted());   // el silencio global también calla la narración
+            DangerAudio.setMuted(music.isMuted());   // y el zumbido de peligro y el desmoronarse
         }
         music.update(dt);   // entrada suave y silencio gradual
 
         updateFade(dt);
         boolean leaving = onBlack != null;   // oscureciendo para cambiar de pantalla: no se aceptan teclas
+
+        if (screen != Screen.PLAYING) {
+            DangerAudio.setDanger(0.0);   // el zumbido de peligro solo suena jugando
+        }
 
         switch (screen) {
             case INTRO:   updateIntro(dt, leaving);   break;
@@ -526,6 +533,7 @@ public class GamePanel extends JPanel {
         // ---- El mapa: pausa el juego; Tab o Esc lo cierran (Esc no va al menú) ----
         if (mapView.isOpen()) {
             mapView.update(dt);
+            DangerAudio.setDanger(0.0);   // el juego está en pausa: el zumbido se apaga
             if (input.wasPressed(KeyEvent.VK_TAB) || input.wasPressed(KeyEvent.VK_ESCAPE)) closeMap();
             return;
         }
@@ -544,7 +552,10 @@ public class GamePanel extends JPanel {
         // ---- Luz: sigue al ratón suavemente; con un clic se fija o se suelta ----
         // El ratón está en coordenadas de pantalla y la luz vive en el mundo:
         // la cámara convierte de una a otra con la inversa de su matriz de vista.
-        if (input.wasClicked()) light.togglePinned();
+        if (input.wasClicked()) {
+            light.togglePinned();
+            particles.emitPinPulse(light.getX(), light.getY(), light.isPinned());
+        }
         Vec2 mouse = camera.screenToWorld(input.getMouseX(), input.getMouseY());
         light.setCandil(player.getCenterX(), player.getCenterY());   // lo mira, y se agita si está cerca
         if (logiWaiting && Math.hypot(input.getMouseX() - waitMouseX, input.getMouseY() - waitMouseY)
@@ -561,7 +572,17 @@ public class GamePanel extends JPanel {
         // ---- Mundo y jugador ----
         level.update(dt);
         background.update(dt);         // niebla y esporas
-        levelArt.update(dt, player);   // plantas que se mecen, hongos y runas
+        background.setLight(light.getX(), light.getY());
+        // Tensión sonora según proximidad entre Logi y Candil (solo mientras Candil está vivo)
+        if (player.isDead() || levelComplete) {
+            DangerAudio.setDanger(0.0);
+        } else {
+            double distToCandil = Math.hypot(light.getX() - player.getCenterX(), light.getY() - player.getCenterY());
+            double danger = Math.max(0.0, 1.0 - distToCandil / 560.0);
+            DangerAudio.setDanger(danger);
+        }
+
+        levelArt.update(dt, player, light, particles);   // plantas, hongos reactivos y runas con partículas
 
         if (!levelComplete && player.isDead()) {
             // Se desmoronó: espera un momento y reaparece en la última repisa firme
@@ -593,6 +614,7 @@ public class GamePanel extends JPanel {
             double dy = light.getY() - player.getCenterY();
             if (dx * dx + dy * dy <= Config.CRUMBLE_RADIUS * Config.CRUMBLE_RADIUS) {
                 player.crumble();
+                DangerAudio.playCrumble();
                 light.setPinned(false);   // si estaba fija ahí, no lo deshace otra vez al reaparecer
             }
 
@@ -660,6 +682,9 @@ public class GamePanel extends JPanel {
         while (dustTimer >= 1) {
             dustTimer -= 1;
             particles.emitDust(cx, cy);
+        }
+        if (player.isInShadow() && Math.random() < dt * 4.0) {
+            particles.emitShadowMote(cx + (Math.random() - 0.5) * 90, cy + (Math.random() - 0.5) * 60);
         }
     }
 

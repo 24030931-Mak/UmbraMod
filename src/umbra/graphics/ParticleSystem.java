@@ -2,7 +2,9 @@ package umbra.graphics;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
+import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,20 +15,51 @@ import java.util.Random;
  * y tiempo de vida. En cada cuadro se mueven (con su propia gravedad), pierden vida y se
  * desvanecen: su transparencia depende de life / maxLife. Las que llegan a 0 se quitan.
  *
+ * [v1.1] Además de círculos (Ellipse2D), hay destellos de cuatro puntas (Path2D) que giran:
+ * se dibujan con una matriz de transformación T(x, y) · R(ángulo) · S(tamaño) sobre una forma
+ * unitaria que se crea una sola vez. Cada partícula puede llevar fricción (drag: la velocidad
+ * se multiplica por drag^(60·dt), así no depende de los cuadros por segundo) y una oscilación
+ * horizontal con coseno (turbulencia).
+ *
  * Efectos de Candil:
  *   emit         chispas al aterrizar
  *   emitVapor    estela de vapor al moverse (violeta dentro de la sombra)
  *   emitDust     polvo de luz que suelta mientras pierde vida fuera de la sombra
  *   emitCrumble  niebla y ceniza cuando se desmorona
  *
- * Efectos de Logi:
- *   emitSpark    chispa que sale de la llama y flota hacia arriba
- *   emitAsh      ceniza y brasas que va dejando atrás cuando se mueve
+ * Efectos de Logi y Ambiente:
+ *   emitSpark       chispa que sale de la llama y flota hacia arriba
+ *   emitAsh         ceniza y brasas que va dejando atrás cuando se mueve
+ *   emitPinPulse    anillo radial de destellos al fijar/soltar a Logi
+ *   emitShadowMote  motas que flotan en la sombra, con oscilación armónica
+ *   emitBioSpore    esporas que sueltan los hongos y las plantas cuando Logi o Candil los tocan
  */
 public class ParticleSystem {
 
     /** Tope para que nunca se acumulen demasiadas. */
-    private static final int MAX_PARTICLES = 800;
+    private static final int MAX_PARTICLES = 900;
+
+    /** Geometría de la partícula. */
+    private enum ShapeType { CIRCLE, SPARKLE }
+
+    /** Geometría precalculada de un destello de 4 puntas (radio unitario = 1.0). */
+    private static final Path2D SPARKLE_SHAPE = createSparkleShape();
+
+    /** Destello de cuatro puntas: ocho vértices que alternan entre la punta (radio 1) y un punto interior (0.25). */
+    private static Path2D createSparkleShape() {
+        Path2D p = new Path2D.Double();
+        double inner = 0.25;
+        p.moveTo(0, -1);
+        p.lineTo(inner, -inner);
+        p.lineTo(1, 0);
+        p.lineTo(inner, inner);
+        p.lineTo(0, 1);
+        p.lineTo(-inner, inner);
+        p.lineTo(-1, 0);
+        p.lineTo(-inner, -inner);
+        p.closePath();
+        return p;
+    }
 
     /** Una partícula: posición, velocidad y vida restante (en segundos). */
     private static class Particle {
@@ -34,8 +67,13 @@ public class ParticleSystem {
         double vx, vy;
         double life, maxLife;
         double size, gravity;
+        double drag = 1.0;          // factor de amortiguamiento (1.0 = sin fricción)
+        double angle, angularVel;   // rotación en radianes para primitivas poligonales
+        double waveAmp, waveFreq;   // turbulencia sinusoidal horizontal
+        double age;
         Color color;
         boolean halo;   // con un halo suave alrededor
+        ShapeType shape = ShapeType.CIRCLE;
     }
 
     private final List<Particle> particles = new ArrayList<>();
@@ -89,11 +127,90 @@ public class ParticleSystem {
         }
     }
 
+    /**
+     * Anillo de 16 destellos que salen en todas direcciones al fijar (dorados) o soltar (azules)
+     * a Logi. Cada uno sale en el ángulo theta = 2π·i/16 (con un poco de azar), a velocidad
+     * (cos θ, sin θ)·speed, y se frena solo con la fricción (drag) mientras gira.
+     */
+    public void emitPinPulse(double x, double y, boolean pinned) {
+        int count = 16;
+        Color c = pinned ? new Color(255, 225, 140) : new Color(170, 215, 255);
+        for (int i = 0; i < count; i++) {
+            if (particles.size() >= MAX_PARTICLES) return;
+            double theta = (2 * Math.PI * i) / count + rand(-0.1, 0.1);
+            double speed = rand(70, 130);
+            Particle p = new Particle();
+            p.x = x + Math.cos(theta) * 6;
+            p.y = y + Math.sin(theta) * 6;
+            p.vx = Math.cos(theta) * speed;
+            p.vy = Math.sin(theta) * speed;
+            p.life = rand(0.35, 0.55);
+            p.maxLife = p.life;
+            p.size = rand(3.5, 5.5);
+            p.gravity = 0;
+            p.drag = 0.90;   // desaceleración exponencial suave
+            p.angle = rand(0, Math.PI);
+            p.angularVel = rand(-6, 6);
+            p.color = c;
+            p.halo = true;
+            p.shape = ShapeType.SPARKLE;
+            particles.add(p);
+        }
+    }
+
+    /** Mota que flota en la sombra: sube despacio y se bambolea de lado con una onda (waveAmp, waveFreq). */
+    public void emitShadowMote(double x, double y) {
+        if (particles.size() >= MAX_PARTICLES) return;
+        Particle p = new Particle();
+        p.x = x;
+        p.y = y;
+        p.vx = rand(-6, 6);
+        p.vy = rand(-18, -8);
+        p.life = rand(1.8, 3.0);
+        p.maxLife = p.life;
+        p.size = rand(1.4, 2.4);
+        p.gravity = 0;
+        p.waveAmp = rand(12, 24);
+        p.waveFreq = rand(2.5, 4.5);
+        p.color = new Color(150, 140, 220, 140);
+        p.halo = true;
+        p.shape = ShapeType.CIRCLE;
+        particles.add(p);
+    }
+
+    /** Espora bioluminiscente que sueltan los hongos y las plantas al interactuar con ellos (gravedad negativa: sube). */
+    public void emitBioSpore(double x, double y, Color color) {
+        if (particles.size() >= MAX_PARTICLES) return;
+        Particle p = new Particle();
+        p.x = x + rand(-4, 4);
+        p.y = y + rand(-3, 2);
+        p.vx = rand(-14, 14);
+        p.vy = rand(-32, -14);
+        p.life = rand(0.9, 1.6);
+        p.maxLife = p.life;
+        p.size = rand(1.3, 2.3);
+        p.gravity = -6;
+        p.waveAmp = rand(8, 16);
+        p.waveFreq = rand(3.0, 5.0);
+        p.color = color;
+        p.halo = true;
+        p.shape = ShapeType.CIRCLE;
+        particles.add(p);
+    }
+
     public void update(double dt) {
         for (Particle p : particles) {
+            p.age += dt;
             p.vy += p.gravity * dt;
-            p.x += p.vx * dt;
+            if (p.drag < 1.0) {
+                double factor = Math.pow(p.drag, dt * 60.0);
+                p.vx *= factor;
+                p.vy *= factor;
+            }
+            double sway = (p.waveAmp > 0) ? Math.cos(p.age * p.waveFreq) * p.waveAmp : 0;
+            p.x += (p.vx + sway) * dt;
             p.y += p.vy * dt;
+            p.angle += p.angularVel * dt;
             p.life -= dt;
         }
         particles.removeIf(p -> p.life <= 0);
@@ -102,16 +219,32 @@ public class ParticleSystem {
     public void draw(Graphics2D g) {
         for (Particle p : particles) {
             double t = p.life / p.maxLife;   // 1 al nacer, 0 al morir
-            int alpha = (int) (255 * t * t); // se desvanece, más rápido al final
-            alpha = alpha * p.color.getAlpha() / 255;   // [v1.0] el alfa del color es su opacidad máxima (el vapor)
+            // Las que ondulan (waveAmp > 0) aparecen y se apagan suave: la envolvente sin(π·t) vale 0 en t = 0 y t = 1, y 1 en medio.
+            // Las demás se desvanecen con t², más rápido al final.
+            double envelope = (p.waveAmp > 0) ? Math.sin(Math.PI * t) : (t * t);
+            int alpha = (int) (255 * envelope);
+            alpha = alpha * p.color.getAlpha() / 255;   // el alfa del color es su opacidad máxima (el vapor)
+
             if (p.halo) {
                 double h = p.size * 2.4;
                 g.setColor(withAlpha(p.color, alpha / 4));
                 g.fill(new Ellipse2D.Double(p.x - h, p.y - h, h * 2, h * 2));
             }
+
             double s = p.size * (0.5 + 0.5 * t);   // y se encoge
             g.setColor(withAlpha(p.color, alpha));
-            g.fill(new Ellipse2D.Double(p.x - s, p.y - s, s * 2, s * 2));
+
+            if (p.shape == ShapeType.SPARKLE) {
+                // M = T(x, y) · R(ángulo) · S(s): la forma unitaria queda en su sitio, girada y del tamaño justo
+                AffineTransform prev = g.getTransform();
+                g.translate(p.x, p.y);
+                g.rotate(p.angle);
+                g.scale(s, s);
+                g.fill(SPARKLE_SHAPE);
+                g.setTransform(prev);
+            } else {
+                g.fill(new Ellipse2D.Double(p.x - s, p.y - s, s * 2, s * 2));
+            }
         }
     }
 

@@ -41,24 +41,39 @@ final class LogiArt {
     private static final Color EYES = new Color(50, 22, 12);       // ojos oscuros
     private static final Color HALO = new Color(255, 190, 100);    // halo cálido
     private static final Color RING = new Color(255, 240, 200, 200);
-    // Halo de luz (drawGlow): del centro hacia afuera, hasta transparente
-    private static final Color LIGHT_INNER = new Color(255, 225, 160, 110);
-    private static final Color LIGHT_MID = new Color(255, 200, 120, 40);
-    private static final Color LIGHT_EDGE = new Color(255, 200, 120, 0);
     // Con los ojos oscurecidos: la llama se enfría hacia el rojo
     private static final Color DARK_OUTER = new Color(150, 34, 40);
     private static final Color DARK_MIDDLE = new Color(226, 96, 52);
     private static final Color DARK_CORE = new Color(255, 190, 130);
+    // Paleta fría cuando Logi está fija (pinned) y paleta roja de advertencia (agitation)
+    private static final Color PIN_OUTER = new Color(60, 165, 255);
+    private static final Color PIN_MIDDLE = new Color(135, 215, 255);
+    private static final Color PIN_CORE = new Color(235, 250, 255);
+    private static final Color PIN_HALO = new Color(110, 195, 255);
+    private static final Color DANGER_OUTER = new Color(235, 45, 35);
+    private static final Color DANGER_MIDDLE = new Color(255, 110, 60);
+    private static final Color DANGER_HALO = new Color(255, 75, 55);
 
-    /** Halo de luz: degradado radial que se desvanece hacia afuera. */
+    /**
+     * Halo de luz: degradado radial que se desvanece hacia afuera; cambia de color (azul fija,
+     * rojo agitada) y late un poco: su radio sigue un seno lento, y agitada tiembla con el parpadeo.
+     */
     static void drawGlow(Graphics2D g, LightSource l) {
         double x = l.getX(), y = l.getY();
-        float r = (float) Config.LIGHT_RADIUS;
+        double agitation = l.getAgitation();
+        float pulse = (float) (1.0 + 0.03 * Math.sin(l.getTime() * 2.2) + 0.05 * agitation * Math.sin(l.getFlickerPhase()));
+        float r = (float) Config.LIGHT_RADIUS * pulse;
+
+        Color baseGlow = mix(HALO, PIN_HALO, l.getPinMix());
+        baseGlow = mix(baseGlow, DANGER_HALO, agitation * 0.85);
+
         RadialGradientPaint glow = new RadialGradientPaint(
             new Point2D.Double(x, y), r,
             new float[] { 0f, 0.35f, 1f },
             new Color[] {
-                LIGHT_INNER, LIGHT_MID, LIGHT_EDGE
+                withAlpha(baseGlow, 115 + 20 * agitation),
+                withAlpha(baseGlow, 42),
+                withAlpha(baseGlow, 0)
             });
         g.setPaint(glow);
         g.fill(new Ellipse2D.Double(x - r, y - r, r * 2, r * 2));
@@ -99,24 +114,31 @@ final class LogiArt {
                 + 0.08 * Math.sin(time * 1.9) * (1 - motion)          // vaivén en calma
                 + 0.25 * agitation * Math.sin(flickerPhase * 0.55);   // agitada: se sacude
 
-        // 1. Halo cálido
+        // Colores de la llama: normal -> azul si está fija -> rojo si Candil está cerca -> más oscuro con los ojos oscuros
+        double pinMix = l.getPinMix();
+        double d = 0.5 * eyeDarkness;   // [v0.8.6] la llama se enfría solo a medias: lo que cambia son los ojos
+        Color cOuter = mix(mix(mix(OUTER, PIN_OUTER, pinMix), DANGER_OUTER, agitation * 0.85), DARK_OUTER, d);
+        Color cMiddle = mix(mix(mix(MIDDLE, PIN_MIDDLE, pinMix), DANGER_MIDDLE, agitation * 0.85), DARK_MIDDLE, d);
+        Color cCore = mix(mix(CORE, PIN_CORE, pinMix), DARK_CORE, d);
+        Color cHalo = mix(mix(HALO, PIN_HALO, pinMix), DANGER_HALO, agitation * 0.85);
+
+        // 1. Halo cálido (con el color de la llama: azul fija, rojo agitada)
         float hr = (float) (HEAD * (2.6 + 2 * e));
         g.setPaint(new RadialGradientPaint(new Point2D.Double(cx, cy), hr, new float[] { 0f, 1f },
-                new Color[] { withAlpha(HALO, (80 + 40 * e) * (1 - 0.4 * eyeDarkness)), withAlpha(HALO, 0) }));
+                new Color[] { withAlpha(cHalo, (80 + 40 * e) * (1 - 0.4 * eyeDarkness)), withAlpha(cHalo, 0) }));
         g.fill(new Ellipse2D.Double(cx - hr, cy - hr, 2 * hr, 2 * hr));
 
         // 2 y 3. La llama en coordenadas locales: M = T(cx, cy) · R(angle)
         g.transform(Mat3.translation(cx, cy).multiply(Mat3.rotation(angle)).toAffineTransform());
         if (e > 0.01) drawWisps(g, flamePhase, r, len, 255 * e);
         Path2D outer = layer(0, r, len, amp, flamePhase);
-        double d = 0.5 * eyeDarkness;   // [v0.8.6] la llama se enfría solo a medias: lo que cambia son los ojos
-        fillLayer(g, outer, mix(OUTER, DARK_OUTER, d), 225 * flick * (1 - 0.8 * e));
+        fillLayer(g, outer, cOuter, 225 * flick * (1 - 0.8 * e));
         if (rise > 0.02) drawSpiral(g, flamePhase, outer, r, len, 205 * rise * tail * flick);
-        fillLayer(g, layer(-0.1 * HEAD, 0.7 * r, 0.75 * len, 0.8 * amp, flamePhase + 0.4), mix(MIDDLE, DARK_MIDDLE, d),
+        fillLayer(g, layer(-0.1 * HEAD, 0.7 * r, 0.75 * len, 0.8 * amp, flamePhase + 0.4), cMiddle,
                 235 * flick * (1 - 0.45 * e));
-        fillLayer(g, layer(-0.18 * HEAD, 0.42 * r, 0.5 * len, 0.6 * amp, flamePhase + 0.8), mix(CORE, DARK_CORE, d),
+        fillLayer(g, layer(-0.18 * HEAD, 0.42 * r, 0.5 * len, 0.6 * amp, flamePhase + 0.8), cCore,
                 245 * flick * (1 - 0.1 * e));
-        g.setTransform(old);
+        g.setTransform(old);   // los ojos y el anillo van en coordenadas del mundo, no en las de la llama
 
         // 4. Ojos
         drawEyes(g, l, cx, cy, (235 + 20 * eyeDarkness) * (1 - 0.35 * e));
