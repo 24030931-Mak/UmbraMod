@@ -94,10 +94,11 @@ public class LevelArt {
     }
 
     /** Hongo: tallo y sombrero que giran juntos alrededor de la base. Su brillo pulsa. */
-    private static class Mushroom extends Plant {
+   private static class Mushroom extends Plant {
         double capW;
         Color cap;
         BufferedImage glow;
+        double energy; // [NUEVO] 0 = reposo, 1 = excitado por proximidad
     }
 
     /** Mata de briznas: cada brizna se dobla más en la punta que en la base. */
@@ -138,10 +139,38 @@ public class LevelArt {
     }
 
     /** Avanza el tiempo y mece las plantas: Candil las empuja al pasar y luego regresan solas. */
-    public void update(double dt, Player player) {
+    /** Avanza el tiempo, mece las plantas y activa reacciones bioluminiscentes con partículas. */
+    public void update(double dt, Player player, LightSource light, ParticleSystem particles) {
         time += dt;
-        for (Plant p : mushrooms) sway(p, player, dt);
-        for (Plant p : tufts) sway(p, player, dt);
+        for (Mushroom m : mushrooms) {
+            sway(m, player, dt);
+            boolean touched = touches(player, m);
+            double distLight = (light != null) ? Math.hypot(light.getX() - m.x, light.getY() - (m.y - m.height)) : 999;
+            double targetEnergy = (touched || distLight < 110) ? 1.0 : 0.0;
+            // Interpolación exponencial suave hacia el estado de energía deseado
+            m.energy += (targetEnergy - m.energy) * Math.min(1.0, dt * 5.0);
+
+            if (particles != null && m.energy > 0.35 && Math.random() < dt * (touched ? 14.0 : 4.0)) {
+                particles.emitBioSpore(m.x, m.y - m.height, m.cap);
+            }
+        }
+        for (Tuft t : tufts) {
+            sway(t, player, dt);
+            if (particles != null && touches(player, t) && Math.abs(player.getVx()) > 80 && Math.random() < dt * 8.0) {
+                particles.emitBioSpore(t.x, t.y - 4, MOSS_LIGHT);
+            }
+        }
+        if (particles != null && light != null) {
+            for (Rune r : runes) {
+                double d = Math.hypot(light.getX() - r.x, light.getY() - r.y);
+                if (d < RUNE_NEAR * 1.4 && Math.random() < dt * 4.5) {
+                    particles.emitSpark(r.x, r.y);
+                }
+            }
+        }
+    }
+    public void update(double dt, Player player) {
+        update(dt, player, null, null);
     }
 
     /**
@@ -192,9 +221,19 @@ public class LevelArt {
         for (Mushroom m : mushrooms) {
             if (!visible(m.x, camX)) continue;
             Vec2 cap = drawMushroom(g, m);
-            float a = (float) (0.55 + 0.3 * Math.sin(time * 1.3 + m.phase));   // pulso lento
+            float basePulse = (float) (0.50 + 0.25 * Math.sin(time * 1.3 + m.phase));
+            float a = Math.min(1.0f, (float) (basePulse + 0.45 * m.energy));
             g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, a));
-            drawCentered(g, m.glow, cap.x, cap.y);
+            if (m.energy > 0.02) {
+                AffineTransform prev = g.getTransform();
+                double scale = 1.0 + 0.45 * m.energy;
+                g.translate(cap.x, cap.y);
+                g.scale(scale, scale);
+                drawCentered(g, m.glow, 0, 0);
+                g.setTransform(prev);
+            } else {
+                drawCentered(g, m.glow, cap.x, cap.y);
+            }
             g.setComposite(old);
         }
 

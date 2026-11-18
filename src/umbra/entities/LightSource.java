@@ -64,6 +64,15 @@ public class LightSource {
     private static final Color DARK_OUTER = new Color(150, 34, 40);
     private static final Color DARK_MIDDLE = new Color(226, 96, 52);
     private static final Color DARK_CORE = new Color(255, 190, 130);
+    // [NUEVO] Paleta fría cuando Logi está fija (pinned) y paleta roja de advertencia (agitation)
+    private static final Color PIN_OUTER = new Color(60, 165, 255);
+    private static final Color PIN_MIDDLE = new Color(135, 215, 255);
+    private static final Color PIN_CORE = new Color(235, 250, 255);
+    private static final Color PIN_HALO = new Color(110, 195, 255);
+
+    private static final Color DANGER_OUTER = new Color(235, 45, 35);
+    private static final Color DANGER_MIDDLE = new Color(255, 110, 60);
+    private static final Color DANGER_HALO = new Color(255, 75, 55);
 
     private double x, y;
     private double targetX, targetY;
@@ -77,7 +86,7 @@ public class LightSource {
     private double time;                   // reloj de la animación (s)
     private double flamePhase;             // fase de las ondas de la llama: corre más rápido si está agitada
     private double flickerPhase;           // fase del parpadeo rápido de la llama agitada
-    private double motion, rise, agitation, etherealMix;   // parámetros de la forma, de 0 a 1
+    private double motion, rise, agitation, etherealMix, pinMix;   // [NUEVO] pinMix suaviza el cambio al fijar  // parámetros de la forma, de 0 a 1
     private double tailX = 0, tailY = -1;  // hacia dónde apunta la cola (vector de largo <= 1)
     private double lookX, lookY;           // hacia dónde miran los ojos (vector de largo <= 1)
     private double blinkTimer = 2.5;       // segundos para el siguiente parpadeo
@@ -190,12 +199,14 @@ public class LightSource {
         double speed = Math.hypot(vx, vy);
         double fast = smoothstep(SLOW, FAST, speed);   // la meta de motion
         double up = speed > 0 ? -vy / speed : 0;       // 1 = sube derecho, -1 = baja derecho
+        
 
         motion += (fast - motion) * k;
         rise += (smoothstep(SPIRAL_SPEED, FAST, speed) * smoothstep(0.55, 0.85, up) - rise) * k;
         double near = 1 - smoothstep(AGITATED_DISTANCE - 40, AGITATED_DISTANCE + 40, candilDistance());
         agitation += (near - agitation) * k;
         etherealMix += ((ethereal ? 1 : 0) - etherealMix) * k;
+        pinMix += ((pinned && !ethereal ? 1 : 0) - pinMix) * k;
 
         // Las ondas de la llama corren más rápido si está agitada y más lento si es etérea.
         // Se acumula la fase (en vez de usar sin(frecuencia · tiempo)) para que al cambiar la
@@ -244,15 +255,21 @@ public class LightSource {
     }
 
     /** Halo de luz: degradado radial que se desvanece hacia afuera. */
+    /** Halo de luz: degradado radial con temperatura de color dinámica según estado. */
     public void drawGlow(Graphics2D g) {
-        float r = (float) Config.LIGHT_RADIUS;
+        float pulse = (float) (1.0 + 0.03 * Math.sin(time * 2.2) + 0.05 * agitation * Math.sin(flickerPhase));
+        float r = (float) Config.LIGHT_RADIUS * pulse;
+
+        Color baseGlow = mix(HALO, PIN_HALO, pinMix);
+        baseGlow = mix(baseGlow, DANGER_HALO, agitation * 0.85);
+
         RadialGradientPaint glow = new RadialGradientPaint(
             new Point2D.Double(x, y), r,
             new float[] { 0f, 0.35f, 1f },
             new Color[] {
-                new Color(255, 225, 160, 110),
-                new Color(255, 200, 120, 40),
-                new Color(255, 200, 120, 0)
+                withAlpha(baseGlow, 115 + 20 * agitation),
+                withAlpha(baseGlow, 42),
+                withAlpha(baseGlow, 0)
             });
         g.setPaint(glow);
         g.fill(new Ellipse2D.Double(x - r, y - r, r * 2, r * 2));
@@ -272,9 +289,9 @@ public class LightSource {
      * Flota con un vaivén suave, pero solo el dibujo: la luz sigue en (x, y).
      */
     public void drawCore(Graphics2D g) {
-        Paint oldPaint = g.getPaint();
+        
         AffineTransform old = g.getTransform();
-
+        Paint oldPaint = g.getPaint();
         double cx = x, cy = y + BOB * Math.sin(time * BOB_SPEED);   // flota
         double e = etherealMix;
         double tail = Math.hypot(tailX, tailY);   // 1 = cola bien definida; 0 = llama redonda
@@ -297,14 +314,19 @@ public class LightSource {
         g.transform(Mat3.translation(cx, cy).multiply(Mat3.rotation(angle)).toAffineTransform());
         if (e > 0.01) drawWisps(g, r, len, 255 * e);
         Path2D outer = layer(0, r, len, amp, flamePhase);
-        double d = 0.5 * eyeDarkness;   // [v0.8.6] la llama se enfría solo a medias: lo que cambia son los ojos
-        fillLayer(g, outer, mix(OUTER, DARK_OUTER, d), 225 * flick * (1 - 0.8 * e));
+        double d = 0.5 * eyeDarkness;
+        Color cOuter = mix(mix(mix(OUTER, PIN_OUTER, pinMix), DANGER_OUTER, agitation * 0.85), DARK_OUTER, d);
+        Color cMiddle = mix(mix(mix(MIDDLE, PIN_MIDDLE, pinMix), DANGER_MIDDLE, agitation * 0.85), DARK_MIDDLE, d);
+        Color cCore = mix(mix(CORE, PIN_CORE, pinMix), DARK_CORE, d);
+        Color cHalo = mix(mix(HALO, PIN_HALO, pinMix), DANGER_HALO, agitation * 0.85);
+
+        // 1. Halo cálido/dinámico (mueve este bloque o actualiza su color con cHalo)
+        fillLayer(g, outer, cOuter, 225 * flick * (1 - 0.8 * e));
         if (rise > 0.02) drawSpiral(g, outer, r, len, 205 * rise * tail * flick);
-        fillLayer(g, layer(-0.1 * HEAD, 0.7 * r, 0.75 * len, 0.8 * amp, flamePhase + 0.4), mix(MIDDLE, DARK_MIDDLE, d),
+        fillLayer(g, layer(-0.1 * HEAD, 0.7 * r, 0.75 * len, 0.8 * amp, flamePhase + 0.4), cMiddle,
                 235 * flick * (1 - 0.45 * e));
-        fillLayer(g, layer(-0.18 * HEAD, 0.42 * r, 0.5 * len, 0.6 * amp, flamePhase + 0.8), mix(CORE, DARK_CORE, d),
+        fillLayer(g, layer(-0.18 * HEAD, 0.42 * r, 0.5 * len, 0.6 * amp, flamePhase + 0.8), cCore,
                 245 * flick * (1 - 0.1 * e));
-        g.setTransform(old);
 
         // 4. Ojos
         drawEyes(g, cx, cy, (235 + 20 * eyeDarkness) * (1 - 0.35 * e));
@@ -315,6 +337,7 @@ public class LightSource {
             g.draw(new Ellipse2D.Double(x - 19, y - 19, 38, 38));
         }
         g.setPaint(oldPaint);
+        g.setTransform(old);
     }
 
     /**
