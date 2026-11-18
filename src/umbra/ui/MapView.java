@@ -38,8 +38,12 @@ public class MapView {
 
     /** Alto de pantalla que se reserva (nombres de zona debajo y la ayuda de abajo) al escalar el mapa. */
     private static final double VERTICAL_MARGINS = 260;
-    /** Hasta qué distancia (px del mundo) bajo una zona se considera que otra está "justo debajo". */
-    private static final double LABEL_GAP = 400;
+    /**
+     * Hueco máximo, medido en px de PANTALLA (hueco en el mundo por la escala del mapa), entre una zona y
+     * la que está debajo para considerar que hay otra "justo debajo": el nombre ocupa px de pantalla y
+     * no cabría entre las dos, así que va dentro de la zona.
+     */
+    private static final double LABEL_GAP_PX = 50;
 
     private static final Color FRAME = new Color(90, 105, 140);
 
@@ -96,10 +100,10 @@ public class MapView {
 
             double cx = x0 + (ox + level.getWidth() / 2) * s;
             double bottom = y0 + (oy + h) * s;
-            String label = world.isVisited(i) ? level.getNumber() + " · " + level.getName() : "???";
+            String label = world.isVisited(i) ? level.getNumber() + " \u00b7 " + level.getName() : "???";
             g.setFont(Text.CHAPTER);
             // debajo de la zona; si hay otra justo debajo, dentro de la zona, abajo
-            Text.centered(g, label, cx, hasZoneBelow(world, i) ? bottom - 14 : bottom + 40, Text.STORY_COLOR, 1, 0);
+            Text.centered(g, label, cx, hasZoneBelow(world, i, s) ? bottom - 14 : bottom + 40, Text.STORY_COLOR, 1, 0);
         }
         g.setStroke(oldStroke);
 
@@ -107,15 +111,15 @@ public class MapView {
         Text.centered(g, "Tab o Esc: cerrar el mapa", Config.WIDTH / 2.0, Config.HEIGHT - 50, Text.HINT_COLOR, 0.8, 0);
     }
 
-    /** True si otra zona queda justo debajo de la zona i (se solapan en x y la otra empieza donde esta termina o más abajo). */
-    private static boolean hasZoneBelow(World world, int i) {
+    /** True si otra zona queda justo debajo de la zona i (se solapan en x y la otra empieza donde esta termina o más abajo, con un hueco menor que LABEL_GAP_PX en pantalla; s = escala del mapa). */
+    private static boolean hasZoneBelow(World world, int i, double s) {
         Level a = world.get(i);
         double bottom = a.getWorldY() + a.getHeight();
         for (int j = 0; j < world.size(); j++) {
             if (j == i) continue;
             Level b = world.get(j);
             boolean overlapX = b.getWorldX() < a.getWorldX() + a.getWidth() && b.getWorldX() + b.getWidth() > a.getWorldX();
-            if (overlapX && b.getWorldY() >= bottom - 1 && b.getWorldY() < bottom + LABEL_GAP) return true;
+            if (overlapX && b.getWorldY() >= bottom - 1 && (b.getWorldY() - bottom) * s < LABEL_GAP_PX) return true;
         }
         return false;
     }
