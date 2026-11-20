@@ -16,7 +16,7 @@ public class LevelTitle {
 
     private String number = "";
     private String name = "";
-    private String caption;     // leyenda sobre el número ("Pasaste al nivel 2"); null = sin leyenda
+    private String caption;     // leyenda sobre el número; null = sin leyenda (el juego ya no la usa)
     private double time = -1;   // < 0: no se muestra
 
     public void show(String number, String name) {
@@ -55,11 +55,13 @@ public class LevelTitle {
             Text.centered(g, caption, cx, 140, Text.HINT_COLOR, a, 1);
         }
 
-        g.setFont(Text.CHAPTER);
-        Text.centered(g, number, cx, 176, Text.HINT_COLOR, a, 0);
-        g.setColor(Text.withAlpha(LINE, a * 0.7));   // una línea fina a cada lado del número
-        g.fillRect((int) cx - 130, 168, 100, 1);
-        g.fillRect((int) cx + 30, 168, 100, 1);
+        if (!number.isEmpty()) {   // una zona sin numeral (la Cúpula) solo lleva su nombre
+            g.setFont(Text.CHAPTER);
+            Text.centered(g, number, cx, 176, Text.HINT_COLOR, a, 0);
+            g.setColor(Text.withAlpha(LINE, a * 0.7));   // una línea fina a cada lado del número
+            g.fillRect((int) cx - 130, 168, 100, 1);
+            g.fillRect((int) cx + 30, 168, 100, 1);
+        }
 
         g.setFont(Text.LEVEL_NAME);
         Text.centered(g, name, cx, 236, Text.BRIGHT, a, 1.5);

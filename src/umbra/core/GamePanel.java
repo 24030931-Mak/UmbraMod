@@ -450,7 +450,7 @@ public class GamePanel extends JPanel {
         int target = world.indexOf(p.getTarget());
         if (target < 0) return;
 
-        boolean first = world.enter(target);
+        world.enter(target);
         useCurrentLevel();
         if (p.getSide() == Passage.Side.BOTTOM) player.placeKeepingSpeed(p.getArrival());   // sigue cayendo igual
         else player.moveTo(p.getArrival());
@@ -460,8 +460,7 @@ public class GamePanel extends JPanel {
         placeLogiAbove();
 
         particles.clear();
-        String caption = first ? "Pasaste al nivel " + (target + 1) : null;
-        levelTitle.show(level.getNumber(), level.getName(), caption);
+        levelTitle.show(level.getNumber(), level.getName());   // sin leyenda: solo el numeral y el nombre
     }
 
     /**

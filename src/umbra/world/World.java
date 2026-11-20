@@ -9,8 +9,8 @@ import java.util.List;
  * El mundo: las zonas del juego, conectadas por pasos en sus cuatro orillas (izquierda,
  * derecha, arriba y abajo), cada una con su posición en el plano. Los pasos van y vuelven.
  *
- * Solo guarda cuál nivel es el actual y cuáles ya se visitaron (para la leyenda
- * "Pasaste al nivel 2" y para el mapa) y qué zonas de cada nivel ya se recorrieron. Los niveles se crean una sola vez.
+ * Solo guarda cuál nivel es el actual y cuáles ya se visitaron (para el mapa) y qué zonas de
+ * cada nivel ya se recorrieron. Los niveles se crean una sola vez.
  */
 public class World {
 
@@ -66,9 +66,9 @@ public class World {
     /** La posición de la zona 'l' en la lista, o -1 si no es de este mundo. */
     public int indexOf(Level l) { return levels.indexOf(l); }
 
-    /** El mundo del juego: el nivel 1 y el nivel 2. */
+    /** El mundo del juego: la cueva de Cave.create() (Las Raíces, Las Galerías y Los Pozos). */
     public static World createDefault() {
-        return new World(Arrays.asList(Level.createLevel1(), Level.createLevel2()));
+        return new World(Cave.create());
     }
 
     public int size() { return levels.size(); }
