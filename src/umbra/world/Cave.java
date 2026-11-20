@@ -50,17 +50,19 @@ public final class Cave {
      *      alcanza. Con Logi abajo, en el aire sobre el vacío, en (560, 1580), las sombras suben y
      *      se abren como abanico: Candil salta a la sombra de la primera losa, nada por arriba de
      *      las dos (entre ellas y el techo), pasa de una sombra a la otra y baja (S) a la orilla.
-     *   3. El columpio: de la orilla baja (y = 1600) al piso del tiro derecho (y = 960), con una
-     *      sola losa en medio, 280 px más arriba que la orilla y 320 px más abajo que el piso. Una
+     *   3. El columpio: de la orilla baja (y = 1600) al piso del tiro derecho (y = 1030), con una
+     *      sola losa en medio, 230 px más arriba que la orilla y 300 px más abajo que el piso. Una
      *      sombra quieta no sirve: para llegar a la orilla, Logi tiene que estar arriba de la losa
      *      (la sombra baja a la izquierda); para llegar al piso, abajo de ella (la sombra sube a la
      *      derecha). Con Logi a la altura de la losa, pegada a su izquierda, la sombra cae recta
-     *      bajo la losa, pero la orilla está 240 px a su izquierda: un salto no llega ahí sin caer
+     *      bajo la losa, pero la orilla está 260 px a su izquierda: un salto no llega ahí sin caer
      *      más hondo que lo que alcanza la sombra. Con Logi suelta, llevada despacio (140 px/s)
-     *      de arriba a la derecha (1014, 1250), por encima de la losa (975, 1215), a su izquierda
-     *      (915, 1300) y hasta abajo a la izquierda (950, 1350), la sombra se columpia por debajo:
-     *      Candil entra a ella en la orilla, nada (D+W) hasta debajo de la losa, espera ahí a que
-     *      Logi pase y sigue a la sombra (D+W) hasta la orilla del piso, donde se para (D+S).
+     *      de arriba a la derecha (1045, 1295), por encima de la losa (995, 1270), a su izquierda
+     *      (935, 1350) y hasta abajo a la izquierda (945, 1385), la sombra se columpia por debajo:
+     *      Candil entra a ella en la orilla, nada hasta debajo de la losa mientras Logi pasa por
+     *      encima, y sigue a la sombra cuando sube hasta la orilla del piso. Con la cámara siguiendo
+     *      a Candil, esa ruta queda a 40 px o más de los bordes de la pantalla, y también funciona
+     *      movida 15 px a cualquier lado o más despacio.
      *
      * Las únicas repisas que se pisan son el inicio o el fin de algún tramo (la entrada, la
      * abertura, la orilla baja y el piso derecho): si Candil cae, reaparece en una de ellas y
@@ -77,7 +79,7 @@ public final class Cave {
         lvl.addPlatform(0,    260,  100,   1900);   // la entrada (y la pared izquierda del tiro)
         lvl.addPlatform(345,  1600, 60,    560);    // la abertura: fin del tramo 1, inicio del 2
         lvl.addPlatform(625,  1600, 80,    560);    // la orilla baja: fin del tramo 2, inicio del 3
-        lvl.addPlatform(1280, 960,  1280,  1200);   // el piso del tiro derecho: fin del tramo 3
+        lvl.addPlatform(1280, 1030, 1280,  1130);   // el piso del tiro derecho: fin del tramo 3
         lvl.addPlatform(300,  0,    80,    1480);   // pared derecha del tiro, sobre la abertura
         lvl.addPlatform(380,  0,    245,   1380);   // techo del hueco del tramo 2
 
@@ -86,7 +88,7 @@ public final class Cave {
         lvl.addBlock(new Block(205, 1080, 57,  30));
         lvl.addBlock(new Block(450, 1470, 60,  30));   // tramo 2: las losas cerca del techo
         lvl.addBlock(new Block(550, 1470, 50,  30));
-        lvl.addBlock(new Block(945, 1280, 60,  40));   // tramo 3: la losa del columpio
+        lvl.addBlock(new Block(965, 1330, 60,  40));   // tramo 3: la losa del columpio
         return lvl;
     }
 }
