@@ -35,12 +35,16 @@ public class Camera {
     private static final double FALL_START = 400;
     private static final double FALL_FULL = Config.MAX_FALL_SPEED;
     /** Cuánto se adelanta hacia abajo (px) a la velocidad máxima de caída. */
-    private static final double FALL_LEAD = 110;
+    private static final double FALL_LEAD = 300;
+    /** Qué tan rápido crece el adelanto al empezar a caer y qué tan rápido se apaga al aterrizar (por segundo). */
+    private static final double LEAD_RISE = 3.0;
+    private static final double LEAD_FALL = 2.0;
 
     private final double maxX;   // lo más a la derecha que puede llegar
     private final double maxY;   // lo más abajo que puede llegar
     private double x, y;
     private double lastTargetY = Double.NaN;   // para estimar la velocidad de caída
+    private double lead;                        // adelanto actual (suavizado) hacia abajo, en px
 
     public Camera(double worldWidth, double worldHeight) {
         this.maxX = Math.max(0, worldWidth - Config.WIDTH);
@@ -59,7 +63,10 @@ public class Camera {
         // abajo (la velocidad se estima con el cambio de Y entre dos cuadros).
         double fall = Double.isNaN(lastTargetY) || dt <= 0 ? 0 : (targetY - lastTargetY) / dt;
         lastTargetY = targetY;
-        double lead = FALL_LEAD * Math.max(0, Math.min(1, (fall - FALL_START) / (FALL_FULL - FALL_START)));
+        double leadGoal = FALL_LEAD * Math.max(0, Math.min(1, (fall - FALL_START) / (FALL_FULL - FALL_START)));
+        // El adelanto no es instantáneo: sube y baja suavemente, así la cámara no frena en seco al aterrizar.
+        double leadSpeed = leadGoal > lead ? LEAD_RISE : LEAD_FALL;
+        lead += (leadGoal - lead) * (1 - Math.exp(-leadSpeed * dt));
         double onScreenY = targetY - y;
         double goalY = y;
         if (onScreenY > BOTTOM)   goalY = targetY - BOTTOM;
@@ -82,6 +89,7 @@ public class Camera {
         x = Math.max(0, Math.min(targetX - LEFT, maxX));
         y = Math.max(0, Math.min(targetY - (TOP + BOTTOM) / 2, maxY));
         lastTargetY = targetY;
+        lead = 0;
     }
 
     /** Matriz de vista: convierte coordenadas del mundo a coordenadas de pantalla. */
