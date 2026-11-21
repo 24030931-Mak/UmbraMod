@@ -147,9 +147,15 @@ public final class Cave {
      * siguiente.
      *   Un descanso es una repisa pegada a la pared con una losa debajo y otra encima (su techo,
      *   alineado con la malla de 40 px de la prueba). Parado al fondo, contra la pared, Candil
-     *   queda en sombra con Logi en cualquier lugar más arriba que el techo (la losa de encima) y
-     *   también con Logi abajo, mientras los rayos crucen la losa de debajo; así no pierde vida
-     *   mientras Logi cambia de lugar.
+     *   queda en sombra con Logi en cualquier lugar más arriba que el piso del descanso (la losa de
+     *   encima es larga, se mete en la roca y baja hasta la cabeza de Candil) y también con Logi
+     *   abajo, mientras los rayos crucen la losa de debajo; así no pierde vida mientras Logi cambia
+     *   de lugar. Franja que no se puede cubrir: los rayos que entran casi a la altura de Candil,
+     *   por debajo del techo (a menos de unos 6 grados sobre su horizonte, del lado abierto del
+     *   descanso o desde dentro de la roca del otro lado), y Logi metida dentro del propio techo;
+     *   el techo no puede bajar más que la cabeza de Candil. PruebaCupula la cuenta y la avisa.
+     *   La etapa 1 empieza con Candil en la luz del piso mientras Logi llega al hueco: es lo que más
+     *   vida cuesta del relevo (peor caso con Logi corrida 15 px: 62 %).
      *   1. Etapa 1, del piso al descanso 1 (izquierda, y = 1640): Logi fija en el hueco del piso,
      *      en (670, 2100), abajo a la derecha de la primera losa. Candil salta del piso a la losa
      *      y sube nadando en su sombra, que va hacia arriba a la izquierda, hasta la punta del
@@ -210,9 +216,9 @@ public final class Cave {
 
         lvl.addBlock(new Block(560, 1930, 80,  30));   // etapa 1: la primera losa
         lvl.addBlock(new Block(280, 1670, 220, 30));   // descanso 1: la losa de debajo
-        lvl.addBlock(new Block(235, 1560, 230, 47));   //             y su techo
+        lvl.addBlock(new Block(120, 1560, 345, 48));   //             y su techo (largo y bajo: hasta la cabeza de Candil)
         lvl.addBlock(new Block(780, 1230, 220, 30));   // descanso 2: la losa de debajo
-        lvl.addBlock(new Block(815, 1120, 230, 47));   //             y su techo
+        lvl.addBlock(new Block(815, 1120, 345, 48));   //             y su techo (largo y bajo)
         lvl.addBlock(new Block(520, 1410, 50,  30));   // etapa 2: la losa de en medio
         lvl.addBlock(new Block(550, 790,  40,  30));   // domo: las losas pequeñas
         lvl.addBlock(new Block(650, 640,  40,  30));

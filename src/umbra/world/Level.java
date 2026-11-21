@@ -218,7 +218,13 @@ public class Level {
      *      del dintel entra casi horizontal y llena el túnel: Candil cruza flotando y se va
      *      alejando de ella. Dentro del túnel Logi no sirve: Candil tendría que pasar a menos
      *      de 70 px de ella y se desmoronaría.
-     *   5. El paso a Los Pozos: en la orilla derecha de la repisa alta del final (E).
+     *   5. El refugio de E y el paso a Los Pozos: el paso está en la orilla derecha de la repisa alta
+     *      del final (E), a 1160 px de la entrada de E y todo en la luz: sin ayuda Candil llegaría con
+     *      poca vida. A medio camino, sobre E, cuelga una losa (el refugio, donde estaba el portal).
+     *      Con Logi arriba a la izquierda de ella, por ejemplo en (3200, 40), la sombra cae sobre E:
+     *      Candil camina hasta quedar bajo ella, descansa hasta recuperar la vida y sigue al paso.
+     *      Llega a Los Pozos con la mitad de la vida o más. La losa está a 80 px sobre E y lejos del
+     *      pasillo, así que no abre atajos en los tramos de antes.
      *
      * Ningún hueco se puede cruzar saltando sin sombras: la prueba lo comprueba con todos los
      * saltos y caídas posibles, cada medio píxel.
@@ -243,6 +249,7 @@ public class Level {
         lvl.addBlock(new Block(1500, 420, 60,  90));   // tramo 3: la chimenea, losa de abajo
         lvl.addBlock(new Block(1500, 285, 60,  90));   // tramo 3: la chimenea, losa de arriba
         lvl.addBlock(new Block(2200, 190, 60,  30));   // tramo 4: el dintel del pasillo
+        lvl.addBlock(new Block(3220, 150, 120, 30));   // tramo 5: el refugio de E, sobre la repisa alta
         return lvl;
     }
 
