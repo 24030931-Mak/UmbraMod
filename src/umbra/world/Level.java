@@ -341,6 +341,11 @@ public class Level {
         time += dt;
     }
 
+    /** Solo avanza el reloj de la zona (el mecer del Gran Farol), sin mover nada más: la pantalla final lo usa. */
+    public void advanceTime(double dt) {
+        time += dt;
+    }
+
     public boolean isAtExit(Rectangle2D playerBounds) {
         return exit != null && exit.intersects(playerBounds);
     }

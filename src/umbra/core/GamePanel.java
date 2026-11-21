@@ -405,6 +405,7 @@ public class GamePanel extends JPanel {
     /** Pantalla final: Enter juega de nuevo, Esc regresa al menú. */
     private void updateVictory(double dt, boolean leaving) {
         victory.update(dt);
+        level.advanceTime(dt);        // el Gran Farol sigue meciéndose
         background.update(dt);        // la niebla y las esporas siguen moviéndose
         levelArt.update(dt, null);    // las plantas se mecen con el aire
         particles.update(dt);
@@ -458,6 +459,7 @@ public class GamePanel extends JPanel {
         checkpoint = p.getRespawn();
 
         placeLogiAbove();
+        ignoreWalkKeys();   // si llegó con A o D apretada, no camina hasta soltarla
 
         particles.clear();
         levelTitle.show(level.getNumber(), level.getName());   // sin leyenda: solo el numeral y el nombre
@@ -715,6 +717,11 @@ public class GamePanel extends JPanel {
         }
     }
 
+    /** Ignora A, D y las flechas izquierda/derecha hasta que el jugador las suelte. */
+    private void ignoreWalkKeys() {
+        input.ignoreUntilReleased(KeyEvent.VK_A, KeyEvent.VK_D, KeyEvent.VK_LEFT, KeyEvent.VK_RIGHT);
+    }
+
     private void restart() {
         player.respawn(level.getSpawn());
         checkpoint = level.getSpawn();
@@ -723,6 +730,7 @@ public class GamePanel extends JPanel {
         // mundo bajo el ratón se deslizaría con ella y Logi terminaría encima de Candil.
         camera.snapTo(player.getCenterX(), player.getCenterY());
         keepLogiAwayFromCandil();
+        ignoreWalkKeys();   // R con A o D apretada no debe empujar a Candil al reaparecer
         deathTimer = 0;
         levelComplete = false;
         completeTimer = 0;
@@ -846,6 +854,8 @@ public class GamePanel extends JPanel {
         g.setColor(new Color(220, 220, 235));
         g.drawString(Config.TITLE + " " + Config.VERSION, 16, 24);
         g.setColor(new Color(150, 150, 170));
+        // La línea de ayuda taparía el Gran Farol (y 0 a 80 en pantalla): no se dibuja ahí.
+        if (!(level.exitIsLantern() && camera.getY() < 100))
         g.drawString("A/D: mover   W/Espacio: saltar o subir   S: bajar   Mouse: Logi   Clic: fijarla"
                 + "   R: reiniciar   Tab: mapa   M: m\u00fasica   Esc: men\u00fa", 16, 44);
         if (light.isPinned()) {

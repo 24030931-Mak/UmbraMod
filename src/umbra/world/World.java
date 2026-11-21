@@ -66,7 +66,7 @@ public class World {
     /** La posición de la zona 'l' en la lista, o -1 si no es de este mundo. */
     public int indexOf(Level l) { return levels.indexOf(l); }
 
-    /** El mundo del juego: la cueva de Cave.create() (Las Raíces, Las Galerías y Los Pozos). */
+    /** El mundo del juego: la cueva de Cave.create() (Las Raíces, Las Galerías, Los Pozos y La Cúpula). */
     public static World createDefault() {
         return new World(Cave.create());
     }

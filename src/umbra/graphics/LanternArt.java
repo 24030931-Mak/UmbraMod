@@ -19,8 +19,8 @@ import java.awt.geom.RoundRectangle2D;
  * con los fragmentos). Se dibuja con la misma paleta fría que las losas de LevelArt: bisel claro
  * arriba a la izquierda, oscuro abajo a la derecha, y la runa del rombo grabada en el techo.
  *
- * Solo lo que se mueve se calcula en cada cuadro: el farol se mece un poco (unos 2 grados) y el
- * vidrio tiene un brillo frío muy tenue que respira.
+ * No guarda nada en caché: todo se calcula y se dibuja en cada cuadro. El farol se mece un poco
+ * (unos 2 grados) y el vidrio tiene un brillo frío muy tenue que respira.
  */
 public final class LanternArt {
 

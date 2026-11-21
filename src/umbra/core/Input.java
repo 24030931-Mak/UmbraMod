@@ -17,6 +17,7 @@ public class Input implements KeyListener, MouseListener, MouseMotionListener {
 
     private final boolean[] down = new boolean[MAX_KEYS];
     private final boolean[] pressed = new boolean[MAX_KEYS];   // solo el update en que se presionó
+    private final boolean[] ignored = new boolean[MAX_KEYS];   // apretadas que no cuentan hasta soltarlas
 
     private int mouseX = Config.WIDTH / 2;
     private int mouseY = Config.HEIGHT / 4;
@@ -30,7 +31,17 @@ public class Input implements KeyListener, MouseListener, MouseMotionListener {
 
     /** true mientras la tecla esté presionada (para caminar). */
     public boolean isDown(int keyCode) {
-        return valid(keyCode) && down[keyCode];
+        return valid(keyCode) && down[keyCode] && !ignored[keyCode];
+    }
+
+    /**
+     * Las teclas dadas que estén apretadas ahora dejan de contar (isDown da false) hasta que se
+     * suelten; al volver a apretarlas cuentan otra vez. Sirve al cruzar un paso o reiniciar.
+     */
+    public void ignoreUntilReleased(int... keyCodes) {
+        for (int k : keyCodes) {
+            if (valid(k) && down[k]) ignored[k] = true;
+        }
     }
 
     /** true solo en el update en que se presionó (para saltar, reiniciar, etc.). */
@@ -65,7 +76,7 @@ public class Input implements KeyListener, MouseListener, MouseMotionListener {
     @Override
     public void keyReleased(KeyEvent e) {
         int k = e.getKeyCode();
-        if (valid(k)) down[k] = false;
+        if (valid(k)) { down[k] = false; ignored[k] = false; }
     }
 
     @Override public void keyTyped(KeyEvent e) { }
