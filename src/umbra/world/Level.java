@@ -16,6 +16,7 @@ import java.util.List;
 import umbra.core.Config;
 import umbra.entities.Block;
 import umbra.entities.Player;
+import umbra.graphics.LanternArt;
 import umbra.math.Mat3;
 import umbra.math.Vec2;
 
@@ -40,6 +41,8 @@ public class Level {
     private final List<Rectangle2D> solids = new ArrayList<>();
 
     private double portalAngle;
+    private double time;              // segundos desde que se creó (el Gran Farol se mece con él)
+    private boolean exitIsLantern;    // la salida es el Gran Farol, no el portal
 
     // Pasos hacia los niveles vecinos [mundo conectado]: dónde aparece Candil al llegar
     // por ese lado. null = no hay paso de ese lado.
@@ -80,6 +83,14 @@ public class Level {
         this.decorSeed = decorSeed;
         this.ruinScale = ruinScale;
     }
+
+    /** [B2] Marca que la salida de esta zona es el Gran Farol: se dibuja el farol en vez del portal. */
+    public void setExitIsLantern(boolean lantern) {
+        this.exitIsLantern = lantern;
+    }
+
+    /** ¿La salida es el Gran Farol? */
+    public boolean exitIsLantern() { return exitIsLantern; }
 
     /**
      * Abre los pasos a los niveles vecinos. Cada argumento es la posición (esquina superior
@@ -182,8 +193,9 @@ public class Level {
 
     /**
      * [v1.0] Nivel 2, "Las Galerías": tres pantallas de ancho (3840 px). Su entrada izquierda
-     * conecta con la salida del nivel 1 y el portal está al final, 300 px más arriba que la
-     * entrada. Cada tramo agrega una idea nueva sobre lo aprendido en el nivel 1:
+     * conecta con la salida del nivel 1 y al final, 300 px más arriba que la entrada, su orilla
+     * derecha da a Los Pozos (el paso lo pone Cave.create; en B2 se quitó el portal). Cada tramo
+     * agrega una idea nueva sobre lo aprendido en el nivel 1:
      *
      *   1. El refugio: una losa sobre la entrada. Con Logi arriba de ella, por ejemplo en
      *      (115, 300), la sombra baja como una carpa y cubre la entrada: Candil no pierde
@@ -206,15 +218,14 @@ public class Level {
      *      del dintel entra casi horizontal y llena el túnel: Candil cruza flotando y se va
      *      alejando de ella. Dentro del túnel Logi no sirve: Candil tendría que pasar a menos
      *      de 70 px de ella y se desmoronaría.
-     *   5. El portal: en la repisa alta del final (E).
+     *   5. El paso a Los Pozos: en la orilla derecha de la repisa alta del final (E).
      *
      * Ningún hueco se puede cruzar saltando sin sombras: la prueba lo comprueba con todos los
      * saltos y caídas posibles, cada medio píxel.
      */
     public static Level createLevel2() {
         Level lvl = new Level("II", "Las Galer\u00edas", 3840,
-            new Vec2(80, 530),
-            new Rectangle2D.Double(3300, 180, 60, 80));   // el portal, parado sobre E
+            new Vec2(80, 530), null);   // sin portal: su salida es el paso a Los Pozos
         lvl.connect(new Vec2(80, 530), null);   // a la izquierda, el paso al nivel 1
         lvl.setWorldPosition(3840, 0);
         lvl.setScenery(23, 29, 1.5);            // ruinas más grandes
@@ -224,7 +235,7 @@ public class Level {
         lvl.addPlatform(1380, 560, 280,  160);   // B: después del puente, al pie de la chimenea
         lvl.addPlatform(1660, 260, 790,  460);   // C: arriba de la chimenea; sigue dentro del túnel
         lvl.addPlatform(2200, 0,   950,  190);   // D: el techo del pasillo bajo
-        lvl.addPlatform(2650, 260, 1190, 460);   // E: la repisa alta del portal
+        lvl.addPlatform(2650, 260, 1190, 460);   // E: la repisa alta, con el paso a Los Pozos
 
         lvl.addBlock(new Block(40,   390, 150, 30));   // tramo 1: el techo del refugio
         lvl.addBlock(new Block(440,  470, 120, 40));   // tramo 2: el puente, primera losa
@@ -320,6 +331,7 @@ public class Level {
 
     public void update(double dt) {
         portalAngle += dt * 1.6;   // la salida gira
+        time += dt;
     }
 
     public boolean isAtExit(Rectangle2D playerBounds) {
@@ -343,8 +355,9 @@ public class Level {
     // ---- Dibujo ----
 
     /**
-     * Dibuja la salida (y el puente provisional, si lo hay). Las repisas y los bloques
-     * los dibuja graphics.LevelArt, con su aspecto de roca y piedra tallada.
+     * Dibuja la salida (el portal o el Gran Farol), los pasos de las orillas izquierda y derecha
+     * (y el puente provisional, si lo hay). Las repisas y los bloques los dibuja graphics.LevelArt,
+     * con su aspecto de roca y piedra tallada.
      */
     public void draw(Graphics2D g) {
         if (tempBridge != null) {
@@ -355,18 +368,28 @@ public class Level {
             g.draw(tempBridge);
             g.setStroke(old);
         }
-        if (exit != null) drawPortal(g);
-        if (leftEntry != null) drawPassage(g, 0, 1);
-        if (rightEntry != null) drawPassage(g, width, -1);
+        if (exit != null) {
+            if (exitIsLantern) LanternArt.draw(g, exit, time);
+            else drawPortal(g);
+        }
+        if (leftEntry != null) drawPassage(g, 0, 1, leftEntry.y + Player.H);
+        if (rightEntry != null) drawPassage(g, width, -1, rightEntry.y + Player.H);
+        // [B2] Los pasos puestos a mano (addPassage) en las orillas izquierda y derecha se dibujan
+        // igual; su repisa está en el extremo de abajo del tramo ('to'). Los de arriba y abajo son
+        // huecos en la roca: ya se ven.
+        for (Passage p : passages) {
+            if (connectPassages.contains(p)) continue;
+            if (p.getSide() == Passage.Side.LEFT) drawPassage(g, 0, 1, p.getTo());
+            else if (p.getSide() == Passage.Side.RIGHT) drawPassage(g, width, -1, p.getTo());
+        }
     }
 
     /**
      * Un paso hacia otro nivel: una abertura oscura en la orilla del mundo, con neblina que
-     * sale de ella. 'dir' apunta hacia dentro del nivel (+1 en la izquierda, -1 en la derecha).
+     * sale de ella. 'dir' apunta hacia dentro del nivel (+1 en la izquierda, -1 en la derecha);
+     * 'floor' es la altura de la repisa del paso.
      */
-    private void drawPassage(Graphics2D g, double edgeX, int dir) {
-        Vec2 entry = dir > 0 ? leftEntry : rightEntry;
-        double floor = entry.y + 30;   // la repisa donde aparece Candil
+    private void drawPassage(Graphics2D g, double edgeX, int dir, double floor) {
         double x0 = edgeX, x1 = edgeX + dir * 70;
         g.setPaint(new GradientPaint((float) x0, 0, new Color(2, 2, 6, 235),
                 (float) x1, 0, new Color(2, 2, 6, 0)));

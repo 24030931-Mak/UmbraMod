@@ -1,5 +1,6 @@
 package umbra.world;
 
+import java.awt.geom.Rectangle2D;
 import java.util.Arrays;
 import java.util.List;
 
@@ -9,25 +10,37 @@ import umbra.math.Vec2;
 
 /**
  * [B2] La cueva completa: las zonas del juego en orden y los pasos explícitos entre ellas.
- * Los niveles 1 y 2 siguen en Level; aquí se arman las zonas nuevas (Los Pozos) y se conectan.
+ * Los niveles 1 y 2 siguen en Level; aquí se arman las zonas nuevas (Los Pozos y la Cúpula) y se
+ * conectan.
  */
 public final class Cave {
 
     private Cave() { }
 
     /**
-     * Las zonas del juego: Las Raíces, Las Galerías y Los Pozos, con sus pasos. El paso entre Las
-     * Galerías y Los Pozos se pone a mano (addPassage), solo a la altura de la repisa alta de Las
-     * Galerías: con connect sería paso toda la orilla izquierda de Los Pozos.
+     * Las zonas del juego: Las Raíces, Las Galerías, Los Pozos y la Cúpula, con sus pasos. El paso
+     * entre Las Galerías y Los Pozos se pone a mano (addPassage), solo a la altura de la repisa alta
+     * de Las Galerías: con connect sería paso toda la orilla izquierda de Los Pozos.
+     *
+     * Los Pozos y la Cúpula se unen por el hueco del techo de Los Pozos (x 1920 a 2000), que en el
+     * plano queda en la misma x (9600 a 9680) que el hueco del piso de la Cúpula (x 640 a 720):
+     *   - subiendo, Candil aparece en el piso de la Cúpula, a la derecha del hueco;
+     *   - bajando, aparece arriba del tiro derecho de Los Pozos, debajo del hueco, y sigue cayendo
+     *     (conserva su velocidad) hasta la losa del hueco. Si se cae de ahí, reaparece en la repisa
+     *     del hueco.
      */
     public static List<Level> create() {
         Level raices = Level.createLevel1();
         Level galerias = Level.createLevel2();
         Level pozos = createPozos();
+        Level cupula = createCupula();
 
         galerias.addPassage(new Passage(Passage.Side.RIGHT, 0, 260, pozos, new Vec2(20, 260 - Player.H), null));
         pozos.addPassage(new Passage(Passage.Side.LEFT, 0, 260, galerias, new Vec2(3798, 260 - Player.H), null));
-        return Arrays.asList(raices, galerias, pozos);
+        pozos.addPassage(new Passage(Passage.Side.TOP, 1920, 2000, cupula, cupula.getSpawn(), null));
+        cupula.addPassage(new Passage(Passage.Side.BOTTOM, 640, 720, pozos,
+                new Vec2(1960 - Player.W / 2, 20), new Vec2(1800, 300 - Player.H)));
+        return Arrays.asList(raices, galerias, pozos, cupula);
     }
 
     /**
@@ -115,6 +128,97 @@ public final class Cave {
         lvl.addBlock(new Block(1465, 690, 90,  30));
         lvl.addBlock(new Block(1565, 440, 50,  30));
         lvl.addBlock(new Block(1940, 270, 40,  30));   // tramo 5: la losa del hueco
+        return lvl;
+    }
+
+    /**
+     * La Cúpula: una zona de 1280 x 2160 (una pantalla de ancho y tres de alto) encima del tiro
+     * derecho de Los Pozos. Se llega por abajo, por el hueco del piso (x 640 a 720), que es el
+     * mismo hueco del techo de Los Pozos; por ahí también se baja de regreso. Arriba, al centro,
+     * cuelga el Gran Farol: tocarlo empieza el final (es la salida de la zona, como el portal que
+     * tenían Las Galerías). Sin numeral en el letrero. Sin pasos: Cave.create los pone.
+     *
+     * La subida por relevos (la chimenea, del piso y = 2040 a la cima y = 800, unos 1240 px): tres
+     * etapas en zigzag entre las paredes, con dos descansos. Logi va abajo de cada etapa y las
+     * sombras suben inclinadas hacia el otro lado. Ninguna posición fija de Logi sirve para toda la
+     * chimenea: la etapa 2 sube a la derecha y pide a Logi abajo a la izquierda; la etapa 3 sube a
+     * la izquierda y pide a Logi abajo a la derecha; y Logi suelta solo llega a lo que se ve. Así que
+     * se sube por partes: Candil espera en un descanso mientras el jugador lleva a Logi a la etapa
+     * siguiente.
+     *   Un descanso es una repisa pegada a la pared con una losa debajo y otra encima (su techo,
+     *   alineado con la malla de 40 px de la prueba). Parado al fondo, contra la pared, Candil
+     *   queda en sombra con Logi en cualquier lugar más arriba que el techo (la losa de encima) y
+     *   también con Logi abajo, mientras los rayos crucen la losa de debajo; así no pierde vida
+     *   mientras Logi cambia de lugar.
+     *   1. Etapa 1, del piso al descanso 1 (izquierda, y = 1640): Logi fija en el hueco del piso,
+     *      en (670, 2100), abajo a la derecha de la primera losa. Candil salta del piso a la losa
+     *      y sube nadando en su sombra, que va hacia arriba a la izquierda, hasta la punta del
+     *      descanso; sale de un salto y camina al fondo.
+     *   2. Etapa 2, del descanso 1 al descanso 2 (derecha, y = 1200): Logi fija abajo a la
+     *      izquierda, debajo del descanso 1, en (309, 1756). Las sombras del techo del descanso 1 y
+     *      de una losa de en medio suben a la derecha hasta la punta del descanso 2.
+     *   3. Etapa 3, del descanso 2 a la cima (izquierda, y = 800): Logi fija abajo a la derecha,
+     *      debajo del descanso 2, en (976, 1311). La sombra del techo del descanso 2 sube a la
+     *      izquierda hasta la punta de la cima.
+     * El domo: las paredes se cierran en escalones hacia arriba y de ellas salen repisas cada vez
+     * más cortas (la cima 220 px, luego 160, 130 y 100), una a cada lado. Ningún salto llega de una
+     * a la siguiente (150 px o más de alto); en medio hay una losa pequeña, y con Logi fija abajo
+     * de ella su sombra sube inclinada hasta la punta de la repisa siguiente:
+     *   4. De la cima a la repisa 1 (derecha, y = 650): Logi en (440, 915).
+     *   5. De la repisa 1 a la repisa 2 (izquierda, y = 500): Logi en (760, 770).
+     *   6. De la repisa 2 a la repisa 3 (derecha, y = 360): Logi en (560, 640).
+     *   7. Las losas colgantes, de la repisa 3 a la repisa del Farol (y = 90): dos losas cuelgan
+     *      del techo, más alto de lo que alcanza un salto desde la repisa 3 (135 y 220 px). Con
+     *      Logi fija abajo a la izquierda de ellas, en (560, 300), sus sombras salen hacia arriba a
+     *      la derecha: Candil salta de la repisa 3 a la sombra de la losa de la derecha, de ahí
+     *      salta a la sombra de la de la izquierda (o se para en ella) y de ahí a la repisa del
+     *      Farol, donde lo toca. Hacen falta las dos: desde la sombra de la de la derecha un salto
+     *      no llega al Farol, y parado en ella, la repisa queda a 135 px.
+     *
+     * Las únicas repisas que se pisan son el inicio o el fin de algún tramo (el piso, a los dos
+     * lados del hueco, los descansos, la cima, las del domo y la del Farol); las paredes suben
+     * hasta el techo del mundo. La prueba (PruebaCupula) lo comprueba todo con todos los saltos y
+     * caídas posibles, cada medio píxel; la chimenea, también con Logi fija en cada punto de una
+     * malla de 40 px.
+     */
+    public static Level createCupula() {
+        Level lvl = new Level("", "La C\u00fapula", 1280, 2160, new Vec2(750, 2040 - Player.H),
+                new Rectangle2D.Double(545, 0, 110, 80));   // el Gran Farol, sobre su repisa
+        lvl.setExitIsLantern(true);
+        lvl.setWorldPosition(8960, -2160);
+        lvl.setScenery(43, 47, 1.0);
+
+        //              x     y     ancho  alto
+        lvl.addPlatform(280,  2040, 360,   120);    // el piso, a la izquierda del hueco
+        lvl.addPlatform(720,  2040, 280,   120);    // el piso, a la derecha del hueco (la llegada)
+        lvl.addPlatform(0,    0,    280,   2160);   // pared izquierda
+        lvl.addPlatform(1000, 0,    280,   2160);   // pared derecha
+        lvl.addPlatform(280,  1640, 220,   30);     // descanso 1: fin de la etapa 1, inicio de la 2
+        lvl.addPlatform(780,  1200, 220,   30);     // descanso 2: fin de la etapa 2, inicio de la 3
+        lvl.addPlatform(280,  800,  220,   30);     // la cima: fin de la etapa 3, inicio del domo
+        lvl.addPlatform(780,  650,  160,   30);     // repisa 1 del domo
+        lvl.addPlatform(380,  500,  130,   30);     // repisa 2 del domo
+        lvl.addPlatform(760,  360,  100,   30);     // repisa 3 del domo
+        lvl.addPlatform(530,  90,   140,   30);     // la repisa del Farol
+        lvl.addPlatform(0,    0,    340,   700);    // el domo: las paredes se cierran en escalones
+        lvl.addPlatform(0,    0,    380,   540);
+        lvl.addPlatform(0,    0,    420,   400);
+        lvl.addPlatform(0,    0,    460,   260);
+        lvl.addPlatform(940,  0,    340,   700);
+        lvl.addPlatform(900,  0,    380,   540);
+        lvl.addPlatform(860,  0,    420,   400);
+
+        lvl.addBlock(new Block(560, 1930, 80,  30));   // etapa 1: la primera losa
+        lvl.addBlock(new Block(280, 1670, 220, 30));   // descanso 1: la losa de debajo
+        lvl.addBlock(new Block(235, 1560, 230, 47));   //             y su techo
+        lvl.addBlock(new Block(780, 1230, 220, 30));   // descanso 2: la losa de debajo
+        lvl.addBlock(new Block(815, 1120, 230, 47));   //             y su techo
+        lvl.addBlock(new Block(520, 1410, 50,  30));   // etapa 2: la losa de en medio
+        lvl.addBlock(new Block(550, 790,  40,  30));   // domo: las losas pequeñas
+        lvl.addBlock(new Block(650, 640,  40,  30));
+        lvl.addBlock(new Block(600, 490,  40,  30));
+        lvl.addBlock(new Block(775, 225,  30,  40));   // las losas colgantes: la de la derecha
+        lvl.addBlock(new Block(690, 140,  30,  25));   //                      y la de la izquierda
         return lvl;
     }
 }
