@@ -19,6 +19,9 @@ import java.awt.geom.RoundRectangle2D;
  * con los fragmentos). Se dibuja con la misma paleta fría que las losas de LevelArt: bisel claro
  * arriba a la izquierda, oscuro abajo a la derecha, y la runa del rombo grabada en el techo.
  *
+ * [B4] Con 'filled' fragmentos juntados, esa cantidad de huecos se llena con el cristal dorado
+ * (FragmentArt), el vidrio se va calentando y todo el farol brilla más; con los 6 queda encendido.
+ *
  * No guarda nada en caché: todo se calcula y se dibuja en cada cuadro. El farol se mece un poco
  * (unos 2 grados) y el vidrio tiene un brillo frío muy tenue que respira.
  */
@@ -36,6 +39,8 @@ public final class LanternArt {
     private static final Color GLASS_RIM = new Color(110, 125, 165, 150);
     private static final Color SOCKET = new Color(6, 7, 14);
     private static final Color SOCKET_RIM = new Color(150, 160, 200, 140);
+    private static final Color WARM = new Color(255, 196, 96);
+    private static final Color WARM_CORE = new Color(255, 244, 205);
 
     /** Cuántos huecos tiene el farol (los fragmentos del Gran Farol). */
     public static final int SLOTS = 6;
@@ -45,15 +50,27 @@ public final class LanternArt {
     /**
      * Dibuja el farol dentro de 'lantern' (coordenadas del mundo): la cadena arriba, el techo, el
      * cuerpo con el vidrio y los 6 huecos, y la base. 'time' en segundos (para mecerse).
+     * 'filled' (0 a 6) es cuántos huecos están llenos, de arriba en sentido de las manecillas.
      */
-    public static void draw(Graphics2D g, Rectangle2D lantern, double time) {
+    public static void draw(Graphics2D g, Rectangle2D lantern, double time, int filled) {
         double x = lantern.getX(), y = lantern.getY(), w = lantern.getWidth(), h = lantern.getHeight();
         double cx = x + w / 2;
         double chainEnd = y + h * 0.22;   // donde termina la cadena y empieza el techo
+        filled = Math.max(0, Math.min(SLOTS, filled));
+        double k = filled / (double) SLOTS;   // 0 apagado, 1 encendido
 
         Graphics2D g2 = (Graphics2D) g.create();
         // Se mece desde el punto de donde cuelga (arriba al centro): rotación alrededor de (cx, y)
         g2.rotate(Math.toRadians(2.0) * Math.sin(time * 0.7), cx, y);
+
+        // [B4] El resplandor de detrás: crece con los fragmentos y con los 6 es un halo cálido grande
+        if (filled > 0) {
+            double hr = Math.max(w, h) * (0.55 + 0.45 * k), hy = y + h * 0.62;
+            int ha = (int) (28 + 110 * k * k + (filled == SLOTS ? 40 * (0.5 + 0.5 * Math.sin(time * 2.0)) : 0));
+            g2.setPaint(new RadialGradientPaint((float) cx, (float) hy, (float) hr, new float[] { 0f, 1f },
+                    new Color[] { Background.alpha(WARM, ha), Background.alpha(WARM, 0) }));
+            g2.fill(new Ellipse2D.Double(cx - hr, hy - hr, hr * 2, hr * 2));
+        }
 
         // ---- La cadena: eslabones alternados (de frente y de canto) ----
         g2.setStroke(new BasicStroke(2.2f));
@@ -110,8 +127,15 @@ public final class LanternArt {
         Color[] cold = { new Color(120, 150, 210, (int) (20 + 25 * breath)), new Color(120, 150, 210, 0) };
         g2.setPaint(new RadialGradientPaint((float) gcx, (float) gcy, (float) glassR, stops, cold));
         g2.fill(new Ellipse2D.Double(gcx - glassR, gcy - glassR, glassR * 2, glassR * 2));
+        if (filled > 0) {   // [B4] el vidrio se calienta: de un tinte ámbar a una llama casi blanca con los 6
+            double lit = glassR * (1.0 + 0.5 * k);
+            int wa = (int) (60 + 170 * k + 25 * breath * k);
+            g2.setPaint(new RadialGradientPaint((float) gcx, (float) gcy, (float) lit, new float[] { 0f, 0.55f, 1f },
+                    new Color[] { Background.alpha(WARM_CORE, wa), Background.alpha(WARM, (int) (wa * 0.8)), Background.alpha(WARM, 0) }));
+            g2.fill(new Ellipse2D.Double(gcx - lit, gcy - lit, lit * 2, lit * 2));
+        }
         g2.setStroke(new BasicStroke(1.5f));
-        g2.setColor(GLASS_RIM);
+        g2.setColor(filled == SLOTS ? Background.alpha(WARM, 220) : GLASS_RIM);
         g2.draw(new Ellipse2D.Double(gcx - glassR, gcy - glassR, glassR * 2, glassR * 2));
 
         // Los 6 huecos vacíos, en hexágono alrededor del vidrio: cuencas hondas con borde tallado
@@ -126,6 +150,12 @@ public final class LanternArt {
             g2.draw(new Line2D.Double(sx - sr * 0.6, sy - sr * 0.45, sx + sr * 0.6, sy - sr * 0.45));
             g2.setColor(SOCKET_RIM);
             g2.draw(socket);
+            if (i < filled) {   // [B4] hueco lleno: el cristal dorado con su brillo
+                g2.setPaint(new RadialGradientPaint((float) sx, (float) sy, (float) (sr * 2.2), new float[] { 0f, 1f },
+                        new Color[] { Background.alpha(WARM, 150), Background.alpha(WARM, 0) }));
+                g2.fill(new Ellipse2D.Double(sx - sr * 2.2, sy - sr * 2.2, sr * 4.4, sr * 4.4));
+                FragmentArt.drawIcon(g2, sx, sy, sr * 2 / 22.0);
+            }
         }
 
         // ---- La base: una losa más ancha con una punta abajo ----

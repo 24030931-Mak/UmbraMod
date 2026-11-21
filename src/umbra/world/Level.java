@@ -43,6 +43,7 @@ public class Level {
 
     private double portalAngle;
     private double time;              // segundos desde que se creó (el Gran Farol se mece con él)
+    private int lanternFill;           // [B4] huecos llenos del Gran Farol
     private boolean exitIsLantern;    // la salida es el Gran Farol, no el portal
 
     // Pasos hacia los niveles vecinos [mundo conectado]: dónde aparece Candil al llegar
@@ -89,6 +90,11 @@ public class Level {
     public void setExitIsLantern(boolean lantern) {
         this.exitIsLantern = lantern;
     }
+
+    /** [B4] Cuántos huecos del Gran Farol están llenos (0 a 6). */
+    public void setLanternFill(int filled) { this.lanternFill = Math.max(0, Math.min(LanternArt.SLOTS, filled)); }
+
+    public int getLanternFill() { return lanternFill; }
 
     /** ¿La salida es el Gran Farol? */
     public boolean exitIsLantern() { return exitIsLantern; }
@@ -387,7 +393,7 @@ public class Level {
             g.setStroke(old);
         }
         if (exit != null) {
-            if (exitIsLantern) LanternArt.draw(g, exit, time);
+            if (exitIsLantern) LanternArt.draw(g, exit, time, lanternFill);
             else drawPortal(g);
         }
         if (leftEntry != null) drawPassage(g, 0, 1, leftEntry.y + Player.H);

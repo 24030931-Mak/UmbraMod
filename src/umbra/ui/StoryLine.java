@@ -83,10 +83,10 @@ public final class StoryLine {
         rowIsVoice.clear();
         StringBuilder block = new StringBuilder();
         boolean blockVoice = false;
-        for (String part : lines.get(index).split("(?<=\\.)\\s+|\\s+(?=—)")) {
+        for (String part : lines.get(index).split("(?<=\\.)\\s+|\\s+(?=\u2014)")) {
             part = part.trim();
             if (part.isEmpty()) continue;
-            boolean voice = part.startsWith("—");
+            boolean voice = part.startsWith("\u2014");
             if (block.length() > 0 && voice != blockVoice) {
                 flush(block.toString(), blockVoice, fm);
                 block.setLength(0);

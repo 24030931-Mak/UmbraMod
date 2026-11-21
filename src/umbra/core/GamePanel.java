@@ -248,6 +248,7 @@ public class GamePanel extends JPanel {
         background = s.background;
         levelArt = s.art;
         camera = new Camera(level.getWidth(), level.getHeight());
+        level.setLanternFill(world.takenCount());   // [B4] el Gran Farol muestra los fragmentos juntados
     }
 
     /**
@@ -533,7 +534,7 @@ public class GamePanel extends JPanel {
 
     private void showVictory() {
         screen = Screen.VICTORY;
-        victory.show(playTime, deaths);
+        victory.show(playTime, deaths, world.takenCount());
     }
 
     // =========================================================
@@ -722,6 +723,7 @@ public class GamePanel extends JPanel {
             particles.emitSpark(player.getCenterX(), player.getCenterY());
             FragmentAudio.playChime();
             storyLine.show(world.takenCount() - 1);
+            level.setLanternFill(world.takenCount());
             counterPulse = 0;
         }
     }
@@ -844,7 +846,7 @@ public class GamePanel extends JPanel {
         levelArt.drawFront(g2, camX, camY, light); // 3. repisas de roca, hongos, losas y runas
         level.draw(g2);                  //    salida
         for (Fragment f : level.getFragments()) {   //    [B4] los fragmentos que faltan por tomar
-            if (!world.isTaken(f.getId())) FragmentArt.draw(g2, f, level.getTime());
+            if (screen == Screen.PLAYING && !world.isTaken(f.getId())) FragmentArt.draw(g2, f, level.getTime());
         }
         background.drawSpores(g2, camX, camY); // 4. esporas flotando
         particles.draw(g2);              // 5. partículas

@@ -13,6 +13,7 @@ import umbra.core.Config;
 import umbra.math.Mat3;
 import umbra.math.Vec2;
 import umbra.world.Exploration;
+import umbra.world.Fragment;
 import umbra.world.Level;
 import umbra.world.World;
 
@@ -46,6 +47,7 @@ public class MapView {
     private static final double LABEL_GAP_PX = 50;
 
     private static final Color FRAME = new Color(90, 105, 140);
+    private static final Color GOLD = new Color(255, 205, 80);   // [B4] los fragmentos tomados
 
     private boolean open;
     private double time;   // segundos desde que se abrió
@@ -94,7 +96,7 @@ public class MapView {
             double h = level.getHeight();
             double ox = level.getWorldX() - minX, oy = level.getWorldY() - minY;   // dónde empieza la zona en el mapa (px del mundo)
             g.transform(view.multiply(Mat3.translation(ox, oy)).toAffineTransform());
-            drawLevel(g, level, world.exploration(i), light, h);
+            drawLevel(g, world, level, world.exploration(i), light, h, s);
             if (i == world.currentIndex()) drawMarks(g, candil, logi, s, level.getWidth(), h);
             g.setTransform(onScreen);
 
@@ -126,14 +128,32 @@ public class MapView {
     }
 
     /** Un nivel en su propio espacio (0..ancho, 0..alto): fondo, roca y bloques, brillo y oscuridad. */
-    private void drawLevel(Graphics2D g, Level level, Exploration ex, double light, double height) {
+    private void drawLevel(Graphics2D g, World world, Level level, Exploration ex, double light, double height, double s) {
         double w = level.getWidth();
         MapPainter.drawTerrain(g, level, height, null);
         MapPainter.drawFog(g, ex, w, height, 0, time, light, null);
 
+        drawFragments(g, world, level, s);
+
         g.setStroke(new BasicStroke(3f));   // en unidades del mundo: ~0.5 px en pantalla
         g.setColor(FRAME);
         g.draw(new Rectangle2D.Double(0, 0, w, height));
+    }
+
+    /**
+     * [B4] Un punto dorado donde estaba cada fragmento que ya se tomó (los que faltan no se dibujan,
+     * para no delatar dónde están). Va sobre la neblina. Tamaño en px de pantalla (se divide entre la escala 's').
+     */
+    private void drawFragments(Graphics2D g, World world, Level level, double s) {
+        double r = 4 / s;
+        for (Fragment f : level.getFragments()) {
+            if (!world.isTaken(f.getId())) continue;
+            double x = f.getCenterX(), y = f.getCenterY();
+            g.setColor(Text.withAlpha(GOLD, 0.35));
+            g.fill(new Ellipse2D.Double(x - 2 * r, y - 2 * r, 4 * r, 4 * r));
+            g.setColor(GOLD);
+            g.fill(new Ellipse2D.Double(x - r, y - r, 2 * r, 2 * r));
+        }
     }
 
     /**

@@ -6,6 +6,7 @@ import java.awt.Graphics2D;
 import java.util.List;
 
 import umbra.core.Config;
+import umbra.world.World;
 
 /**
  * [v1.0] Pantalla final: el nivel se oscurece y aparece el cierre de la historia, línea por
@@ -25,12 +26,12 @@ public class Victory {
         this.lines = lines;
     }
 
-    /** @param seconds tiempo jugado; @param deaths veces que Candil se desmoronó */
-    public void show(double seconds, int deaths) {
+    /** @param seconds tiempo jugado; @param deaths veces que Candil se desmoronó; @param fragments fragmentos juntados (de 6) */
+    public void show(double seconds, int deaths, int fragments) {
         time = 0;
         int s = (int) Math.round(seconds);
-        stats = String.format("Tiempo: %d:%02d          Candil se desmoron\u00f3 %d %s",
-                s / 60, s % 60, deaths, deaths == 1 ? "vez" : "veces");
+        stats = String.format("Tiempo: %d:%02d          Candil se desmoron\u00f3 %d %s          Fragmentos: %d/%d",
+                s / 60, s % 60, deaths, deaths == 1 ? "vez" : "veces", fragments, World.FRAGMENTS);
     }
 
     public void update(double dt) {
