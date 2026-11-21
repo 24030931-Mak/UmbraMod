@@ -35,6 +35,7 @@ public class Level {
     private final Rectangle2D exit;
     private final List<Rectangle2D> platforms = new ArrayList<>();
     private final List<Block> blocks = new ArrayList<>();
+    private final List<Fragment> fragments = new ArrayList<>();   // [B4] los pedazos del Gran Farol de la zona
     private Rectangle2D tempBridge;   // solo para el avance 30%
 
     /** Todo lo que es sólido para el jugador (repisas + bloques + puente). */
@@ -317,6 +318,11 @@ public class Level {
         rebuildSolids();
     }
 
+    /** [B4] Agrega un fragmento del Gran Farol a esta zona. */
+    public void addFragment(Fragment f) {
+        fragments.add(f);
+    }
+
     public void addBlock(Block block) {
         blocks.add(block);
         rebuildSolids();
@@ -472,5 +478,9 @@ public class Level {
     public Vec2 getSpawn() { return spawn; }
     public List<Rectangle2D> getPlatforms() { return Collections.unmodifiableList(platforms); }
     public List<Block> getBlocks() { return Collections.unmodifiableList(blocks); }
+    /** [B4] Los fragmentos de la zona (lista sin modificar). Cuáles se tomaron lo sabe World. */
+    public List<Fragment> getFragments() { return Collections.unmodifiableList(fragments); }
+    /** [B4] Segundos desde que se creó la zona: el reloj de lo que pulsa o se mece. */
+    public double getTime() { return time; }
     public List<Rectangle2D> getSolids() { return Collections.unmodifiableList(solids); }
 }

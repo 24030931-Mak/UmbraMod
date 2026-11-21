@@ -259,6 +259,18 @@ public class ParticleSystem {
     }
 
     /**
+     * [B4] El estallido al tomar un fragmento del Gran Farol: chispas doradas que salen del punto
+     * (x, y) en todas direcciones, suben un poco y se apagan.
+     */
+    public void emitFragmentBurst(double x, double y, int count) {
+        for (int i = 0; i < count; i++) {
+            double a = rand(0, Math.PI * 2), speed = rand(60, 190);
+            add(x, y, Math.cos(a) * speed, Math.sin(a) * speed - 30, rand(0.5, 1.1), rand(1.6, 3.0),
+                    -40, new Color(255, 214, 110), true);
+        }
+    }
+
+    /**
      * [v1.0] Una chispa de Logi: sale de la llama y flota hacia arriba (la gravedad negativa la
      * acelera un poco hacia arriba) mientras se desvanece y se apaga.
      */

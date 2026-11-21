@@ -272,6 +272,11 @@ public class Player {
         blinkLeft = Math.max(0, blinkLeft - dt);
     }
 
+    /** [B4] Llena la vida (al tomar un fragmento del Gran Farol). */
+    public void restoreLife() {
+        life = 1;
+    }
+
     /** Se desmorona de inmediato (por ejemplo, por estar demasiado cerca de la luz). */
     public void crumble() {
         if (dead) return;

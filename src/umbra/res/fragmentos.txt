@@ -1,0 +1,9 @@
+# Las 6 lineas de historia de los fragmentos del Gran Farol, en orden: la linea n sale al
+# tomar el fragmento numero n (sin importar cual sea). Una linea por renglon; las vacias y las
+# que empiezan con # se ignoran. Lo que empieza con raya lo dice Logi y se pinta de otro color.
+Un pedazo del Gran Farol. Todavía guarda un poco de su calor.
+—Brilla como cuando nada podía esconderse.
+Cada pedazo recuerda un rincón que antes no tenía sombras.
+Logi tiembla al tocarlo. Algo en ella quiere quedarse con la luz.
+—Ya casi. —Pero su llama se ve más oscura.
+El último pedazo. Arriba, en la Cúpula, el Gran Farol espera.

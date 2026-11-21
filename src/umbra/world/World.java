@@ -19,6 +19,10 @@ public class World {
     private final Exploration[] explored;   // lo recorrido de cada nivel, para el mapa
     private int current;
 
+    /** [B4] Cuántos fragmentos del Gran Farol hay en toda la cueva. */
+    public static final int FRAGMENTS = 6;
+    private final boolean[] taken = new boolean[FRAGMENTS];   // cuáles ya se tomaron (por número)
+
     public World(List<Level> levels) {
         this.levels = Collections.unmodifiableList(new ArrayList<>(levels));
         this.visited = new boolean[levels.size()];
@@ -87,9 +91,29 @@ public class World {
         return first;
     }
 
-    /** Partida nueva: vuelve al primer nivel y olvida lo visitado y lo recorrido. */
+    /** [B4] ¿Ya se tomó el fragmento 'id'? */
+    public boolean isTaken(int id) {
+        return id >= 0 && id < FRAGMENTS && taken[id];
+    }
+
+    /** [B4] Marca el fragmento 'id' como tomado. Regresa true solo la primera vez (y false si el número no existe). */
+    public boolean take(int id) {
+        if (id < 0 || id >= FRAGMENTS || taken[id]) return false;
+        taken[id] = true;
+        return true;
+    }
+
+    /** [B4] Cuántos fragmentos se han tomado. */
+    public int takenCount() {
+        int n = 0;
+        for (boolean t : taken) if (t) n++;
+        return n;
+    }
+
+    /** Partida nueva: vuelve al primer nivel y olvida lo visitado, lo recorrido y los fragmentos tomados. */
     public void reset() {
         Arrays.fill(visited, false);
+        Arrays.fill(taken, false);
         for (Exploration e : explored) e.reset();
         enter(0);
     }

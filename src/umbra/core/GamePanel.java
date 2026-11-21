@@ -24,12 +24,14 @@ import javax.swing.JPanel;
 import javax.swing.Timer;
 
 import umbra.audio.DangerAudio;
+import umbra.audio.FragmentAudio;
 import umbra.audio.Music;
 import umbra.audio.VoiceOver;
 import umbra.entities.LightSource;
 import umbra.entities.Player;
 import umbra.graphics.Background;
 import umbra.graphics.Camera;
+import umbra.graphics.FragmentArt;
 import umbra.graphics.LevelArt;
 import umbra.graphics.ParticleSystem;
 import umbra.graphics.ShadowCaster;
@@ -40,7 +42,9 @@ import umbra.ui.LevelTitle;
 import umbra.ui.MapView;
 import umbra.ui.MiniMap;
 import umbra.ui.Menu;
+import umbra.ui.StoryLine;
 import umbra.ui.Victory;
+import umbra.world.Fragment;
 import umbra.world.Level;
 import umbra.world.Passage;
 import umbra.world.World;
@@ -110,6 +114,11 @@ public class GamePanel extends JPanel {
     private final LevelTitle levelTitle = new LevelTitle();
     private final MapView mapView = new MapView();
     private final MiniMap miniMap = new MiniMap();
+    /** [B4] La línea de historia que sale al tomar un fragmento del Gran Farol (res/fragmentos.txt). */
+    private final StoryLine storyLine = new StoryLine(Resources.readLines("/umbra/res/fragmentos.txt"));
+    /** [B4] Segundos desde que se tomó el último fragmento: el contador pulsa mientras es corto. */
+    private double counterPulse = 99;
+    private static final double COUNTER_PULSE_TIME = 0.6;
     private final Victory victory = new Victory(Resources.readLines("/umbra/res/final.txt"));
     /** Logi del menú y de la pantalla final: etérea, sigue al ratón en coordenadas de pantalla. */
     private final LightSource menuLight = new LightSource(Config.WIDTH / 2.0, Config.HEIGHT / 3.0);
@@ -190,6 +199,7 @@ public class GamePanel extends JPanel {
         setDoubleBuffered(true);
         setFocusable(true);
         setFocusTraversalKeysEnabled(false);   // Swing se queda con Tab para cambiar el foco; el juego lo necesita
+        FragmentAudio.preload();   // [B4] igual con el tono de los fragmentos
         DangerAudio.preload();   // sintetiza el zumbido y el desmoronarse ahora, no en el primer cuadro (congelaría la intro)
 
         addKeyListener(input);
@@ -427,7 +437,9 @@ public class GamePanel extends JPanel {
     /** Empieza el nivel desde el principio (desde el menú o al jugar de nuevo). */
     private void startGame() {
         VoiceOver.stop();   // si se salta la intro, la narración se corta
-        world.reset();
+        world.reset();   // también borra los fragmentos tomados
+        storyLine.hide();
+        counterPulse = 99;
         useCurrentLevel();
         logiWaiting = false;   // partida nueva: Logi sigue al ratón desde el principio
         restart();
@@ -549,6 +561,8 @@ public class GamePanel extends JPanel {
         }
         if (input.wasPressed(KeyEvent.VK_R)) restart();
         levelTitle.update(dt);
+        storyLine.update(dt);
+        counterPulse += dt;
 
         // ---- Luz: sigue al ratón suavemente; con un clic se fija o se suelta ----
         // El ratón está en coordenadas de pantalla y la luz vive en el mundo:
@@ -621,6 +635,8 @@ public class GamePanel extends JPanel {
 
             emitPlayerEffects(dt);
 
+            collectFragments();   // [B4] después del desmoronarse: si Candil acaba de morir, no toma nada
+
             // Recuerda la última repisa firme que pisó, para reaparecer ahí
             Rectangle2D ground = level.getPlatformUnder(player.getBounds());
             if (ground != null) {
@@ -686,6 +702,27 @@ public class GamePanel extends JPanel {
         }
         if (player.isInShadow() && Math.random() < dt * 4.0) {
             particles.emitShadowMote(cx + (Math.random() - 0.5) * 90, cy + (Math.random() - 0.5) * 60);
+        }
+    }
+
+    /**
+     * [B4] Si la caja de Candil (vivo) toca un fragmento que no se ha tomado: lo marca como
+     * tomado, llena su vida y lanza el momento (chispas, tono, contador y la línea de historia
+     * que toca según cuántos lleva). World.take regresa true solo la primera vez, así que un
+     * fragmento cuenta una sola vez aunque se toque en el mismo cuadro de un paso o de una caída.
+     */
+    private void collectFragments() {
+        if (player.isDead()) return;
+        Rectangle2D body = player.getBounds();
+        for (Fragment f : level.getFragments()) {
+            if (world.isTaken(f.getId()) || !body.intersects(f.getBounds())) continue;
+            if (!world.take(f.getId())) continue;
+            player.restoreLife();
+            particles.emitFragmentBurst(f.getCenterX(), f.getCenterY(), 26);
+            particles.emitSpark(player.getCenterX(), player.getCenterY());
+            FragmentAudio.playChime();
+            storyLine.show(world.takenCount() - 1);
+            counterPulse = 0;
         }
     }
 
@@ -756,6 +793,7 @@ public class GamePanel extends JPanel {
             if (screen == Screen.PLAYING) {
                 drawHud(g2);
                 levelTitle.draw(g2);
+                storyLine.draw(g2);
                 mapView.draw(g2, world, new Vec2(player.getCenterX(), player.getCenterY()), light.getPosition());
             } else {
                 victory.drawVeil(g2);
@@ -805,6 +843,9 @@ public class GamePanel extends JPanel {
         drawShadows(g2);                 // 2. sombras (el refugio de Candil)
         levelArt.drawFront(g2, camX, camY, light); // 3. repisas de roca, hongos, losas y runas
         level.draw(g2);                  //    salida
+        for (Fragment f : level.getFragments()) {   //    [B4] los fragmentos que faltan por tomar
+            if (!world.isTaken(f.getId())) FragmentArt.draw(g2, f, level.getTime());
+        }
         background.drawSpores(g2, camX, camY); // 4. esporas flotando
         particles.draw(g2);              // 5. partículas
         player.draw(g2);                 // 6. jugador
@@ -832,6 +873,13 @@ public class GamePanel extends JPanel {
         g.fillRoundRect(x, y, (int) Math.round(w * life), h, h, h);
         g.setColor(new Color(150, 150, 170));
         g.drawRoundRect(x, y, w, h, h, h);
+
+        // [B4] El contador de fragmentos, debajo de la barra: el icono y "n/6". Pulsa al subir.
+        int n = world.takenCount();
+        double k = counterPulse < COUNTER_PULSE_TIME ? 1 + 0.45 * Math.sin(Math.PI * counterPulse / COUNTER_PULSE_TIME) : 1;
+        FragmentArt.drawIcon(g, x + 10, y + 34, 0.75 * k, n > 0);
+        g.setColor(n > 0 ? new Color(255, 226, 172) : new Color(150, 150, 170));
+        g.drawString(n + "/" + World.FRAGMENTS, x + 26, y + 39);
     }
 
     private void drawShadows(Graphics2D g) {

@@ -198,6 +198,11 @@ public final class DangerAudio {
         crumbleClip.start();
     }
 
+    /** [B4] Si el silencio global está activo (FragmentAudio lo respeta). */
+    public static boolean isMuted() {
+        return muted;
+    }
+
     /** Silencia o reactiva el audio de peligro y desmoronamiento (tecla M). */
     public static void setMuted(boolean m) {
         muted = m;
