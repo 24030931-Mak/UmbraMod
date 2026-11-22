@@ -95,6 +95,22 @@ public final class Cave {
      *      60 px la sombra sale chueca, pega en la roca del techo y no hay camino. Quien baje de la
      *      Cúpula por el hueco cae en la losa, y abajo de todo está el piso derecho.
      *
+     * [B4] Los fragmentos del Gran Farol (4 y 5), sin piezas nuevas:
+     *   - El del camino (4), en (1310, 1012): en la orilla izquierda del piso derecho, a la altura
+     *     de Candil, donde cae al terminar el columpio y por donde camina para empezar la chimenea.
+     *     Es la mitad de la zona (a lo ancho y a lo alto) y de la ruta (tres tramos de cinco).
+     *   - El escondido (5), en (2250, 285): en el aire, 270 px a la derecha de la losa del hueco y a
+     *     su altura, bajo el techo del tiro derecho. Usa esa losa de otra forma: con Logi fija a su
+     *     izquierda y a su altura, en (1620, 285) (sobre el vacío entre la chimenea y la repisa del
+     *     hueco), su sombra sale de lado, una franja casi horizontal hacia la derecha (y 255 a 315
+     *     ahí). Candil salta de la repisa del hueco a la losa, se deja caer por su orilla derecha a la
+     *     franja y nada por ella hasta el fragmento. Sin sombras no se llega: a esa altura, ningún
+     *     salto ni caída pasa de x = 2110, a más de 120 px de él. Aguanta a Logi corrida 15 px a
+     *     cualquier lado y se llega con casi toda la vida (88 % en el peor caso). De vuelta: nada a
+     *     la izquierda y arriba, sale de la sombra de un salto, cae en la losa y de ahí salta a la
+     *     repisa del hueco (bajo su techo); o se deja caer al piso derecho, que se vuelve su punto
+     *     firme, y sube otra vez por la chimenea. No toca el columpio ni el hueco del techo.
+     *
      * Las únicas repisas que se pisan son el inicio o el fin de algún tramo (la entrada, la
      * abertura, la orilla baja, el piso derecho y la repisa del hueco): si Candil cae, reaparece en
      * una de ellas y puede seguir. Las paredes y techos suben hasta el techo del mundo y no se
@@ -128,6 +144,10 @@ public final class Cave {
         lvl.addBlock(new Block(1465, 690, 90,  30));
         lvl.addBlock(new Block(1565, 440, 50,  30));
         lvl.addBlock(new Block(1940, 270, 40,  30));   // tramo 5: la losa del hueco
+
+        // [B4] Los fragmentos del Gran Farol (ver el comentario de arriba)
+        lvl.addFragment(new Fragment(4, 1310, 1012));   // el del camino: en la orilla del piso derecho, tras el columpio
+        lvl.addFragment(new Fragment(5, 2250, 285));    // el escondido: a la derecha de la losa del hueco, a su altura
         return lvl;
     }
 
