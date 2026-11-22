@@ -230,6 +230,17 @@ public class LightSource {
         LogiArt.drawCore(g, this);
     }
 
+    /**
+     * La llama negra del final: Logi sin LightSource, en (x, y). Es el mismo camino que drawCore
+     * (LightSource es la puerta pública de LogiArt, que es de paquete). Lo dibuja LogiArt.
+     * @param darkness 0 = Logi calmada; 0,5 = roja; 1 = la llama negra
+     * @param scale    tamaño (1 = el normal)
+     * @param time     reloj de la animación, en segundos
+     */
+    public static void drawDark(Graphics2D g, double x, double y, double darkness, double scale, double time) {
+        LogiArt.drawDark(g, x, y, darkness, scale, time);
+    }
+
     /** Curva suave de 0 (en e0) a 1 (en e1): 3t² - 2t³, arranca y termina despacio. */
     private static double smoothstep(double e0, double e1, double v) {
         double t = Math.max(0, Math.min(1, (v - e0) / (e1 - e0)));

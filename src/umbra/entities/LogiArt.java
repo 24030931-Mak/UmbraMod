@@ -151,6 +151,91 @@ final class LogiArt {
         g.setPaint(oldPaint);
     }
 
+    // ---- La llama negra: los colores por donde pasa de naranja a rojo y a negro ----
+    private static final Color RED_OUTER = new Color(190, 40, 40);     // a la mitad (boceto: 190, 40, 40)
+    private static final Color RED_MIDDLE = new Color(215, 70, 45);
+    private static final Color RED_CORE = new Color(240, 150, 100);
+    private static final Color BLACK_OUTER = new Color(8, 8, 12);      // la llama negra (boceto: 8, 8, 12)
+    private static final Color BLACK_MIDDLE = new Color(18, 12, 18);
+    private static final Color BLACK_CORE = new Color(40, 24, 30);
+    private static final Color RED_HALO = new Color(255, 122, 61);
+    private static final Color BLACK_HALO = new Color(120, 20, 30);
+    private static final Color WHITE_EYES = new Color(244, 246, 255);
+
+    /**
+     * La llama negra: la Logi calmada de drawCore, pero sin LightSource (en (x, y), con 'time'), que se va
+     * oscureciendo. La forma es la misma y el reloj de la llama es 'time' (en calma, la fase de LightSource
+     * avanza igual que su reloj: con darkness = 0 y scale = 1 sale pixel a pixel lo mismo que drawCore).
+     *   0 a 0,5     el color pasa de naranja a rojo (y el centro blanco amarillo se entibia);
+     *   0,5 a 1     de rojo a negro (el centro se apaga) y la llama engorda y se estira un poco;
+     *   desde 0,7   salen las lenguas de los lados y los ojos se vuelven blancos, alargados y torcidos.
+     * No dibuja el halo grande de luz (drawGlow): solo el halo cercano, que pasa de cálido a rojo oscuro.
+     */
+    static void drawDark(Graphics2D g, double x, double y, double darkness, double scale, double time) {
+        Paint oldPaint = g.getPaint();
+        AffineTransform old = g.getTransform();
+        double dk = Math.max(0, Math.min(1, darkness));
+        double toRed = Math.min(1, 2 * dk);                     // 0 a 0,5 -> 0 a 1
+        double toBlack = Math.max(0, 2 * dk - 1);               // 0,5 a 1 -> 0 a 1
+        double grow = smooth(0.5, 1, dk);                       // engorda en la segunda mitad
+        double tongues = smooth(0.7, 0.85, dk);                 // lenguas de los lados
+        double white = smooth(0.6, 0.8, dk);                    // ojos blancos
+
+        double cx = x, cy = y + BOB * scale * Math.sin(time * BOB_SPEED);   // flota
+        double r = HEAD * (1 + 0.3 * grow);
+        double len = Math.max(HEAD, HEAD * CALM_LENGTH) * (1 + 0.4 * grow);
+        double amp = HEAD * (0.12 + 0.2 * grow);                // y ondula más
+        double angle = Math.atan2(-1, 0) + 0.08 * Math.sin(time * 1.9);
+
+        Color cOuter = mix(mix(OUTER, RED_OUTER, toRed), BLACK_OUTER, toBlack);
+        Color cMiddle = mix(mix(MIDDLE, RED_MIDDLE, toRed), BLACK_MIDDLE, toBlack);
+        Color cCore = mix(mix(CORE, RED_CORE, toRed), BLACK_CORE, toBlack);
+        Color cHalo = mix(mix(HALO, RED_HALO, toRed), BLACK_HALO, toBlack);
+
+        // 1. Halo cercano
+        float hr = (float) (HEAD * 2.6 * scale * (1 + 0.6 * grow));
+        g.setPaint(new RadialGradientPaint(new Point2D.Double(cx, cy), hr, new float[] { 0f, 1f },
+                new Color[] { withAlpha(cHalo, 80 * (1 - 0.1 * dk)), withAlpha(cHalo, 0) }));
+        g.fill(new Ellipse2D.Double(cx - hr, cy - hr, 2 * hr, 2 * hr));
+
+        // 2. La llama en coordenadas locales (cola sobre +x), con su tamaño
+        g.transform(Mat3.translation(cx, cy).multiply(Mat3.rotation(angle)).toAffineTransform());
+        g.scale(scale, scale);
+        if (tongues > 0.01) {
+            // Dos lenguas a los lados de la cola: la misma curva, girada casi a lo ancho y con su propio ritmo
+            for (int s = -1; s <= 1; s += 2) {
+                AffineTransform at = g.getTransform();
+                g.rotate(s * 1.15);
+                fillLayer(g, layer(0, 0.62 * r, tongues * 0.95 * len, 0.9 * amp, time + s * 1.7), cOuter, 225 * tongues);
+                g.setTransform(at);
+            }
+        }
+        fillLayer(g, layer(0, r, len, amp, time), cOuter, 225);
+        fillLayer(g, layer(-0.1 * HEAD, 0.7 * r, 0.75 * len, 0.8 * amp, time + 0.4), cMiddle, 235);
+        fillLayer(g, layer(-0.18 * HEAD, 0.42 * r, 0.5 * len, 0.6 * amp, time + 0.8), cCore,
+                245 * (1 - smooth(0.4, 0.9, dk)));   // el centro se apaga
+        g.setTransform(old);
+
+        // 3. Ojos: derechos, oscuros -> negros -> blancos, alargados y torcidos
+        double w = 2.4 * (1 + 0.3 * white) * scale;
+        double h = 3.8 * (1 + 0.8 * white) * scale;
+        double ex = cx, ey = cy - 0.5 * scale, sep = 3.4 * scale, tilt = 0.35 * white;
+        g.setColor(withAlpha(mix(mix(EYES, Color.BLACK, Math.min(1, dk / 0.6)), WHITE_EYES, white), 235 + 20 * white));
+        for (int s = -1; s <= 1; s += 2) {
+            if (tilt > 0) g.rotate(-s * tilt, ex + s * sep, ey);   // los de arriba hacia adentro, como el boceto
+            g.fill(new Ellipse2D.Double(ex + s * sep - w / 2, ey - h / 2, w, h));
+            if (tilt > 0) g.rotate(s * tilt, ex + s * sep, ey);
+        }
+        g.setTransform(old);
+        g.setPaint(oldPaint);
+    }
+
+    /** Curva suave de 0 (en e0) a 1 (en e1): 3t² - 2t³. */
+    private static double smooth(double e0, double e1, double v) {
+        double t = Math.max(0, Math.min(1, (v - e0) / (e1 - e0)));
+        return t * t * (3 - 2 * t);
+    }
+
     /**
      * Contorno de una capa de la llama, en coordenadas locales: la cabeza es un círculo de radio
      * r con centro en (x0, 0) y la cola apunta hacia +x, hasta 'len' del centro. Son cuatro
