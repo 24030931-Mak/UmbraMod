@@ -14,7 +14,7 @@ import umbra.core.Config;
 
 /**
  * [B4] La línea de historia que sale al tomar un fragmento: un subtítulo abajo y centrado que se
- * ve unos 4.5 s y se desvanece. No detiene el juego y no tiene voz. Si se toma otro fragmento
+ * ve unos 4.5 s y se desvanece (o lo que dure su voz más medio segundo, si la tiene). No detiene el juego. Si se toma otro fragmento
  * mientras hay una línea en pantalla, la nueva reemplaza a la anterior.
  *
  * Lo que empieza con raya (—) lo dice Logi y se pinta de otro color, igual que en la intro
@@ -30,6 +30,8 @@ public final class StoryLine {
     /** Segundos que la línea está en pantalla (con su entrada y su salida incluidas). */
     public static final double DURATION = 4.5;
     private static final double FADE_IN = 0.35, FADE_OUT = 0.8;
+    /** Segundos que la línea sigue en pantalla después de que termina su voz. */
+    private static final double VOICE_MARGIN = 0.5;
 
     private static final Font FONT = new Font(Font.SERIF, Font.ITALIC, 24);
     private static final Color NARRATION = new Color(225, 240, 255);
@@ -46,6 +48,7 @@ public final class StoryLine {
     private int index = -1;   // la línea que se muestra; -1 = ninguna
     private boolean atTop;    // se elige al aparecer: la línea va arriba porque Candil está abajo
     private double time;      // segundos desde que se mostró
+    private double duration = DURATION;   // lo que dura la que se muestra: DURATION o más si su voz es larga
 
     // Renglones ya partidos de la línea que se muestra (se calculan en el primer draw de cada show)
     private final List<String> rows = new ArrayList<>();
@@ -70,9 +73,22 @@ public final class StoryLine {
         show(index, candilY > LOW_THIRD);
     }
 
+    /**
+     * Igual que show(index, candilY), pero la línea dura al menos 'voiceSeconds' + 0.5 s (lo que
+     * dura su voz más un respiro), y nunca menos que DURATION. Con 0 es igual a show(index, candilY).
+     */
+    public void show(int index, double candilY, double voiceSeconds) {
+        show(index, candilY > LOW_THIRD, voiceSeconds);
+    }
+
     private void show(int index, boolean top) {
+        show(index, top, 0);
+    }
+
+    private void show(int index, boolean top, double voiceSeconds) {
         if (index < 0 || index >= lines.size()) return;
         this.index = index;
+        this.duration = Math.max(DURATION, voiceSeconds + VOICE_MARGIN);
         this.atTop = top;
         time = 0;
         rowsReady = false;
@@ -86,10 +102,13 @@ public final class StoryLine {
     public void update(double dt) {
         if (index < 0) return;
         time += dt;
-        if (time >= DURATION) index = -1;
+        if (time >= duration) index = -1;
     }
 
     public boolean isShowing() { return index >= 0; }
+
+    /** Segundos que dura la línea que se muestra (DURATION, o más si su voz es larga). */
+    public double duration() { return duration; }
 
     /** El número de la línea que se muestra, o -1 si no hay ninguna. */
     public int currentIndex() { return index; }
@@ -133,7 +152,7 @@ public final class StoryLine {
     /** Opacidad de 0 a 1: entra en FADE_IN s, se queda y sale en los últimos FADE_OUT s. */
     private double alpha() {
         double in = Math.min(1, time / FADE_IN);
-        double out = Math.min(1, (DURATION - time) / FADE_OUT);
+        double out = Math.min(1, (duration - time) / FADE_OUT);
         return Math.max(0, Math.min(in, out));
     }
 

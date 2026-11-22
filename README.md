@@ -160,7 +160,7 @@ src/umbra/
 │   └── Mat3.java             Matriz 3x3 (traslación, rotación, escala)
 ├── res/
 │   ├── ambiente.wav          Música
-│   ├── voz_1.wav … voz_6.wav Narración de la intro, una por escena
+│   ├── voz_1.wav … voz_6.wav Narración de la intro, una por escena; voz_7 … voz_12: la voz de cada línea de fragmentos.txt
 │   ├── intro.txt             Texto de respaldo de la intro: sale solo si la voz no puede sonar
 │   ├── fragmentos.txt        Las líneas de historia que salen al tomar cada fragmento
 │   └── final.txt             Texto de la pantalla final (algunas líneas dependen de los fragmentos)
@@ -296,3 +296,5 @@ Las versiones siguen: el juego todavía puede crecer.
 La música está en `src/umbra/res/ambiente.wav` y se repite sin fin (**M** la silencia). Para cambiarla, reemplaza ese archivo por otro **WAV** con el mismo nombre: de preferencia mono, de 22 050 o 44 100 Hz y de 3 minutos o menos. Java no lee MP3, así que hay que convertirla antes.
 
 La narración de la intro está en `src/umbra/res/voz_1.wav` … `voz_6.wav`, una por escena (WAV PCM de 16 bits, 44 100 Hz, estéreo). Mientras habla, la música baja un poco; **M** silencia las dos. Si una voz falta o no hay tarjeta de sonido, la intro muestra el texto de `intro.txt` en su lugar.
+
+`voz_7.wav` a `voz_12.wav` son las voces de las líneas de los fragmentos, una por línea de `fragmentos.txt` en orden, con el mismo formato que las de la intro: la línea n suena al tomar el fragmento número n. Si falta una, solo sale el texto.

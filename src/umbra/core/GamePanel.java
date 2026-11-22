@@ -117,6 +117,10 @@ public class GamePanel extends JPanel {
     private final MapView mapView = new MapView();
     private final MiniMap miniMap = new MiniMap();
     /** [B4] La línea de historia que sale al tomar un fragmento del Gran Farol (res/fragmentos.txt). */
+    /** voz_7 a voz_12: la voz de la línea n de fragmentos.txt es la n-ésima de esta lista (si el archivo existe). */
+    private static final String[] FRAGMENT_VOICES = {
+        "/umbra/res/voz_7.wav", "/umbra/res/voz_8.wav", "/umbra/res/voz_9.wav",
+        "/umbra/res/voz_10.wav", "/umbra/res/voz_11.wav", "/umbra/res/voz_12.wav" };
     private final StoryLine storyLine = new StoryLine(Resources.readLines("/umbra/res/fragmentos.txt"));
     /** [B4] Segundos desde que se tomó el último fragmento: el contador pulsa mientras es corto. */
     private double counterPulse = 99;
@@ -216,6 +220,7 @@ public class GamePanel extends JPanel {
         setFocusable(true);
         setFocusTraversalKeysEnabled(false);   // Swing se queda con Tab para cambiar el foco; el juego lo necesita
         FragmentAudio.preload();   // [B4] igual con el tono de los fragmentos
+        VoiceOver.preloadKept(FRAGMENT_VOICES);   // las voces de los fragmentos que existan, para que la primera no congele el juego
         DangerAudio.preload();   // sintetiza el zumbido y el desmoronarse ahora, no en el primer cuadro (congelaría la intro)
 
         addKeyListener(input);
@@ -531,7 +536,7 @@ public class GamePanel extends JPanel {
      */
     private void startGame(int slot) {
         this.slot = slot;
-        VoiceOver.stop();   // si se salta la intro, la narración se corta
+        VoiceOver.stop();   // si se salta la intro, la narración se corta (y la voz de un fragmento, si seguía)
         world.reset();   // también borra los fragmentos tomados
         storyLine.hide();
         fragmentFlights.clear();
@@ -687,6 +692,7 @@ public class GamePanel extends JPanel {
     }
 
     private void backToMenu() {
+        VoiceOver.stop();   // la voz de un fragmento no sigue en el menú
         // El ratón no se movió: así el primer cuadro del menú no cambia la fila elegida
         menuMouseX = input.getMouseX();
         menuMouseY = input.getMouseY();
@@ -706,6 +712,7 @@ public class GamePanel extends JPanel {
 
     private void showVictory() {
         screen = Screen.VICTORY;
+        VoiceOver.stop();   // la voz de un fragmento no sigue en la pantalla final
         fragmentFlights.clear();
         victory.show(playTime, deaths, world.takenCount());
     }
@@ -734,7 +741,10 @@ public class GamePanel extends JPanel {
             fadeTo(this::backToMenu);
             return;
         }
-        if (input.wasPressed(KeyEvent.VK_R)) restart();
+        if (input.wasPressed(KeyEvent.VK_R)) {
+            VoiceOver.stop();   // R corta la voz del fragmento (al morir, en cambio, sigue)
+            restart();
+        }
         levelTitle.update(dt);
         storyLine.update(dt);
         counterPulse += dt;
@@ -897,8 +907,15 @@ public class GamePanel extends JPanel {
             player.restoreLife();
             fragmentFlights.start(f.getCenterX(), f.getCenterY());   // el cristal vuela hacia Candil (solo visual)
             FragmentAudio.playChime();
-            // Si Candil está en el tercio de abajo de la pantalla, la línea va arriba para no taparlo
-            storyLine.show(world.takenCount() - 1, player.getCenterY() - camera.getY());
+            // La voz de la línea n (voz_(6+n).wav) suena junto con la campana, si el archivo existe;
+            // corta la voz anterior igual que la línea nueva reemplaza a la anterior
+            int n = world.takenCount();
+            boolean spoken = n >= 1 && n <= FRAGMENT_VOICES.length && VoiceOver.playIfAvailable(FRAGMENT_VOICES[n - 1]);
+            double voiceSeconds = spoken ? VoiceOver.getDurationSeconds() : 0;
+            if (!spoken) VoiceOver.stop();
+            // Si Candil está en el tercio de abajo de la pantalla, la línea va arriba para no taparlo;
+            // dura lo que su voz más medio segundo, y nunca menos que de costumbre
+            storyLine.show(n - 1, player.getCenterY() - camera.getY(), voiceSeconds);
             level.setLanternFill(world.takenCount());
             counterPulse = 0;
         }

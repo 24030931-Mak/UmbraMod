@@ -3,7 +3,10 @@ package umbra.audio;
 import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
@@ -28,6 +31,8 @@ public final class VoiceOver {
     private static Clip currentClip;
     private static FloatControl gain;
     private static boolean muted;
+    /** Rutas que preloadKept abrió: release() las deja abiertas (la intro termina, el juego sigue). */
+    private static final Set<String> kept = new HashSet<>();
     private static boolean failed;   // el último play() no pudo sonar (sin archivo o sin tarjeta de sonido)
 
     private VoiceOver() { }
@@ -49,11 +54,55 @@ public final class VoiceOver {
         }
     }
 
-    /** Detiene la narración y cierra todos los clips cargados (al terminar la intro). */
+    /**
+     * Como preload(), pero los clips que existan quedan fuera de release(): son las voces de los
+     * fragmentos, que se abren al arrancar el juego y deben seguir cargadas cuando la intro suelta
+     * las suyas. Los que no existan se ignoran sin avisar. Si la ruta ya estaba cargada (por la
+     * intro), solo se marca para que release() no la cierre.
+     */
+    public static void preloadKept(String... paths) {
+        preload(paths);
+        for (String path : paths) {
+            if (path != null && loaded.containsKey(path)) kept.add(path);
+        }
+    }
+
+    /** Detiene la narración y cierra los clips cargados (al terminar la intro), salvo los de preloadKept. */
     public static void release() {
         stop();
-        for (Clip c : loaded.values()) c.close();
-        loaded.clear();
+        for (Iterator<Map.Entry<String, Clip>> it = loaded.entrySet().iterator(); it.hasNext(); ) {
+            Map.Entry<String, Clip> e = it.next();
+            if (kept.contains(e.getKey())) continue;
+            e.getValue().close();
+            it.remove();
+        }
+    }
+
+    /**
+     * Reproduce 'path' solo si existe y se puede leer; si no, no hace nada: sin avisos, sin traza
+     * y sin tocar failed() (que es de la intro). Regresa true si quedó sonando. Detiene antes
+     * la voz anterior, igual que play().
+     */
+    public static boolean playIfAvailable(String path) {
+        stop();
+        try {
+            Clip clip = loaded.get(path);
+            if (clip == null) {
+                clip = open(path);   // no se precargó (no existía al arrancar, o falló): se intenta ahora
+            } else {
+                clip.setFramePosition(0);
+            }
+            currentClip = clip;
+            gain = clip.isControlSupported(FloatControl.Type.MASTER_GAIN)
+                    ? (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN) : null;
+            applyMute();
+            clip.start();
+            return true;
+        } catch (Exception e) {
+            currentClip = null;
+            gain = null;
+            return false;
+        }
     }
 
     /** Reproduce la narración desde el principio; detiene la anterior si seguía sonando. */
