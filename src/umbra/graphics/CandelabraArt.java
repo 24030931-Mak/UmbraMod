@@ -37,8 +37,10 @@ import java.awt.image.BufferedImage;
  * ancho / 480 y alto / 450; el candelabro queda centrado en x, con la punta abajo de la caja, y las
  * cadenas crecen hasta arriba de la caja. Las formas fijas se arman una sola vez (son constantes);
  * en cada cuadro solo se cambia la matriz, así que dibujar no arma geometría nueva salvo la de los
- * brazos que se están cerrando. Y la piedra de atrás, que es lo más caro y en el juego no cambia,
- * se guarda dibujada en una imagen mientras los brazos estén abiertos (ver stoneCache).
+ * brazos que se están cerrando. Y lo quieto (la piedra, los fragmentos y sus brillos, el vidrio),
+ * que en el juego solo cambia al tomar un fragmento, se guarda dibujado en imágenes mientras los
+ * brazos estén abiertos (ver backCache): en cada cuadro solo se dibujan las llamas, la
+ * respiración del vidrio y el halo.
  */
 public final class CandelabraArt {
 
@@ -130,10 +132,15 @@ public final class CandelabraArt {
     private static final Stroke RIM_STROKE = new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
     private static final Stroke CRACK_STROKE = new BasicStroke(1.3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
 
-    // ---- La piedra de atrás ya dibujada (una sola, para el último tamaño de caja que se repitió) ----
-    private static BufferedImage cache, haloCache;
-    private static double cacheW = -1, cacheH = -1, cacheOx, cacheOy;
-    private static double askedW = -1, askedH = -1;   // el último tamaño pedido
+    // ---- Lo quieto ya dibujado: una sola versión, la del último tamaño de caja y estado que se
+    //      repitió (ver backCache). El halo solo depende del tamaño ----
+    private static BufferedImage cache, frontCache, haloCache;
+    private static double cacheW = -1, cacheH = -1, cacheWarm = -1, cacheOx, cacheOy, frontOx, frontOy;
+    private static final double[] cacheLit = new double[CandelabraState.ARMS];
+    private static double haloW = -1, haloH = -1;
+    private static double askedW = -1, askedH = -1, askedWarm = -1;   // lo último que se pidió
+    private static final double[] askedLit = new double[CandelabraState.ARMS];
+    private static final Rectangle2D.Double FRONT_BOUNDS = new Rectangle2D.Double(-64, -88, 128, 162);   // el vidrio y su marco
 
     /** Transparencias ya hechas (de 0 a 1 en 64 pasos), para no crear una en cada cuadro. */
     private static final AlphaComposite[] ALPHA = new AlphaComposite[65];
@@ -252,8 +259,9 @@ public final class CandelabraArt {
 
     /**
      * Las cadenas, la corona, los brazos abiertos con sus copas (y sus fragmentos y llamas), el
-     * cuenco y el interior del vidrio. La piedra, mientras los 6 brazos estén abiertos, sale de una
-     * imagen ya dibujada (ver stoneCache); lo que arde se dibuja encima en cada cuadro.
+     * cuenco y el interior del vidrio. Mientras los 6 brazos estén abiertos, todo lo quieto sale
+     * de una imagen ya dibujada (ver backCache) y en cada cuadro solo se dibujan las llamas de las
+     * copas y la respiración fría del vidrio.
      */
     public static void drawBack(Graphics2D g, Rectangle2D box, CandelabraState s, double time) {
         AffineTransform saved = g.getTransform();
@@ -261,37 +269,22 @@ public final class CandelabraArt {
         Stroke oldStroke = g.getStroke();
         Composite oldComposite = g.getComposite();
         double k = scale(box), tx = box.getCenterX() + s.shake, ty = heartY(box);
-        if (allOpen(s) && stoneCache(box)) {
-            g.drawImage(cache, (int) Math.round(tx - cacheOx), (int) Math.round(ty - cacheOy), null);
-        } else {
-            g.translate(tx, ty);
-            g.scale(k, k);
-            stoneLayer(g, (box.getMinY() - ty) / k, s);
-            g.setTransform(saved);
-        }
+        boolean cached = allOpen(s) && backCache(box, s);
+        if (cached) g.drawImage(cache, (int) Math.round(tx - cacheOx), (int) Math.round(ty - cacheOy), null);
         g.translate(tx, ty);
         g.scale(k, k);
-
-        // Lo que arde: las copas con fragmento, el rombo de la corona y el vidrio
+        if (!cached) {
+            stoneLayer(g, (box.getMinY() - ty) / k, s);
+            litLayer(g, s);
+        }
+        // Lo que se mueve: las llamas de las copas y el vidrio frío, que respira
         for (int arm = 0; arm < CandelabraState.ARMS; arm++) {
-            if (s.armClosed[arm] <= 0.001 && s.armLit[arm] > 0) cupLights(g, arm, 0, s.armLit[arm], time);
+            if (s.armClosed[arm] <= 0.001) cupFlame(g, arm, 0, s.armLit[arm], time);
         }
-        if (s.glassWarm > 0) {   // con fragmentos, el rombo se enciende con el vidrio
-            g.setComposite(alpha(s.glassWarm));
-            g.setStroke(RUNE_STROKE);
-            g.setColor(WARM);
-            g.draw(RUNE);
-            g.setComposite(oldComposite);
-        }
-        double breath = 0.5 + 0.5 * Math.sin(time * 1.3);   // el vidrio respira: frío, y se entibia con los fragmentos
         if (s.glassWarm < 1) {
+            double breath = 0.5 + 0.5 * Math.sin(time * 1.3);
             g.setComposite(alpha((1 - s.glassWarm) * (0.45 + 0.55 * breath)));
             g.setPaint(GLASS_COLD);
-            g.fill(GLASS);
-        }
-        if (s.glassWarm > 0) {
-            g.setComposite(alpha(s.glassWarm * (0.82 + 0.18 * breath)));
-            g.setPaint(GLASS_WARM);
             g.fill(GLASS);
         }
 
@@ -349,57 +342,28 @@ public final class CandelabraArt {
     }
 
     /**
-     * La piedra de atrás ya dibujada, para una caja de este tamaño (no importa dónde esté). Es
-     * lo más caro del candelabro y en el juego no cambia: se dibuja una vez y se copia. Si el
-     * tamaño es nuevo, la primera vez no se arma (la caja podría estar cambiando de tamaño en
-     * cada cuadro, como en un acercamiento): solo si se repite. Regresa si se puede usar.
+     * Lo que arde y no se mueve, encima de la piedra: el brillo y el fragmento de cada copa
+     * abierta con fragmento, el rombo de la corona y el vidrio tibio (según glassWarm).
      */
-    private static boolean stoneCache(Rectangle2D box) {
-        double w = box.getWidth(), h = box.getHeight();
-        if (cache != null && w == cacheW && h == cacheH) return true;
-        if (w != askedW || h != askedH) {
-            askedW = w;
-            askedH = h;
-            return false;
+    private static void litLayer(Graphics2D g, CandelabraState s) {
+        Composite old = g.getComposite();
+        for (int arm = 0; arm < CandelabraState.ARMS; arm++) {
+            if (s.armClosed[arm] <= 0.001) cupLit(g, arm, 0, s.armLit[arm]);
         }
-        double k = scale(box);
-        int iw = 2 * (int) Math.ceil(REF_W / 2 * k + 3), ih = (int) Math.ceil(h + 4);
-        BufferedImage img = Background.newImage(iw, ih);
-        double ox = iw / 2.0, oy = 2 + heartY(box) - box.getMinY();
-        Graphics2D cg = Background.smooth(img);
-        cg.translate(ox, oy);
-        cg.scale(k, k);
-        stoneLayer(cg, (box.getMinY() - heartY(box)) / k, null);
-        cg.dispose();
-        int hs = 2 * (int) Math.ceil(HALO.getWidth() / 2 * k);   // el halo, en su propia imagen
-        BufferedImage halo = Background.newImage(hs, hs);
-        cg = Background.smooth(halo);
-        cg.translate(hs / 2.0, hs / 2.0);
-        cg.scale(k, k);
-        cg.translate(-HALO.getCenterX(), -HALO.getCenterY());
-        cg.setPaint(HALO_PAINT);
-        cg.fill(HALO);
-        cg.dispose();
-        cache = img;
-        haloCache = halo;
-        cacheOx = ox;
-        cacheOy = oy;
-        cacheW = w;
-        cacheH = h;
-        return true;
+        if (s.glassWarm > 0) {
+            g.setComposite(alpha(s.glassWarm));
+            g.setStroke(RUNE_STROKE);
+            g.setColor(WARM);
+            g.draw(RUNE);
+            g.setComposite(alpha(s.glassWarm * 0.9));
+            g.setPaint(GLASS_WARM);
+            g.fill(GLASS);
+            g.setComposite(old);
+        }
     }
 
-    /** El brillo y el marco del vidrio, las grietas, los brazos que se cierran y el halo. */
-    public static void drawFront(Graphics2D g, Rectangle2D box, CandelabraState s, double time) {
-        AffineTransform saved = g.getTransform();
-        Paint oldPaint = g.getPaint();
-        Stroke oldStroke = g.getStroke();
-        Composite oldComposite = g.getComposite();
-        double k = scale(box);
-        g.translate(box.getCenterX() + s.shake, heartY(box));
-        g.scale(k, k);
-
-        // El vidrio: un brillo frío arriba a la izquierda y el marco de piedra
+    /** El vidrio por delante: un brillo frío arriba a la izquierda y el marco (tibio con glassWarm). */
+    private static void glassFront(Graphics2D g, double warm) {
         g.setColor(GLASS_SHINE);
         g.fill(SHINE);
         g.setColor(GLASS_SPARK);
@@ -410,12 +374,109 @@ public final class CandelabraArt {
         g.setStroke(RIM_STROKE);
         g.setColor(GLASS_RIM);
         g.draw(GLASS);
-        if (s.glassWarm > 0) {
-            g.setComposite(alpha(s.glassWarm));
+        if (warm > 0) {
+            Composite old = g.getComposite();
+            g.setComposite(alpha(warm));
             g.setColor(WARM);
             g.draw(GLASS);
-            g.setComposite(oldComposite);
+            g.setComposite(old);
         }
+    }
+
+    /** ¿Lo guardado es de este tamaño de caja y de estos brazos y vidrio? */
+    private static boolean cacheMatches(Rectangle2D box, CandelabraState s) {
+        if (cache == null || box.getWidth() != cacheW || box.getHeight() != cacheH || s.glassWarm != cacheWarm) return false;
+        for (int i = 0; i < CandelabraState.ARMS; i++) if (s.armLit[i] != cacheLit[i]) return false;
+        return true;
+    }
+
+    /**
+     * Lo quieto de atrás (piedra y lo que arde sin moverse) y de adelante (el vidrio) ya
+     * dibujado, para una caja de este tamaño (no importa dónde esté) y estos brazos y vidrio. En
+     * el juego solo cambia al tomar un fragmento: se dibuja una vez y se copia. Si el tamaño o el
+     * estado son nuevos, la primera vez no se arma (la animación podría estar cambiándolos en
+     * cada cuadro): solo si se repiten. Regresa si se puede usar.
+     */
+    private static boolean backCache(Rectangle2D box, CandelabraState s) {
+        if (cacheMatches(box, s)) return true;
+        double w = box.getWidth(), h = box.getHeight();
+        boolean repeated = w == askedW && h == askedH && s.glassWarm == askedWarm;
+        for (int i = 0; i < CandelabraState.ARMS; i++) repeated &= s.armLit[i] == askedLit[i];
+        if (!repeated) {
+            askedW = w;
+            askedH = h;
+            askedWarm = s.glassWarm;
+            System.arraycopy(s.armLit, 0, askedLit, 0, CandelabraState.ARMS);
+            return false;
+        }
+        double k = scale(box);
+        int iw = 2 * (int) Math.ceil(REF_W / 2 * k + 3), ih = (int) Math.ceil(h + 4);
+        BufferedImage img = Background.newImage(iw, ih);
+        double ox = iw / 2.0, oy = 2 + heartY(box) - box.getMinY();
+        Graphics2D cg = Background.smooth(img);
+        cg.translate(ox, oy);
+        cg.scale(k, k);
+        stoneLayer(cg, (box.getMinY() - heartY(box)) / k, null);
+        litLayer(cg, s);
+        cg.dispose();
+        int fw = 2 * (int) Math.ceil(FRONT_BOUNDS.getMaxX() * k + 2), fh = (int) Math.ceil(FRONT_BOUNDS.getHeight() * k + 4);
+        BufferedImage front = Background.newImage(fw, fh);
+        double fx = fw / 2.0, fy = 2 - FRONT_BOUNDS.getMinY() * k;
+        cg = Background.smooth(front);
+        cg.translate(fx, fy);
+        cg.scale(k, k);
+        glassFront(cg, s.glassWarm);
+        cg.dispose();
+        cache = img;
+        frontCache = front;
+        cacheOx = ox;
+        cacheOy = oy;
+        frontOx = fx;
+        frontOy = fy;
+        cacheW = w;
+        cacheH = h;
+        cacheWarm = s.glassWarm;
+        System.arraycopy(s.armLit, 0, cacheLit, 0, CandelabraState.ARMS);
+        return true;
+    }
+
+    /** El halo ya dibujado para este tamaño de caja (no depende del estado: su fuerza va en la transparencia). */
+    private static BufferedImage halo(Rectangle2D box) {
+        if (haloCache != null && box.getWidth() == haloW && box.getHeight() == haloH) return haloCache;
+        if (cache == null || box.getWidth() != cacheW || box.getHeight() != cacheH) return null;   // tamaño que no se repite
+        double k = scale(box);
+        int hs = 2 * (int) Math.ceil(HALO.getWidth() / 2 * k);
+        BufferedImage img = Background.newImage(hs, hs);
+        Graphics2D cg = Background.smooth(img);
+        cg.translate(hs / 2.0, hs / 2.0);
+        cg.scale(k, k);
+        cg.translate(-HALO.getCenterX(), -HALO.getCenterY());
+        cg.setPaint(HALO_PAINT);
+        cg.fill(HALO);
+        cg.dispose();
+        haloCache = img;
+        haloW = box.getWidth();
+        haloH = box.getHeight();
+        return img;
+    }
+
+    /** El brillo y el marco del vidrio, las grietas, los brazos que se cierran y el halo. */
+    public static void drawFront(Graphics2D g, Rectangle2D box, CandelabraState s, double time) {
+        AffineTransform saved = g.getTransform();
+        Paint oldPaint = g.getPaint();
+        Stroke oldStroke = g.getStroke();
+        Composite oldComposite = g.getComposite();
+        double k = scale(box), tx = box.getCenterX() + s.shake, ty = heartY(box);
+        if (allOpen(s) && cacheMatches(box, s)) {   // drawBack ya lo dejó dibujado
+            g.drawImage(frontCache, (int) Math.round(tx - frontOx), (int) Math.round(ty - frontOy), null);
+        } else {
+            g.translate(tx, ty);
+            g.scale(k, k);
+            glassFront(g, s.glassWarm);
+            g.setTransform(saved);
+        }
+        g.translate(tx, ty);
+        g.scale(k, k);
 
         if (s.cracks > 0) {
             g.setComposite(alpha(s.cracks));
@@ -434,7 +495,8 @@ public final class CandelabraArt {
                 armPath(MOVING_ARM, arm, t);
                 arm(g, MOVING_ARM);
                 cupStone(g, arm, t);
-                if (s.armLit[arm] > 0) cupLights(g, arm, t, s.armLit[arm], time);
+                cupLit(g, arm, t, s.armLit[arm]);
+                cupFlame(g, arm, t, s.armLit[arm], time);
             }
         }
 
@@ -446,10 +508,11 @@ public final class CandelabraArt {
         if (glow > 0.001) {
             double breath = 0.5 + 0.5 * Math.sin(time * 1.3);
             g.setComposite(alpha(glow * glow * (0.88 + 0.12 * breath)));
-            if (haloCache != null && box.getWidth() == cacheW && box.getHeight() == cacheH) {
+            BufferedImage halo = halo(box);
+            if (halo != null) {
                 g.setTransform(saved);
-                double hx = box.getCenterX() + s.shake + HALO.getCenterX() * k, hy = heartY(box) + HALO.getCenterY() * k;
-                g.drawImage(haloCache, (int) Math.round(hx - haloCache.getWidth() / 2.0), (int) Math.round(hy - haloCache.getHeight() / 2.0), null);
+                double hx = tx + HALO.getCenterX() * k, hy = ty + HALO.getCenterY() * k;
+                g.drawImage(halo, (int) Math.round(hx - halo.getWidth() / 2.0), (int) Math.round(hy - halo.getHeight() / 2.0), null);
             } else {
                 g.setPaint(HALO_PAINT);
                 g.fill(HALO);
@@ -531,27 +594,34 @@ public final class CandelabraArt {
     }
 
     /**
-     * Lo que arde en la copa del brazo 'arm' cerrado 't', encima de su piedra ('lit' de 0 a 1):
-     * un brillo cálido que tiembla, una llama chica que sube del hueco y el fragmento dorado.
+     * Lo que arde quieto en la copa del brazo 'arm' cerrado 't', encima de su piedra ('lit' de
+     * 0 a 1): un brillo cálido y el fragmento dorado en el hueco.
      */
-    private static void cupLights(Graphics2D g, int arm, double t, double lit, double time) {
-        double x = cupX(arm, t), y = cupY(arm, t);
+    private static void cupLit(Graphics2D g, int arm, double t, double lit) {
         lit = clamp(lit);
+        if (lit <= 0) return;
+        double x = cupX(arm, t), y = cupY(arm, t);
         Composite old = g.getComposite();
         g.translate(x, y);
-        double flicker = 0.5 + 0.5 * Math.sin(time * 7.3 + arm * 1.9);
-        g.setComposite(alpha(lit * (0.8 + 0.2 * flicker)));
+        g.setComposite(alpha(lit * 0.9));
         g.setPaint(CUP_GLOW);
         g.fill(GLOW);
         g.setComposite(old);
-        if (lit > 0.02) {
-            double flick = Math.sin(time * 9.1 + arm * 2.3);
-            double sx = 7.5 * lit * (1 + 0.06 * flick), sy = 7.5 * lit * (1 + 0.14 * flick), fy = -16 - 4 * lit;
-            flame(g, fy, sx, sy, FLAME_OUT);
-            flame(g, fy + 0.2 * sy, sx * 0.55, sy * 0.55, FLAME_IN);
-            FragmentArt.drawIcon(g, 0, -2.5, 0.72);
-        }
+        if (lit > 0.02) FragmentArt.drawIcon(g, 0, -2.5, 0.72);
         g.translate(-x, -y);
+    }
+
+    /** La llama chica que sube del hueco de la copa encendida y tiembla (se dibuja en cada cuadro). */
+    private static void cupFlame(Graphics2D g, int arm, double t, double lit, double time) {
+        lit = clamp(lit);
+        if (lit <= 0.02) return;
+        double x = cupX(arm, t), y = cupY(arm, t);
+        double flick = Math.sin(time * 9.1 + arm * 2.3);
+        double sx = 7.5 * lit * (1 + 0.06 * flick), sy = 7.5 * lit * (1 + 0.14 * flick), fy = y - 16 - 4 * lit;
+        g.translate(x, 0);
+        flame(g, fy, sx, sy, FLAME_OUT);
+        flame(g, fy + 0.2 * sy, sx * 0.55, sy * 0.55, FLAME_IN);
+        g.translate(-x, 0);
     }
 
     /** La llama chica centrada en (0, y), estirada sx a lo ancho y sy a lo alto. */

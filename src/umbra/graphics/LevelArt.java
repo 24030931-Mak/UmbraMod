@@ -42,11 +42,12 @@ import umbra.world.Level;
  * rectángulos. Regla visual: lo que tiene borde claro arriba se puede pisar; las columnas
  * son oscuras y sin borde porque son solo decoración.
  *
- * [v0.9.5] En la Cúpula también guarda, en otra imagen, el fondo de la sala del trono
- * (ThroneHallArt), y dibuja el piso de la sala como losas de piedra labrada en vez de roca. Una
- * repisa cuya cara de arriba queda toda tapada por otras (la cima de los escalones del domo,
- * debajo del piso de la sala) no lleva borde claro ni musgo, y ningún hongo, mata ni columna rota
- * nace dentro de la roca de otra repisa.
+ * [v0.9.5] En una zona con sala del trono (solo la Cúpula) también guarda, en otra imagen, el
+ * fondo de la sala (ThroneHallArt), y dibuja el piso de la sala como losas de piedra labrada en
+ * vez de roca. Además, solo en esa zona: una repisa cuya cara de arriba queda toda tapada por
+ * otras (la cima de los escalones del domo, debajo del piso de la sala) no lleva borde claro ni
+ * musgo, y ningún hongo, mata ni columna rota nace dentro de la roca de otra repisa. Las demás
+ * zonas se dibujan igual que antes.
  */
 public class LevelArt {
 
@@ -141,8 +142,10 @@ public class LevelArt {
         hall = level.getThroneHall();
         for (Rectangle2D r : level.getPlatforms()) {
             if (r.getWidth() >= 400) props.add(renderColumn(r, rnd));
-            if (isHallFloor(r)) platforms.add(renderHallFloor(r));
-            else platforms.add(renderPlatform(r, rnd, i % 2 == 0, buried(level, r)));
+            // El piso de la sala se dibuja como losas labradas; su roca se calcula igual (y se tira) para
+            // que el azar del resto del decorado de la zona no cambie
+            Sprite rock = renderPlatform(r, rnd, i % 2 == 0, hall != null && buried(level, r));
+            platforms.add(isHallFloor(r) ? renderHallFloor(r) : rock);
             i++;
         }
         for (Block b : level.getBlocks()) {
@@ -150,14 +153,24 @@ public class LevelArt {
             blocks.add(renderBlock(r, rnd));
             runes.add(new Rune(r.getCenterX(), r.getCenterY(), rnd.nextDouble() * Math.PI * 2));
         }
-        // [v0.9.5] Nada nace dentro de la roca: se quitan al final para no cambiar el resto del decorado
-        for (int k = mushrooms.size() - 1; k >= 0; k--) if (inRock(mushrooms.get(k).x, mushrooms.get(k).y - 1.5)) mushrooms.remove(k);
-        for (int k = tufts.size() - 1; k >= 0; k--) if (inRock(tufts.get(k).x, tufts.get(k).y - 1.5)) tufts.remove(k);
-        for (int k = props.size() - 1; k >= 0; k--) {
-            Sprite c = props.get(k);
-            if (inRock(c.x + c.img.getWidth() / 2.0, c.y + c.img.getHeight() - 8 - 3)) props.remove(k);   // la base de la columna
+        if (hall != null) {
+            // [v0.9.5] En la zona de la sala nada nace dentro de la roca (la cima de los escalones del
+            // domo quedó bajo el piso de la sala) ni en el piso labrado de la sala: se quitan al final,
+            // para no cambiar el resto del decorado
+            for (int k = mushrooms.size() - 1; k >= 0; k--) if (noPlant(mushrooms.get(k))) mushrooms.remove(k);
+            for (int k = tufts.size() - 1; k >= 0; k--) if (noPlant(tufts.get(k))) tufts.remove(k);
+            for (int k = props.size() - 1; k >= 0; k--) {
+                Sprite c = props.get(k);
+                if (inRock(c.x + c.img.getWidth() / 2.0, c.y + c.img.getHeight() - 8 - 3)) props.remove(k);   // la base de la columna
+            }
         }
         hallImage = hall == null ? null : renderHall(hall);
+    }
+
+    /** [v0.9.5] ¿Esta planta no debe estar? Su base cae dentro de la roca o sobre el piso de la sala. */
+    private boolean noPlant(Plant p) {
+        boolean onHallFloor = Math.abs(p.y - hall.getMaxY()) < 0.5 && p.x >= hall.getMinX() && p.x <= hall.getMaxX();
+        return onHallFloor || inRock(p.x, p.y - 1.5);
     }
 
     /** ¿El punto cae dentro de alguna repisa? */
@@ -423,17 +436,15 @@ public class LevelArt {
         g.setClip(oldClip);
 
         // Borde claro arriba: aquí se puede pisar. [v0.9.5] Si otras repisas tapan toda la cara de
-        // arriba, ni borde ni musgo: el musgo se calcula igual (para no cambiar el resto del
-        // decorado) pero recortado a nada, y sus matas y hongos se quitan al final (inRock).
+        // arriba ('buried'), ni borde ni musgo: el musgo se calcula igual, sin pintarlo (para no
+        // cambiar el resto del decorado), y sus matas y hongos se quitan al final (inRock).
         if (!buried) {
             g.setColor(RIM);
             g.setStroke(new BasicStroke(2f));
             g.draw(new Line2D.Double(left[0] + 4, 1, w - right[0] - 4, 1));
-        } else {
-            g.setClip(new Rectangle2D.Double(0, 0, 0, 0));
         }
 
-        drawMoss(g, rnd, r, left[0], right[0]);
+        drawMoss(g, rnd, r, left[0], right[0], !buried);
         for (double x = 26 + rnd.nextDouble() * 60; x < w - 20; x += 110 + rnd.nextDouble() * 120) {
             addMushrooms(rnd, r, x, teal);
         }
@@ -517,17 +528,21 @@ public class LevelArt {
 
     /**
      * Musgo en manchas sobre la orilla (con huecos para que se vea el borde), matas de briznas
-     * que se mecen sobre las manchas, y hebras que cuelgan por los lados.
+     * que se mecen sobre las manchas, y hebras que cuelgan por los lados. [v0.9.5] Con 'paint' en
+     * false no pinta nada, pero saca los mismos números al azar (y agrega las mismas matas).
      */
-    private void drawMoss(Graphics2D g, Random rnd, Rectangle2D r, double left0, double right0) {
+    private void drawMoss(Graphics2D g, Random rnd, Rectangle2D r, double left0, double right0, boolean paint) {
         double w = r.getWidth();
         for (double x = left0 + 2; x < w - right0 - 6; ) {
             double patch = 20 + rnd.nextDouble() * 60;
             double end = Math.min(x + patch, w - right0 - 2);
             for (double px = x; px < end; px += 3 + rnd.nextDouble() * 4) {
                 double mw = 5 + rnd.nextDouble() * 8, mh = 2 + rnd.nextDouble() * 4;
-                g.setColor(mix(MOSS_DARK, MOSS_LIGHT, rnd.nextDouble() * 0.5));
-                g.fill(new Ellipse2D.Double(px - mw / 2, -mh, mw, mh + 5));
+                Color moss = mix(MOSS_DARK, MOSS_LIGHT, rnd.nextDouble() * 0.5);
+                if (paint) {
+                    g.setColor(moss);
+                    g.fill(new Ellipse2D.Double(px - mw / 2, -mh, mw, mh + 5));
+                }
             }
             for (double px = x + 4 + rnd.nextDouble() * 8; px < end - 2; px += 14 + rnd.nextDouble() * 16) {
                 addTuft(rnd, r.getX() + px, r.getY());
@@ -545,8 +560,11 @@ public class LevelArt {
                 Path2D strand = new Path2D.Double();
                 strand.moveTo(x, 1);
                 strand.curveTo(x + sway, len * 0.33, x - sway, len * 0.66, x + sway * 0.5, len);
-                g.setColor(rnd.nextBoolean() ? MOSS_DARK : mix(MOSS_DARK, MOSS_LIGHT, 0.4));
-                g.draw(strand);
+                Color moss = rnd.nextBoolean() ? MOSS_DARK : mix(MOSS_DARK, MOSS_LIGHT, 0.4);
+                if (paint) {
+                    g.setColor(moss);
+                    g.draw(strand);
+                }
             }
         }
         g.setStroke(old);
