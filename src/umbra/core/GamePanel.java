@@ -228,6 +228,7 @@ public class GamePanel extends JPanel {
         });
 
         refreshMenuSlots();
+        menu.setSelected(newestSlot());   // al abrir el juego, la partida más reciente
         loadLevel(0);   // genera el fondo y la decoración del primer nivel (los demás, al entrar)
         if (screen == Screen.PLAYING) levelTitle.show(level.getNumber(), level.getName());
         menuLight.setEthereal(true);   // en el menú y en la pantalla final, Logi es fuego etéreo
@@ -471,6 +472,17 @@ public class GamePanel extends JPanel {
         menu.setConfirmDelete(on);
     }
 
+    /** [B6] El espacio OK con el archivo más reciente (0 si ninguno está OK). Usa slotStatus ya calculado. */
+    private int newestSlot() {
+        int best = 0;
+        long bestTime = 0;
+        for (int i = 0; i < SaveStore.SLOTS; i++) {
+            long t = slotStatus[i] == SaveStore.Status.OK ? saves.lastModified(i) : 0;
+            if (t > bestTime) { bestTime = t; best = i; }
+        }
+        return best;
+    }
+
     /**
      * [B6] Lee los 3 archivos y arma las filas del menú. Los archivos se leen aquí (al construir el
      * panel, al volver al menú y después de borrar), no en cada cuadro.
@@ -481,13 +493,13 @@ public class GamePanel extends JPanel {
             SaveData d = saves.load(i);
             if (d != null) {
                 slotStatus[i] = SaveStore.Status.OK;
-                rows[i] = d.summary(world);
+                rows[i] = (i + 1) + ". " + d.summary(world);
             } else if (saves.status(i) == SaveStore.Status.EMPTY) {
                 slotStatus[i] = SaveStore.Status.EMPTY;
-                rows[i] = "Partida nueva";
+                rows[i] = (i + 1) + ". Partida nueva";
             } else {
                 slotStatus[i] = SaveStore.Status.DAMAGED;
-                rows[i] = "Partida da\u00f1ada";
+                rows[i] = (i + 1) + ". Partida da\u00f1ada";
             }
         }
         menu.setSlots(rows);
@@ -537,7 +549,9 @@ public class GamePanel extends JPanel {
 
     /**
      * [B6] Continúa la partida guardada en el espacio 'slot'. Si el archivo ya no se puede aplicar,
-     * la fila queda como dañada y no se entra. Candil aparece en el punto guardado; si ese punto
+     * no se entra: el mundo queda como partida nueva y se vuelven
+     * a leer las filas (si el archivo se puede leer pero no aplicar, la fila sigue como una partida
+     * normal, no como dañada). Candil aparece en el punto guardado; si ese punto
      * cae fuera de la zona o dentro de una roca (la partida es de otra versión del juego), aparece
      * en el inicio de la zona. Logi aparece arriba de Candil y espera al ratón, como al cruzar un paso.
      */
@@ -614,11 +628,13 @@ public class GamePanel extends JPanel {
 
     /**
      * [B6] Guarda la partida en su espacio. Solo si hay partida en juego (slot >= 0) y la pantalla es
-     * PLAYING: en el menú, la intro o la pantalla final no se escribe nada. Si no se pudo escribir
+     * PLAYING: en el menú, la intro o la pantalla final no se escribe nada. Tampoco se guarda si Candil
+     * ya tocó la salida (levelComplete): la pantalla sigue en PLAYING hasta el fundido, y guardar ahí dejaría
+     * la partida atrapada junto a la salida (al continuarla, el final saldría solo). Si no se pudo escribir
      * (disco lleno, sin permiso) se ignora: el juego sigue.
      */
     private void autosave() {
-        if (slot < 0 || screen != Screen.PLAYING) return;
+        if (slot < 0 || screen != Screen.PLAYING || levelComplete) return;
         saves.save(slot, SaveData.capture(world, playTime, deaths, checkpoint));
     }
 

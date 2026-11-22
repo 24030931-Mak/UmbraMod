@@ -48,6 +48,11 @@ public final class SaveStore {
         return read(f) != null ? Status.OK : Status.DAMAGED;
     }
 
+    /** La fecha de la última escritura del archivo del espacio, o 0 si no existe. */
+    public long lastModified(int slot) {
+        return file(slot).lastModified();
+    }
+
     /** La partida del espacio, o null si está vacío o dañado. */
     public SaveData load(int slot) {
         File f = file(slot);

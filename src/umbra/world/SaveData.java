@@ -81,7 +81,7 @@ public final class SaveData {
         int n = 0;
         for (boolean t : taken) if (t) n++;
         String name = zone >= 0 && zone < w.size() ? w.get(zone).getName() : "?";
-        return name + "  ·  " + n + "/" + World.FRAGMENTS + "  ·  " + time;
+        return name + "  \u00b7  " + n + "/" + World.FRAGMENTS + "  \u00b7  " + time;
     }
 
     /** El texto que se escribe en el archivo. */
