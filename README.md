@@ -29,9 +29,13 @@ Proyecto final de **Graficación**.
 - Si sales de una sombra nadando hacia arriba, **sales de un salto**: sirve para alcanzar repisas altas.
 - Si te desmoronas o caes al vacío, reapareces en la última repisa firme que pisaste.
 
-El juego es un mundo de niveles conectados, uno junto al otro. Al llegar a la orilla de un nivel pasas al siguiente, y también puedes regresar al anterior. Cada nivel mide tres pantallas de ancho: la cámara avanza conforme avanzas. El nivel 2, **Las Galerías**, termina en un portal que lleva a la pantalla final.
+**La cueva.** El juego es una cueva de cuatro zonas conectadas hacia los lados, hacia arriba y hacia abajo: **Las Raíces**, **Las Galerías**, **Los Pozos** y **la Cúpula**. Al llegar a la orilla de una zona pasas a la siguiente, y también puedes regresar. Algunas zonas son más altas que la pantalla: la cámara te sigue al subir y al caer. Arriba de todo, en la Cúpula, cuelga el **Gran Farol** apagado; tocarlo es el final.
 
-**El mapa.** Arriba a la derecha hay un mapa circular que siempre muestra dónde estás. Con **Tab** se abre el mapa grande, con todos los niveles juntos. Lo que no has recorrido está cubierto de neblina, y lo que ya recorriste se ilumina con la luz de Logi.
+**Los fragmentos del Gran Farol.** En la cueva hay 6 fragmentos, dos por zona: uno en el camino y otro escondido. Al tomar uno, vuela hacia Candil y aparece una línea de la historia, y un contador en pantalla muestra cuántos llevas. Cada fragmento llena un hueco del Gran Farol y lo hace brillar más. El final sale aunque falten, y su texto cambia según cuántos juntaste.
+
+**El mapa.** Arriba a la derecha hay un mapa circular que siempre muestra dónde estás. Con **Tab** se abre el mapa grande, con toda la cueva. Lo que no has recorrido está cubierto de neblina, lo que ya recorriste se ilumina con la luz de Logi, y ahí se ven los fragmentos que ya tomaste.
+
+**Guardar la partida.** El menú tiene 3 espacios de partida. Elige uno con **W/S** o con el ratón y pulsa **Enter**: si está vacío empieza una partida nueva, y si no, sigue donde la dejaste. **Supr** borra una partida, siempre preguntando antes. El juego guarda solo al cruzar a otra zona, al volver al menú con **Esc** y al cerrar la ventana. Al continuar, Candil aparece en la última repisa firme que pisó. Después del final, la partida queda frente a la Cúpula. Los archivos van en `%APPDATA%\Umbra\`.
 
 **Candil y Logi cambian de forma.** Candil es un fantasma encapuchado y tiene una forma para cada acción: descansa, corre, salta, cae y flota. Logi también cambia: se estira como cometa cuando la mueves rápido, se enrosca en espiral al subir y se calma cuando está quieta.
 
@@ -59,14 +63,19 @@ Requisitos: **Java 8 o superior** (recomendado 17 o 21). No usa librerías exter
 | S o flecha abajo | Bajar dentro de la sombra |
 | Ratón | Mover a Logi |
 | Clic | Fijar o soltar a Logi |
-| R | Reiniciar el nivel |
+| R | Reiniciar la zona |
 | Tab | Abrir o cerrar el mapa |
+| Esc | Volver al menú (guarda la partida) |
 | M | Silenciar o encender la música y la voz |
 | F3 | Mostrar u ocultar los datos de depuración |
 | Enter, Esc, Espacio o clic | Saltar la intro |
+| W / S o ratón (en el menú) | Elegir partida |
+| Enter o clic (en el menú) | Continuar la partida o empezar una nueva |
+| Supr (en el menú) | Borrar la partida elegida |
 | I (en el menú) | Ver la intro otra vez |
+| Esc (en el menú) | Salir del juego |
 
-## Cómo pasar el Nivel 1
+## Cómo pasar el Nivel 1: Las Raíces
 
 Ningún hueco se puede cruzar saltando: hay que usar las sombras. En cada tramo pon la luz donde se indica, haz clic para fijarla, métete a la sombra y avanza flotando con **D**. Al llegar arriba, sigue subiendo y Candil sale de un salto.
 
@@ -89,7 +98,30 @@ Al cruzar de nivel, Logi aparece arriba de Candil y espera a que muevas el rató
 | 2. Dos sombras, un puente | Hueco de 1000 px: una sola sombra no alcanza | A la izquierda de la primera losa, a la altura de su cara de arriba: las dos sombras salen hacia la derecha y se enciman | D + W hasta pasar la segunda losa; después solo D |
 | 3. La chimenea | Subida de 300 px por un pozo | Arriba a la izquierda de las dos losas: sus sombras caen una sobre otra dentro del pozo | D + W: sube nadando y, al salir por arriba, sale de un salto |
 | 4. El pasillo bajo | Túnel muy bajo con un foso de 200 px | Lejos, atrás del túnel y un poco más arriba que su entrada: la sombra entra casi horizontal y lo llena. Dentro del túnel Logi no sirve: Candil se desmoronaría | Solo D, flotando por el túnel |
-| 5. El portal | Nada: ya casi terminas | Déjala donde quedó | Camina con D hasta el portal |
+| 5. La salida | Nada: el camino sigue | Déjala donde quedó | Sube a la repisa alta y camina con D hasta la orilla derecha: lleva a Los Pozos |
+
+## Cómo pasar el Nivel 3: Los Pozos
+
+Una zona de dos tiros: uno baja por la izquierda, el fondo cruza la cueva y otro sube por la derecha hasta la Cúpula. Abajo hay vacío.
+
+| Tramo | Obstáculo | Dónde va la luz | Cómo avanzar |
+|---|---|---|---|
+| 1. El freno | Tiro muy hondo; el camino sigue por una abertura a media bajada | Fija arriba de las losas del tiro: sus sombras forman una columna | Baja flotando con S, detente frente a la abertura y sal por ella |
+| 2. La luz desde abajo | Hueco sobre el vacío con losas cerca del techo | Abajo, en el aire sobre el vacío: las sombras suben y se abren en abanico | Cruza por arriba de las losas, de una sombra a otra |
+| 3. El columpio | Hueco ancho con una sola losa en medio | Suelta: muévela despacio por encima de la losa, de un lado al otro | La sombra se columpia y lleva a Candil flotando hasta la otra orilla |
+| 4. La chimenea al revés | Subida por el tiro derecho | Abajo, en el fondo: las sombras de las losas escalonadas suben | Sube nadando con W de una sombra a otra |
+| 5. El hueco del techo | Agujero angosto en el techo, muy alto para saltar | Bien alineada abajo de la losa chica: la sombra sube recta por el agujero | Entra a la sombra con un salto desde un lado y sube nadando a la Cúpula |
+
+## Cómo pasar la Cúpula
+
+Tres pantallas de alto, con paredes que se cierran como un domo. El Gran Farol cuelga arriba, al centro.
+
+| Tramo | Obstáculo | Dónde va la luz | Cómo avanzar |
+|---|---|---|---|
+| 1. La subida por relevos | Chimenea de losas de unos 1400 px | Por etapas: súbela al siguiente tramo mientras Candil espera | Entre etapas, Candil descansa en nichos con una losa encima, que quedan en sombra |
+| 2. Las repisas del domo | Repisas cada vez más cortas | Junto a las losas pequeñas, para que sus sombras unan las repisas | Sube en zigzag |
+| 3. Las losas colgantes | El último paso hasta la repisa del Farol | Que las sombras de las dos losas que cuelgan del techo lleguen a la repisa | Cruza por sus sombras |
+| 4. El Gran Farol | Nada: es el final | — | Tócalo |
 
 ## Estructura del proyecto
 
@@ -98,21 +130,29 @@ src/umbra/
 ├── Main.java                 Crea la ventana y arranca el juego
 ├── audio/
 │   ├── Music.java            Música de ambiente en bucle (entrada suave, tecla M; baja mientras habla la narración)
-│   └── VoiceOver.java        Narración de la intro: un clip a la vez, cargados de antemano, con reloj real
+│   ├── VoiceOver.java        Narración de la intro: un clip a la vez, cargados de antemano, con reloj real
+│   ├── DangerAudio.java      Sonido del peligro y del desmoronarse, sintetizado por código
+│   └── FragmentAudio.java    Tono de campana al tomar un fragmento, sintetizado por código
 ├── core/
 │   ├── Config.java           Constantes: física, vida, música, versión
 │   ├── GamePanel.java        Game loop, update y render
 │   ├── Input.java            Estado del teclado y del ratón
-│   └── Resources.java        Abre la música y los textos (dentro del .jar o en src)
+│   ├── Resources.java        Abre la música y los textos (dentro del .jar o en src)
+│   └── SaveStore.java        Los 3 espacios de partida en disco, con escritura segura
 ├── entities/
 │   ├── Player.java           Candil: física, vida, flotar en la sombra y animación
+│   ├── CandilArt.java        El dibujo de Candil en cada una de sus formas
 │   ├── LightSource.java      Logi: sigue al ratón con interpolación; se fija con un clic
+│   ├── LogiArt.java          El dibujo de Logi (cometa, espiral, calmada)
 │   └── Block.java            Objetos que proyectan sombra
 ├── graphics/
 │   ├── Background.java       Cueva por capas (parallax), niebla, esporas y viñeta
-│   ├── Camera.java           Cámara que avanza con Candil (matriz de vista)
+│   ├── Camera.java           Cámara que sigue a Candil en los dos ejes (matriz de vista)
 │   ├── CaveShapes.java       Formas de la cueva que comparten el juego y la intro (estalactitas, crestas)
 │   ├── LevelArt.java         Roca, musgo, plantas que se mecen, hongos, losas con runas
+│   ├── LanternArt.java       El Gran Farol: cuelga en la Cúpula y se enciende con los fragmentos
+│   ├── FragmentArt.java      Un fragmento del Gran Farol: vidrio dorado con facetas que brilla
+│   ├── FragmentFlights.java  El vuelo del fragmento hacia Candil al tomarlo
 │   ├── ParticleSystem.java   Rastro de luz, chispas, polvo, niebla y ceniza
 │   └── ShadowCaster.java     Proyección de sombras (envolvente convexa)
 ├── math/
@@ -122,24 +162,31 @@ src/umbra/
 │   ├── ambiente.wav          Música
 │   ├── voz_1.wav … voz_6.wav Narración de la intro, una por escena
 │   ├── intro.txt             Texto de respaldo de la intro: sale solo si la voz no puede sonar
-│   └── final.txt             Texto de la pantalla final
+│   ├── fragmentos.txt        Las líneas de historia que salen al tomar cada fragmento
+│   └── final.txt             Texto de la pantalla final (algunas líneas dependen de los fragmentos)
 ├── ui/
 │   ├── Intro.java            La intro: línea de tiempo de las seis escenas, fundidos y narración
 │   ├── TextSprite.java       Texto ya dibujado en una imagen, para que la intro vaya a 60 FPS
 │   ├── intro/                Escenas de la intro: el Gran Farol, la caverna dorada, las grietas,
 │   │                         los pedazos de luz, la neblina, el nacimiento de Candil, la llegada de Logi,
 │   │                         los planos con parallax y los subtítulos
-│   ├── Menu.java             Menú de inicio: el título y las opciones
-│   ├── LevelTitle.java       Título del nivel al empezar o al cruzar
+│   ├── Menu.java             Menú de inicio: el título y los 3 espacios de partida
+│   ├── LevelTitle.java       Título de la zona al empezar o al cruzar
+│   ├── StoryLine.java        La línea de historia al tomar un fragmento
 │   ├── Victory.java          Pantalla final
 │   ├── Text.java             Ayudantes para dibujar texto
-│   ├── MapView.java          Mapa grande (Tab): todos los niveles y lo recorrido
+│   ├── MapView.java          Mapa grande (Tab): toda la cueva y lo recorrido
 │   ├── MiniMap.java          Mapa circular de la esquina, centrado en Candil
+│   ├── MapPainter.java       El dibujo de una zona que comparten los dos mapas
 │   └── MapFog.java           Neblina que cubre lo no recorrido (la usan los dos mapas)
 └── world/
-    ├── Level.java            Niveles 1 y 2 (tres pantallas cada uno) y nivel de prueba
-    ├── World.java            Los niveles en fila, conectados de ida y vuelta
-    └── Exploration.java      Qué zonas de cada nivel ya recorrió Candil
+    ├── Level.java            Las zonas: Las Raíces, Las Galerías y la zona de prueba
+    ├── Cave.java             La cueva completa: arma Los Pozos y la Cúpula y conecta las zonas
+    ├── Passage.java          Un paso en una orilla de una zona hacia otra
+    ├── World.java            Las zonas conectadas, la actual, las visitadas y los fragmentos tomados
+    ├── Fragment.java         Un fragmento del Gran Farol dentro de una zona
+    ├── SaveData.java         La foto de una partida: zona, mapa, fragmentos, tiempo y reaparición
+    └── Exploration.java      Qué partes de cada zona ya recorrió Candil
 ```
 
 ## Avances
@@ -191,9 +238,20 @@ src/umbra/
 - [x] La oscuridad baja también del techo; Candil se condensa de arriba abajo y Logi lanza un pulso de luz al fijarse
 - [x] El final sube hasta el Gran Farol apagado en lo alto de la chimenea, junto al título
 
+### v0.9 — El mundo-cueva, los fragmentos y guardar la partida
+- [x] Zonas más altas que la pantalla, con cámara que sigue a Candil al subir y al caer
+- [x] Pasos en las cuatro orillas: la cueva se conecta hacia los lados, arriba y abajo, y se puede regresar
+- [x] Nivel 3, **Los Pozos**: cinco tramos verticales (el freno, la luz desde abajo, el columpio, la chimenea al revés y el hueco del techo)
+- [x] **La Cúpula**: la subida por relevos hasta el Gran Farol, que cuelga en lo alto y es el final
+- [x] Mapa grande con toda la cueva y los pasos entre zonas
+- [x] 6 fragmentos del Gran Farol, dos por zona: uno en el camino y otro escondido
+- [x] Al tomar un fragmento: vuela hacia Candil, suena una campana y sale una línea de la historia
+- [x] El Gran Farol llena un hueco y brilla más con cada fragmento; el texto final cambia según cuántos juntaste
+- [x] 3 espacios de partida en el menú: continuar, empezar y borrar; se guarda solo al cruzar de zona, al salir con Esc y al cerrar
+- [x] Sonido del peligro y del desmoronarse sintetizado por código (aporte de Maria Magdalena)
+
 ### Después
 Las versiones siguen: el juego todavía puede crecer.
-- [ ] v0.9 — El mundo-cueva: zonas conectadas hacia los lados, arriba y abajo; mapa grande de la cueva; nivel 3 y la Cúpula; fragmentos del Gran Farol; guardar la partida
 - [ ] v0.9.5 — La persecución: la llama negra, luces que se mueven solas y obstáculos nuevos
 - [ ] El final: reparar el Gran Farol
 - [ ] Capturas de pantalla en este README
@@ -227,11 +285,14 @@ Las versiones siguen: el juego todavía puede crecer.
 | Tiro parabólico con rebote amortiguado | `LightShards` |
 | Máscara de degradado con composición alfa (`DST_IN`) | `DarkStage.drawCandil()` |
 | Sincronía de subtítulos con el reloj del audio | `VoiceOver`, `SubtitleTrack` |
+| Cámara en dos ejes: matriz de vista `T(−x, −y)` con seguimiento suavizado | `Camera.follow()`, `Camera.getViewMatrix()` |
+| Mundo en un plano: cada zona con su traslación, y pasos entre orillas | `Cave`, `Passage`, `MapView` |
+| Interpolación lineal hacia un blanco que se mueve, con escala que se encoge | `FragmentFlights` |
+| Degradado radial y facetas con bisel de luz (iluminación falsa) | `FragmentArt`, `LanternArt.draw()` |
+| Síntesis de audio por código (ondas senoidales con envolvente) | `FragmentAudio`, `DangerAudio` |
 
 ## Música
 
 La música está en `src/umbra/res/ambiente.wav` y se repite sin fin (**M** la silencia). Para cambiarla, reemplaza ese archivo por otro **WAV** con el mismo nombre: de preferencia mono, de 22 050 o 44 100 Hz y de 3 minutos o menos. Java no lee MP3, así que hay que convertirla antes.
 
 La narración de la intro está en `src/umbra/res/voz_1.wav` … `voz_6.wav`, una por escena (WAV PCM de 16 bits, 44 100 Hz, estéreo). Mientras habla, la música baja un poco; **M** silencia las dos. Si una voz falta o no hay tarjeta de sonido, la intro muestra el texto de `intro.txt` en su lugar.
-
-La pieza actual es de prueba: fue generada con código (síntesis aditiva), así que no tiene derechos de terceros. Si se usa otra, aquí deben ir su autor y su licencia.
