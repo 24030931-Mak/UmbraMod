@@ -251,6 +251,21 @@ public class Level {
      *
      * Ningún hueco se puede cruzar saltando sin sombras: la prueba lo comprueba con todos los
      * saltos y caídas posibles, cada medio píxel.
+     *
+     * [B4] Los dos fragmentos del Gran Farol de la zona (no son sólidos ni agregan piezas):
+     *
+     *   2. El del camino, a la mitad del nivel: sobre la repisa C, en (1950, 245), a la altura de
+     *      Candil. Después de la chimenea Candil cae en C más a la izquierda y la cruza caminando
+     *      hacia el pasillo bajo: lo toma sin desviarse.
+     *   3. El escondido, colgado en el vacío bajo la segunda losa del puente, en (985, 680). Usa esa
+     *      losa de otra forma: como piso y como carpa. Candil cruza medio puente como siempre y se
+     *      para sobre la segunda losa; con Logi fija arriba de ella, en (935, 270), la sombra de la
+     *      losa baja como una carpa y se abre hacia el fondo. Candil camina fuera de la losa, cae en
+     *      la carpa, baja nadando (S) y lo toma con la vida llena. Sin sombra no se alcanza: quien
+     *      cae desde las losas o las repisas se aleja de la losa o pasa muy abajo, y con la Logi del
+     *      puente la sombra no baja tanto. Para volver, baja un poco, sale por la orilla derecha de la
+     *      carpa nadando hacia arriba (W), de un salto, y cae sobre la losa; de ahí sigue el puente.
+     *      Si cae al vacío reaparece en A, porque las losas no son repisas.
      */
     public static Level createLevel2() {
         Level lvl = new Level("II", "Las Galer\u00edas", 3840,
@@ -273,6 +288,10 @@ public class Level {
         lvl.addBlock(new Block(1500, 285, 60,  90));   // tramo 3: la chimenea, losa de arriba
         lvl.addBlock(new Block(2200, 190, 60,  30));   // tramo 4: el dintel del pasillo
         lvl.addBlock(new Block(3220, 150, 120, 30));   // tramo 5: el refugio de E, sobre la repisa alta
+
+        // [B4] Los fragmentos del Gran Farol (ver el comentario de arriba)
+        lvl.addFragment(new Fragment(2, 1950, 245));   // el del camino: sobre C, a la altura de Candil
+        lvl.addFragment(new Fragment(3, 985, 680));    // el escondido: en el vacío, bajo la segunda losa del puente
         return lvl;
     }
 
