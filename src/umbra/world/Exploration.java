@@ -87,6 +87,52 @@ public class Exploration {
         }
     }
 
+    /**
+     * Lo revelado como texto compacto: por cada columna, las filas en hex (4 filas por dígito, la
+     * primera fila en el bit más bajo). Largo: cols x ceil(rows / 4). Lo "mostrado" no se guarda.
+     */
+    public String encode() {
+        int digits = (rows + 3) / 4;
+        StringBuilder sb = new StringBuilder(cols * digits);
+        for (int c = 0; c < cols; c++) {
+            for (int d = 0; d < digits; d++) {
+                int v = 0;
+                for (int b = 0; b < 4; b++) {
+                    int r = d * 4 + b;
+                    if (r < rows && revealed[c][r]) v |= 1 << b;
+                }
+                sb.append(Character.forDigit(v, 16));
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Carga lo que encode() escribió. Regresa false, sin cambiar nada, si el texto es nulo, no
+     * mide cols x ceil(rows / 4) o trae algo que no es hex. Lo revelado queda también como
+     * mostrado, para que el mapa no vuelva a encender lo que ya se había visto.
+     */
+    public boolean decode(String s) {
+        int digits = (rows + 3) / 4;
+        if (s == null || s.length() != cols * digits) return false;
+        boolean[][] nuevo = new boolean[cols][rows];
+        for (int c = 0; c < cols; c++) {
+            for (int d = 0; d < digits; d++) {
+                int v = Character.digit(s.charAt(c * digits + d), 16);
+                if (v < 0) return false;
+                for (int b = 0; b < 4; b++) {
+                    int r = d * 4 + b;
+                    if (r < rows) nuevo[c][r] = (v & (1 << b)) != 0;
+                }
+            }
+        }
+        for (int c = 0; c < cols; c++) {
+            System.arraycopy(nuevo[c], 0, revealed[c], 0, rows);
+            System.arraycopy(nuevo[c], 0, shown[c], 0, rows);
+        }
+        return true;
+    }
+
     private boolean inside(int c, int r) {
         return c >= 0 && c < cols && r >= 0 && r < rows;
     }

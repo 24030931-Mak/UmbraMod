@@ -117,4 +117,21 @@ public class World {
         for (Exploration e : explored) e.reset();
         enter(0);
     }
+
+    /**
+     * Pone el mundo como estaba en una partida guardada: zona actual, zonas visitadas y fragmentos
+     * tomados. Lo recorrido del mapa se carga aparte (exploration(i).decode). Los largos deben ser
+     * size() y FRAGMENTS, y 'current' una zona de este mundo; si no, IllegalArgumentException y
+     * no se cambia nada. La zona actual cuenta como visitada.
+     */
+    public void restore(int current, boolean[] visited, boolean[] taken) {
+        if (visited == null || visited.length != this.visited.length
+                || taken == null || taken.length != FRAGMENTS
+                || current < 0 || current >= levels.size()) {
+            throw new IllegalArgumentException("La foto no cuadra con este mundo");
+        }
+        System.arraycopy(visited, 0, this.visited, 0, visited.length);
+        System.arraycopy(taken, 0, this.taken, 0, FRAGMENTS);
+        enter(current);
+    }
 }
