@@ -48,6 +48,7 @@ import umbra.ui.Victory;
 import umbra.world.Fragment;
 import umbra.world.Level;
 import umbra.world.Passage;
+import umbra.world.SaveData;
 import umbra.world.World;
 
 /**
@@ -180,6 +181,16 @@ public class GamePanel extends JPanel {
     /** Lo que hace Esc en el menú: cerrar el juego. Es un campo para que las pruebas lo puedan observar. */
     private Runnable quit = () -> System.exit(0);
 
+    /** [B6] Los 3 espacios de partida (archivos en SaveStore.defaultDir()). */
+    private final SaveStore saves = new SaveStore(SaveStore.defaultDir());
+    /** [B6] El espacio en juego (0..2); -1 si no hay (en el menú o la intro). */
+    private int slot = -1;
+    /** [B6] Lo que hay en cada fila del menú, calculado en refreshMenuSlots (leer los archivos cuesta: no se hace en cada cuadro). */
+    private final SaveStore.Status[] slotStatus = new SaveStore.Status[SaveStore.SLOTS];
+    /** [B6] Está abierta la pregunta de borrar la partida elegida. */
+    private boolean confirmDelete;
+    private int menuMouseX = -1, menuMouseY = -1;   // dónde estaba el ratón en el cuadro anterior (para saber si se movió)
+
     private boolean debug = false;
 
     // Tiempo y FPS
@@ -216,6 +227,7 @@ public class GamePanel extends JPanel {
             public void mousePressed(MouseEvent e) { requestFocusInWindow(); }
         });
 
+        refreshMenuSlots();
         loadLevel(0);   // genera el fondo y la decoración del primer nivel (los demás, al entrar)
         if (screen == Screen.PLAYING) levelTitle.show(level.getNumber(), level.getName());
         menuLight.setEthereal(true);   // en el menú y en la pantalla final, Logi es fuego etéreo
@@ -394,7 +406,9 @@ public class GamePanel extends JPanel {
     }
 
     /**
-     * Menú: Enter, Espacio o clic empiezan el juego; I vuelve a ver la intro; Esc sale.
+     * Menú: W/S, las flechas y el ratón eligen un espacio; Enter, Espacio o clic lo abren (continúa
+     * la partida, o empieza una nueva si está vacío; una dañada no se abre); Supr pregunta si
+     * borrarlo (Enter: sí, Esc: no); I vuelve a ver la intro; Esc sale.
      * No acepta teclas mientras la pantalla todavía se está aclarando ni antes de que aparezcan
      * sus opciones (Menu.isReady): así, quien aprieta Esc o Enter dos veces para saltar la
      * intro no cierra el juego ni empieza a jugar sin haber visto el menú.
@@ -403,19 +417,80 @@ public class GamePanel extends JPanel {
         menuTime += dt;
         menu.update(dt);
         background.update(dt);
-        menuLight.setTarget(input.getMouseX(), input.getMouseY());   // Logi sigue al ratón
+        int mx = input.getMouseX(), my = input.getMouseY();
+        boolean mouseMoved = mx != menuMouseX || my != menuMouseY;
+        menuMouseX = mx;
+        menuMouseY = my;
+        menuLight.setTarget(mx, my);   // Logi sigue al ratón
         menuLight.update(dt);
         if (leaving || fadeDir != 0 || !menu.isReady()) return;
 
-        boolean confirm = input.wasPressed(KeyEvent.VK_ENTER) || input.wasPressed(KeyEvent.VK_SPACE)
-                || input.wasClicked();
-        if (confirm) {
-            fadeTo(this::startGame, FADE_TIME, 0);
+        if (confirmDelete) {   // la pregunta de borrar: solo Enter (sí) y Esc (no)
+            if (input.wasPressed(KeyEvent.VK_ENTER)) {
+                saves.delete(menu.getSelected());
+                setConfirmDelete(false);
+                refreshMenuSlots();
+            } else if (input.wasPressed(KeyEvent.VK_ESCAPE)) {
+                setConfirmDelete(false);
+            }
+            return;
+        }
+
+        int sel = menu.getSelected();
+        if (input.wasPressed(KeyEvent.VK_W) || input.wasPressed(KeyEvent.VK_UP)) {
+            sel = (sel + SaveStore.SLOTS - 1) % SaveStore.SLOTS;
+        } else if (input.wasPressed(KeyEvent.VK_S) || input.wasPressed(KeyEvent.VK_DOWN)) {
+            sel = (sel + 1) % SaveStore.SLOTS;
+        } else if (mouseMoved && menu.rowAt(mx, my) >= 0) {
+            sel = menu.rowAt(mx, my);
+        }
+        menu.setSelected(sel);
+
+        int open = -1;   // la fila que se abre, si hay
+        if (input.wasPressed(KeyEvent.VK_ENTER) || input.wasPressed(KeyEvent.VK_SPACE)) {
+            open = menu.getSelected();
+        } else if (input.wasClicked() && menu.rowAt(mx, my) >= 0) {
+            open = menu.rowAt(mx, my);
+            menu.setSelected(open);
+        }
+        if (open >= 0) {
+            final int s = open;
+            if (slotStatus[s] == SaveStore.Status.OK) fadeTo(() -> continueGame(s), FADE_TIME, 0);
+            else if (slotStatus[s] == SaveStore.Status.EMPTY) fadeTo(() -> startGame(s), FADE_TIME, 0);
+        } else if (input.wasPressed(KeyEvent.VK_DELETE)) {
+            if (slotStatus[menu.getSelected()] != SaveStore.Status.EMPTY) setConfirmDelete(true);
         } else if (input.wasPressed(KeyEvent.VK_I)) {
             fadeTo(this::showIntro);
         } else if (input.wasPressed(KeyEvent.VK_ESCAPE)) {
             quit.run();
         }
+    }
+
+    private void setConfirmDelete(boolean on) {
+        confirmDelete = on;
+        menu.setConfirmDelete(on);
+    }
+
+    /**
+     * [B6] Lee los 3 archivos y arma las filas del menú. Los archivos se leen aquí (al construir el
+     * panel, al volver al menú y después de borrar), no en cada cuadro.
+     */
+    private void refreshMenuSlots() {
+        String[] rows = new String[SaveStore.SLOTS];
+        for (int i = 0; i < SaveStore.SLOTS; i++) {
+            SaveData d = saves.load(i);
+            if (d != null) {
+                slotStatus[i] = SaveStore.Status.OK;
+                rows[i] = d.summary(world);
+            } else if (saves.status(i) == SaveStore.Status.EMPTY) {
+                slotStatus[i] = SaveStore.Status.EMPTY;
+                rows[i] = "Partida nueva";
+            } else {
+                slotStatus[i] = SaveStore.Status.DAMAGED;
+                rows[i] = "Partida da\u00f1ada";
+            }
+        }
+        menu.setSlots(rows);
     }
 
     /** Pantalla final: Enter juega de nuevo, Esc regresa al menú. */
@@ -434,14 +509,18 @@ public class GamePanel extends JPanel {
         if (!victory.isReady()) {
             if (confirm) victory.skip();   // muestra todo el texto de una vez
         } else if (confirm) {
-            fadeTo(this::startGame, FADE_TIME, 0);
+            fadeTo(() -> startGame(slot), FADE_TIME, 0);
         } else if (input.wasPressed(KeyEvent.VK_ESCAPE)) {
             fadeTo(this::backToMenu);
         }
     }
 
-    /** Empieza el nivel desde el principio (desde el menú o al jugar de nuevo). */
-    private void startGame() {
+    /**
+     * Empieza una partida nueva en el espacio 'slot' (desde el menú o al jugar de nuevo) y la
+     * guarda de inmediato. Nada de la partida anterior pasa a esta.
+     */
+    private void startGame(int slot) {
+        this.slot = slot;
         VoiceOver.stop();   // si se salta la intro, la narración se corta
         world.reset();   // también borra los fragmentos tomados
         storyLine.hide();
@@ -455,6 +534,55 @@ public class GamePanel extends JPanel {
         deaths = 0;
         screen = Screen.PLAYING;
         levelTitle.show(level.getNumber(), level.getName());
+        if (slot >= 0) saves.save(slot, SaveData.capture(world, playTime, deaths, checkpoint));
+    }
+
+    /**
+     * [B6] Continúa la partida guardada en el espacio 'slot'. Si el archivo ya no se puede aplicar,
+     * la fila queda como dañada y no se entra. Candil aparece en el punto guardado; si ese punto
+     * cae fuera de la zona o dentro de una roca (la partida es de otra versión del juego), aparece
+     * en el inicio de la zona. Logi aparece arriba de Candil y espera al ratón, como al cruzar un paso.
+     */
+    private void continueGame(int slot) {
+        VoiceOver.stop();
+        SaveData d = saves.load(slot);
+        if (d == null || !d.applyTo(world)) {
+            useCurrentLevel();   // applyTo dejó el mundo como partida nueva
+            refreshMenuSlots();
+            return;
+        }
+        useCurrentLevel();
+        storyLine.hide();
+        fragmentFlights.clear();
+        particles.clear();
+        counterPulse = 99;
+        Vec2 point = new Vec2(d.spawnX, d.spawnY);
+        if (!isSafeSpot(point)) point = level.getSpawn();
+        player.respawn(point);
+        checkpoint = point;
+        player.restoreLife();
+        camera.snapTo(player.getCenterX(), player.getCenterY());
+        placeLogiAbove();
+        ignoreWalkKeys();
+        deathTimer = 0;
+        levelComplete = false;
+        completeTimer = 0;
+        playTime = d.playTime;
+        deaths = d.deaths;
+        this.slot = slot;
+        screen = Screen.PLAYING;
+        levelTitle.show(level.getNumber(), level.getName());
+    }
+
+    /** [B6] Candil cabe en 'p' (esquina de arriba a la izquierda): dentro de la zona y sin chocar con ninguna roca. */
+    private boolean isSafeSpot(Vec2 p) {
+        if (Double.isNaN(p.x) || Double.isNaN(p.y)) return false;
+        if (p.x < 0 || p.y < 0 || p.x + Player.W > level.getWidth() || p.y + Player.H > level.getHeight()) return false;
+        Rectangle2D body = new Rectangle2D.Double(p.x + 0.01, p.y + 0.01, Player.W - 0.02, Player.H - 0.02);
+        for (Rectangle2D solid : level.getSolids()) {
+            if (solid.intersects(body)) return false;
+        }
+        return true;
     }
 
     /**
@@ -529,8 +657,12 @@ public class GamePanel extends JPanel {
     }
 
     private void backToMenu() {
+        if (slot >= 0) menu.setSelected(slot);   // el menú deja elegida la partida que se estaba jugando
+        slot = -1;
         screen = Screen.MENU;
         menu.restart();
+        setConfirmDelete(false);
+        refreshMenuSlots();
     }
 
     /** [v0.8.6] Vuelve a ver la intro desde el principio (tecla I en el menú). */
