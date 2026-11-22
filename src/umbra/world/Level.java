@@ -176,6 +176,18 @@ public class Level {
      *      del bloque: la sombra baja por los dos lados como una montaña.
      *
      * Ningún hueco se puede saltar: el salto alcanza unos 100 px de alto y 200 de largo.
+     *
+     * [B4] Los dos fragmentos del Gran Farol de la zona (no son sólidos ni agregan piezas):
+     *
+     *   0. El del camino, hacia la mitad del nivel: sobre la repisa D, en (2300, 425), a la
+     *      altura de Candil. Después del tramo 3 Candil cae en D más a la izquierda y la cruza
+     *      caminando hacia el tramo 4: lo toma sin desviarse.
+     *   1. El escondido, en lo alto sobre la losa del puente, en (350, 200). Usa esa losa de otra
+     *      forma: con Logi fija abajo de ella, en el foso, en (350, 650), la sombra sube como un
+     *      abanico desde la losa. Candil salta de A a la sombra, sube nadando (W) y lo toma con
+     *      la vida llena. Sin sombra no se alcanza: el salto más alto, desde la losa, deja
+     *      la cabeza de Candil en y = 383. Para volver, flota a la izquierda, sale del abanico y
+     *      cae en A; si cae al foso, reaparece en A, porque la losa no es una repisa.
      */
     public static Level createLevel1() {
         Level lvl = new Level("I", "Las Ra\u00edces", 3840,
@@ -195,6 +207,10 @@ public class Level {
         lvl.addBlock(new Block(900,  470, 100, 40));   // tramo 2: la rampa
         lvl.addBlock(new Block(2000, 300, 80,  40));   // tramo 3: la sombra hacia atrás
         lvl.addBlock(new Block(2780, 300, 140, 40));   // tramo 4: la carpa
+
+        // [B4] Los fragmentos del Gran Farol (ver el comentario de arriba)
+        lvl.addFragment(new Fragment(0, 2300, 425));   // el del camino: sobre D, a la altura de Candil
+        lvl.addFragment(new Fragment(1, 350, 200));    // el escondido: alto, sobre la losa del puente
         return lvl;
     }
 
