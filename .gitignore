@@ -27,3 +27,6 @@ Thumbs.db
 
 # Diseños, planes y hoja de ruta: solo locales, no se suben
 docs/
+
+# Lo que se publica en los releases (.jar, zips con Umbra.exe y fichas): solo local
+release/
