@@ -271,7 +271,17 @@ public class GamePanel extends JPanel {
         background = s.background;
         levelArt = s.art;
         camera = new Camera(level.getWidth(), level.getHeight());
-        level.setLanternFill(world.takenCount());   // [B4] el Gran Farol muestra los fragmentos juntados
+        showFragments();   // [B4] el Gran Farol muestra los fragmentos juntados
+    }
+
+    /**
+     * [v0.9.5] El Gran Farol y la sala del trono muestran los fragmentos juntados: un brazo del
+     * candelabro y un pétalo del rosetón por fragmento, y los braseros apagados.
+     */
+    private void showFragments() {
+        int n = world.takenCount();
+        level.getCandelabra().setFragments(n);
+        level.setHallLights(n, 0);
     }
 
     /**
@@ -916,7 +926,7 @@ public class GamePanel extends JPanel {
             // Si Candil está en el tercio de abajo de la pantalla, la línea va arriba para no taparlo;
             // dura lo que su voz más medio segundo, y nunca menos que de costumbre
             storyLine.show(n - 1, player.getCenterY() - camera.getY(), voiceSeconds);
-            level.setLanternFill(world.takenCount());
+            showFragments();
             counterPulse = 0;
         }
     }
@@ -1034,6 +1044,7 @@ public class GamePanel extends JPanel {
         // El mundo se dibuja con la matriz de vista de la cámara (mundo -> pantalla)
         AffineTransform onScreen = g2.getTransform();
         g2.transform(camera.getViewMatrix().toAffineTransform());
+        levelArt.drawHall(g2, camX, camY);   //    [v0.9.5] la sala del trono (solo la Cúpula), detrás de todo
         light.drawGlow(g2);              // 1. halo de luz sobre el fondo
         levelArt.drawBehind(g2, camX, camY);   // columnas rotas (decoración)
         drawShadows(g2);                 // 2. sombras (el refugio de Candil)

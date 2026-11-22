@@ -16,7 +16,8 @@ import java.util.List;
 import umbra.core.Config;
 import umbra.entities.Block;
 import umbra.entities.Player;
-import umbra.graphics.LanternArt;
+import umbra.graphics.CandelabraArt;
+import umbra.graphics.CandelabraState;
 import umbra.math.Mat3;
 import umbra.math.Vec2;
 
@@ -42,8 +43,10 @@ public class Level {
     private final List<Rectangle2D> solids = new ArrayList<>();
 
     private double portalAngle;
-    private double time;              // segundos desde que se creó (el Gran Farol se mece con él)
-    private int lanternFill;           // [B4] huecos llenos del Gran Farol
+    private double time;              // segundos desde que se creó (las llamas del Gran Farol tiemblan con él)
+    private final CandelabraState candelabra = new CandelabraState();   // [v0.9.5] cómo está el Gran Farol
+    private int hallPetals;            // [v0.9.5] pétalos encendidos del rosetón de la sala del trono
+    private double hallBraziers;       // [v0.9.5] fuego de los braseros de la sala (0 apagados, 1 ardiendo)
     private boolean exitIsLantern;    // la salida es el Gran Farol, no el portal
     private Rectangle2D throneHall;     // [v0.9.5] el espacio libre de la sala del trono (solo la Cúpula)
     private Rectangle2D candelabraBox;  // [v0.9.5] dónde se dibuja el Gran Farol (solo la Cúpula)
@@ -93,10 +96,22 @@ public class Level {
         this.exitIsLantern = lantern;
     }
 
-    /** [B4] Cuántos huecos del Gran Farol están llenos (0 a 6). */
-    public void setLanternFill(int filled) { this.lanternFill = Math.max(0, Math.min(LanternArt.SLOTS, filled)); }
+    /**
+     * [v0.9.5] El estado del Gran Farol de esta zona (brazos encendidos y cerrados, vidrio, grietas):
+     * siempre el mismo objeto, que el juego y la animación final cambian. Las zonas sin Farol
+     * también tienen uno, aunque no se dibuja.
+     */
+    public CandelabraState getCandelabra() { return candelabra; }
 
-    public int getLanternFill() { return lanternFill; }
+    /** [v0.9.5] Las luces de la sala del trono: pétalos del rosetón (0 a 6) y braseros (0 a 1). */
+    public void setHallLights(int petals, double braziers) {
+        this.hallPetals = Math.max(0, Math.min(CandelabraState.ARMS, petals));
+        this.hallBraziers = Math.max(0, Math.min(1, braziers));
+    }
+
+    public int getHallPetals() { return hallPetals; }
+
+    public double getHallBraziers() { return hallBraziers; }
 
     /** ¿La salida es el Gran Farol? */
     public boolean exitIsLantern() { return exitIsLantern; }
@@ -404,7 +419,7 @@ public class Level {
         time += dt;
     }
 
-    /** Solo avanza el reloj de la zona (el mecer del Gran Farol), sin mover nada más: la pantalla final lo usa. */
+    /** Solo avanza el reloj de la zona (las llamas del Gran Farol), sin mover nada más: la pantalla final lo usa. */
     public void advanceTime(double dt) {
         time += dt;
     }
@@ -444,9 +459,15 @@ public class Level {
             g.setStroke(old);
         }
         if (exit != null) {
-            // [v0.9.5] El Gran Farol se dibuja en su caja; la salida es solo la zona que se toca
-            if (exitIsLantern) LanternArt.draw(g, candelabraBox != null ? candelabraBox : exit, time, lanternFill);
-            else drawPortal(g);
+            // [v0.9.5] El Gran Farol, el candelabro, se dibuja en su caja; la salida es solo la zona
+            // que se toca. En el juego no hay nada dentro del vidrio: las dos partes van juntas.
+            if (exitIsLantern) {
+                Rectangle2D box = candelabraBox != null ? candelabraBox : exit;
+                CandelabraArt.drawBack(g, box, candelabra, time);
+                CandelabraArt.drawFront(g, box, candelabra, time);
+            } else {
+                drawPortal(g);
+            }
         }
         if (leftEntry != null) drawPassage(g, 0, 1, leftEntry.y + Player.H);
         if (rightEntry != null) drawPassage(g, width, -1, rightEntry.y + Player.H);

@@ -13,7 +13,7 @@ import umbra.world.Fragment;
 
 /**
  * [B4] El dibujo de un fragmento del Gran Farol: un pedazo de vidrio dorado, con facetas y un
- * brillo que pulsa. Mismo estilo que LanternArt: bisel claro arriba a la izquierda y oscuro
+ * brillo que pulsa. Mismo estilo que CandelabraArt: bisel claro arriba a la izquierda y oscuro
  * abajo a la derecha. No guarda nada: todo se calcula en cada cuadro (solo hay uno o dos a la vez).
  *
  * El contorno es un cristal irregular de unos 26 x 26 unidades (SIZE de Fragment más un poco de

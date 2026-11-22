@@ -41,6 +41,12 @@ import umbra.world.Level;
  * cada cuadro porque se mecen. Las colisiones no cambian: siguen siendo los mismos
  * rectángulos. Regla visual: lo que tiene borde claro arriba se puede pisar; las columnas
  * son oscuras y sin borde porque son solo decoración.
+ *
+ * [v0.9.5] En la Cúpula también guarda, en otra imagen, el fondo de la sala del trono
+ * (ThroneHallArt), y dibuja el piso de la sala como losas de piedra labrada en vez de roca. Una
+ * repisa cuya cara de arriba queda toda tapada por otras (la cima de los escalones del domo,
+ * debajo del piso de la sala) no lleva borde claro ni musgo, y ningún hongo, mata ni columna rota
+ * nace dentro de la roca de otra repisa.
  */
 public class LevelArt {
 
@@ -124,18 +130,80 @@ public class LevelArt {
     private final BufferedImage runeGlow = renderRuneGlow();
     private double time;
 
+    private final Level level;
+    private final Rectangle2D hall;          // [v0.9.5] la sala del trono (null si la zona no tiene)
+    private final BufferedImage hallImage;   // [v0.9.5] su fondo quieto, dibujado una sola vez
+
     public LevelArt(Level level, long seed) {
+        this.level = level;
         Random rnd = new Random(seed);
         int i = 0;
+        hall = level.getThroneHall();
         for (Rectangle2D r : level.getPlatforms()) {
             if (r.getWidth() >= 400) props.add(renderColumn(r, rnd));
-            platforms.add(renderPlatform(r, rnd, i++ % 2 == 0));
+            if (isHallFloor(r)) platforms.add(renderHallFloor(r));
+            else platforms.add(renderPlatform(r, rnd, i % 2 == 0, buried(level, r)));
+            i++;
         }
         for (Block b : level.getBlocks()) {
             Rectangle2D r = b.getBounds();
             blocks.add(renderBlock(r, rnd));
             runes.add(new Rune(r.getCenterX(), r.getCenterY(), rnd.nextDouble() * Math.PI * 2));
         }
+        // [v0.9.5] Nada nace dentro de la roca: se quitan al final para no cambiar el resto del decorado
+        for (int k = mushrooms.size() - 1; k >= 0; k--) if (inRock(mushrooms.get(k).x, mushrooms.get(k).y - 1.5)) mushrooms.remove(k);
+        for (int k = tufts.size() - 1; k >= 0; k--) if (inRock(tufts.get(k).x, tufts.get(k).y - 1.5)) tufts.remove(k);
+        for (int k = props.size() - 1; k >= 0; k--) {
+            Sprite c = props.get(k);
+            if (inRock(c.x + c.img.getWidth() / 2.0, c.y + c.img.getHeight() - 8 - 3)) props.remove(k);   // la base de la columna
+        }
+        hallImage = hall == null ? null : renderHall(hall);
+    }
+
+    /** ¿El punto cae dentro de alguna repisa? */
+    private boolean inRock(double x, double y) {
+        for (Rectangle2D p : level.getPlatforms()) if (p.contains(x, y)) return true;
+        return false;
+    }
+
+    /** [v0.9.5] ¿Toda la cara de arriba de 'r' queda tapada por otras repisas? (cada 2 px) */
+    private static boolean buried(Level level, Rectangle2D r) {
+        for (double x = r.getMinX() + 1; x < r.getMaxX(); x += 2) {
+            boolean covered = false;
+            for (Rectangle2D p : level.getPlatforms()) {
+                if (p != r && p.contains(x, r.getMinY() - 0.5)) { covered = true; break; }
+            }
+            if (!covered) return false;
+        }
+        return true;
+    }
+
+    /** [v0.9.5] ¿'r' es parte del piso de la sala del trono (su cara de arriba es el borde de abajo de la sala)? */
+    private boolean isHallFloor(Rectangle2D r) {
+        return hall != null && Math.abs(r.getMinY() - hall.getMaxY()) < 0.5
+                && r.getMaxX() > hall.getMinX() && r.getMinX() < hall.getMaxX();
+    }
+
+    /**
+     * [v0.9.5] El fondo de la sala del trono y sus luces (los pétalos del rosetón y los braseros,
+     * según la zona). Va detrás de todo lo demás del mundo, incluso del halo de Logi.
+     */
+    public void drawHall(Graphics2D g, double camX, double camY) {
+        if (hallImage == null) return;
+        if (hall.getMaxX() < camX || hall.getMinX() > camX + Config.WIDTH
+                || hall.getMaxY() < camY || hall.getMinY() > camY + Config.HEIGHT) return;   // fuera de la pantalla
+        g.drawImage(hallImage, (int) Math.round(hall.getX()), (int) Math.round(hall.getY()), null);
+        ThroneHallArt.drawLights(g, hall, level.getHallPetals(), level.getHallBraziers(), level.getTime());
+    }
+
+    /** [v0.9.5] Lo quieto de la sala, una sola vez: imagen opaca, que se copia muy rápido. */
+    private static BufferedImage renderHall(Rectangle2D hall) {
+        BufferedImage img = new BufferedImage((int) Math.ceil(hall.getWidth()), (int) Math.ceil(hall.getHeight()), BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = Background.smooth(img);
+        g.translate(-hall.getX(), -hall.getY());
+        ThroneHallArt.drawStatic(g, hall, false);
+        g.dispose();
+        return img;
     }
 
     /**
@@ -313,7 +381,7 @@ public class LevelArt {
     //  REPISAS DE ROCA (imágenes que se dibujan una sola vez)
     // =========================================================
 
-    private Sprite renderPlatform(Rectangle2D r, Random rnd, boolean teal) {
+    private Sprite renderPlatform(Rectangle2D r, Random rnd, boolean teal, boolean buried) {
         int w = (int) Math.ceil(r.getWidth()), h = (int) Math.ceil(r.getHeight());
         BufferedImage img = Background.newImage(w + 2 * SIDE, h + TOP);
         Graphics2D g = Background.smooth(img);
@@ -354,10 +422,16 @@ public class LevelArt {
         }
         g.setClip(oldClip);
 
-        // Borde claro arriba: aquí se puede pisar
-        g.setColor(RIM);
-        g.setStroke(new BasicStroke(2f));
-        g.draw(new Line2D.Double(left[0] + 4, 1, w - right[0] - 4, 1));
+        // Borde claro arriba: aquí se puede pisar. [v0.9.5] Si otras repisas tapan toda la cara de
+        // arriba, ni borde ni musgo: el musgo se calcula igual (para no cambiar el resto del
+        // decorado) pero recortado a nada, y sus matas y hongos se quitan al final (inRock).
+        if (!buried) {
+            g.setColor(RIM);
+            g.setStroke(new BasicStroke(2f));
+            g.draw(new Line2D.Double(left[0] + 4, 1, w - right[0] - 4, 1));
+        } else {
+            g.setClip(new Rectangle2D.Double(0, 0, 0, 0));
+        }
 
         drawMoss(g, rnd, r, left[0], right[0]);
         for (double x = 26 + rnd.nextDouble() * 60; x < w - 20; x += 110 + rnd.nextDouble() * 120) {
@@ -365,6 +439,41 @@ public class LevelArt {
         }
         g.dispose();
         return new Sprite(img, r.getX() - SIDE, r.getY() - TOP);
+    }
+
+    /**
+     * [v0.9.5] Una losa del piso de la sala del trono: piedra labrada como las losas, no roca. Su
+     * cara de enfrente (los 10 px de grueso) tiene el borde claro arriba (aquí se pisa), juntas
+     * entre losas y una moldura, con una sombra suave debajo; el piso que se aleja hacia la pared
+     * lo dibuja el fondo de la sala (ThroneHallArt). Sin musgo ni hongos.
+     */
+    private static Sprite renderHallFloor(Rectangle2D r) {
+        int w = (int) Math.ceil(r.getWidth()), h = (int) Math.ceil(r.getHeight()), below = 8;
+        BufferedImage img = Background.newImage(w, h + below);
+        Graphics2D g = Background.smooth(img);
+        g.setPaint(new GradientPaint(0, 0, STONE_TOP, 0, h, STONE_BOTTOM));
+        g.fill(new Rectangle2D.Double(0, 0, w, h));
+        g.setPaint(new GradientPaint(0, h, new Color(0, 0, 0, 120), 0, h + below, new Color(0, 0, 0, 0)));
+        g.fill(new Rectangle2D.Double(0, h, w, below));
+        g.setStroke(new BasicStroke(1f));
+        g.setColor(CARVED);
+        g.draw(new Line2D.Double(0, h * 0.62, w, h * 0.62));   // la moldura
+        g.setColor(STONE_DARK);
+        g.draw(new Line2D.Double(0, h - 0.5, w, h - 0.5));
+        for (double x = 50 - (r.getX() % 50); x < w; x += 50) {   // juntas cada 50 px del mundo
+            g.setColor(CARVED);
+            g.draw(new Line2D.Double(x, 2, x, h));
+            g.setColor(Background.alpha(STONE_LIGHT, 70));
+            g.draw(new Line2D.Double(x + 1, 3, x + 1, h * 0.6));
+        }
+        g.setColor(STONE_EDGE);   // las puntas
+        g.draw(new Line2D.Double(0.5, 0, 0.5, h));
+        g.draw(new Line2D.Double(w - 0.5, 0, w - 0.5, h));
+        g.setColor(RIM);   // aquí se puede pisar
+        g.setStroke(new BasicStroke(2f));
+        g.draw(new Line2D.Double(0, 1, w, 1));
+        g.dispose();
+        return new Sprite(img, r.getX(), r.getY());
     }
 
     /** Cuánto se mete cada lado de la roca (0 a 7 px), con el mismo terreno fractal del fondo. */
