@@ -5,6 +5,7 @@ import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.GradientPaint;
 import java.awt.Graphics2D;
+import java.awt.LinearGradientPaint;
 import java.awt.RenderingHints;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,7 +18,12 @@ import umbra.core.Config;
  * mientras hay una línea en pantalla, la nueva reemplaza a la anterior.
  *
  * Lo que empieza con raya (—) lo dice Logi y se pinta de otro color, igual que en la intro
- * (Intro.sentences parte la línea en oraciones con la misma regla).
+ * (Intro.sentences parte la línea en oraciones con la misma regla). Una excepción: la raya que
+ * sigue a una oración de Logi ya cerrada abre un inciso del narrador ("—Ya casi. —Pero su llama
+ * se ve más oscura."), así que esa parte se pinta con el color de la narración.
+ *
+ * Posición: abajo, salvo que Candil esté en el tercio de abajo de la pantalla; entonces va arriba,
+ * debajo del título del nivel, para no taparlo. Se elige al aparecer y no cambia mientras dura.
  */
 public final class StoryLine {
 
@@ -31,9 +37,14 @@ public final class StoryLine {
     private static final int MAX_WIDTH = 1000;
     private static final int LAST_BASELINE = 672, ROW_HEIGHT = 30;
     private static final int VEIL_TOP = 590;
+    /** Arriba: la primera línea va justo debajo de LevelTitle (que llega a y = 236). */
+    private static final int TOP_FIRST_BASELINE = 290, TOP_VEIL_START = 246;
+    /** Candil está "abajo" si su centro en pantalla pasa de este y (el tercio de abajo). */
+    public static final int LOW_THIRD = Config.HEIGHT * 2 / 3;
 
     private final List<String> lines;
     private int index = -1;   // la línea que se muestra; -1 = ninguna
+    private boolean atTop;    // se elige al aparecer: la línea va arriba porque Candil está abajo
     private double time;      // segundos desde que se mostró
 
     // Renglones ya partidos de la línea que se muestra (se calculan en el primer draw de cada show)
@@ -46,10 +57,23 @@ public final class StoryLine {
         this.lines = new ArrayList<>(lines);
     }
 
-    /** Muestra la línea 'index' (de 0 a 5), reemplazando la que esté en pantalla. Fuera de rango no hace nada. */
+    /** Muestra la línea 'index' (de 0 a 5) abajo, reemplazando la que esté en pantalla. Fuera de rango no hace nada. */
     public void show(int index) {
+        show(index, false);
+    }
+
+    /**
+     * Igual, eligiendo la posición: 'candilY' es el centro de Candil en pantalla; si está en el
+     * tercio de abajo, la línea va arriba. La posición queda fija hasta que la línea se va.
+     */
+    public void show(int index, double candilY) {
+        show(index, candilY > LOW_THIRD);
+    }
+
+    private void show(int index, boolean top) {
         if (index < 0 || index >= lines.size()) return;
         this.index = index;
+        this.atTop = top;
         time = 0;
         rowsReady = false;
     }
@@ -70,6 +94,42 @@ public final class StoryLine {
     /** El número de la línea que se muestra, o -1 si no hay ninguna. */
     public int currentIndex() { return index; }
 
+    /** Si la línea que se muestra está arriba (Candil estaba abajo al aparecer). */
+    public boolean isAtTop() { return atTop; }
+
+    /** Y de la base del primer renglón con la posición elegida y 'rowCount' renglones. */
+    private double firstBaseline(int rowCount) {
+        return atTop ? TOP_FIRST_BASELINE : LAST_BASELINE - (rowCount - 1) * ROW_HEIGHT;
+    }
+
+    /** Un trozo de la línea con su color: lo dice Logi (voice) o lo cuenta el narrador. */
+    public static final class Piece {
+        public final String text;
+        public final boolean voice;
+        Piece(String text, boolean voice) {
+            this.text = text;
+            this.voice = voice;
+        }
+    }
+
+    /**
+     * Parte una línea en oraciones y dice quién habla en cada una. Lo que empieza con raya es de
+     * Logi, salvo la raya que sigue a una oración de Logi ya cerrada: abre un inciso del narrador.
+     * Una raya que sigue a ese inciso vuelve a ser de Logi.
+     */
+    public static List<Piece> pieces(String line) {
+        List<Piece> result = new ArrayList<>();
+        boolean prevVoice = false;
+        for (String part : line.split("(?<=\\.)\\s+|\\s+(?=\u2014)")) {
+            part = part.trim();
+            if (part.isEmpty()) continue;
+            boolean voice = part.startsWith("\u2014") && !prevVoice;
+            result.add(new Piece(part, voice));
+            prevVoice = voice;
+        }
+        return result;
+    }
+
     /** Opacidad de 0 a 1: entra en FADE_IN s, se queda y sale en los últimos FADE_OUT s. */
     private double alpha() {
         double in = Math.min(1, time / FADE_IN);
@@ -77,23 +137,20 @@ public final class StoryLine {
         return Math.max(0, Math.min(in, out));
     }
 
-    /** Parte la línea en oraciones (después de ". " y antes de una raya) y junta las seguidas del mismo color. */
+    /** Parte la línea en oraciones (ver pieces) y junta las seguidas del mismo color. */
     private void prepare(FontMetrics fm) {
         rows.clear();
         rowIsVoice.clear();
         StringBuilder block = new StringBuilder();
         boolean blockVoice = false;
-        for (String part : lines.get(index).split("(?<=\\.)\\s+|\\s+(?=\u2014)")) {
-            part = part.trim();
-            if (part.isEmpty()) continue;
-            boolean voice = part.startsWith("\u2014");
-            if (block.length() > 0 && voice != blockVoice) {
+        for (Piece piece : pieces(lines.get(index))) {
+            if (block.length() > 0 && piece.voice != blockVoice) {
                 flush(block.toString(), blockVoice, fm);
                 block.setLength(0);
             }
-            blockVoice = voice;
+            blockVoice = piece.voice;
             if (block.length() > 0) block.append(' ');
-            block.append(part);
+            block.append(piece.text);
         }
         if (block.length() > 0) flush(block.toString(), blockVoice, fm);
         rowsReady = true;
@@ -117,13 +174,22 @@ public final class StoryLine {
         g.setFont(FONT);
         if (!rowsReady) prepare(g.getFontMetrics());
 
-        g.setPaint(new GradientPaint(0, VEIL_TOP, new Color(4, 6, 14, 0),
-                0, Config.HEIGHT, Text.withAlpha(new Color(4, 6, 14, 150), a)));
-        g.fillRect(0, VEIL_TOP, Config.WIDTH, Config.HEIGHT - VEIL_TOP);
+        double first = firstBaseline(rows.size());
+        if (atTop) {   // la franja oscura se desvanece hacia abajo
+            int veilEnd = (int) first + (rows.size() - 1) * ROW_HEIGHT + 50;
+            // entra suave arriba (sin borde) y se desvanece hacia abajo
+            g.setPaint(new LinearGradientPaint(0, TOP_VEIL_START, 0, veilEnd, new float[] { 0f, 0.2f, 1f },
+                    new Color[] { new Color(4, 6, 14, 0), Text.withAlpha(new Color(4, 6, 14, 150), a), new Color(4, 6, 14, 0) }));
+            g.fillRect(0, TOP_VEIL_START, Config.WIDTH, veilEnd - TOP_VEIL_START);
+        } else {
+            g.setPaint(new GradientPaint(0, VEIL_TOP, new Color(4, 6, 14, 0),
+                    0, Config.HEIGHT, Text.withAlpha(new Color(4, 6, 14, 150), a)));
+            g.fillRect(0, VEIL_TOP, Config.WIDTH, Config.HEIGHT - VEIL_TOP);
+        }
 
-        double drift = (1 - Math.min(1, time / FADE_IN)) * 5;   // sube unos pixeles al aparecer
+        double drift = (1 - Math.min(1, time / FADE_IN)) * 5 * (atTop ? -1 : 1);   // se mueve unos pixeles al aparecer
         for (int i = 0; i < rows.size(); i++) {
-            double y = LAST_BASELINE - (rows.size() - 1 - i) * ROW_HEIGHT + drift;
+            double y = first + i * ROW_HEIGHT + drift;
             Color c = rowIsVoice.get(i) ? VOICE : NARRATION;
             Text.centered(g, rows.get(i), Config.WIDTH / 2.0 + 1, y + 1.5, Color.BLACK, a * 0.7, 0);   // sombra
             Text.centered(g, rows.get(i), Config.WIDTH / 2.0, y, c, a, 1.2);

@@ -258,15 +258,18 @@ public class ParticleSystem {
         particles.clear();
     }
 
-    /**
-     * [B4] El estallido al tomar un fragmento del Gran Farol: chispas doradas que salen del punto
-     * (x, y) en todas direcciones, suben un poco y se apagan.
-     */
-    public void emitFragmentBurst(double x, double y, int count) {
-        for (int i = 0; i < count; i++) {
-            double a = rand(0, Math.PI * 2), speed = rand(60, 190);
-            add(x, y, Math.cos(a) * speed, Math.sin(a) * speed - 30, rand(0.5, 1.1), rand(1.6, 3.0),
-                    -40, new Color(255, 214, 110), true);
+    /** [B4] Una chispa dorada que se queda atrás del fragmento mientras vuela hacia Candil. */
+    public void emitFragmentTrail(double x, double y) {
+        add(x + rand(-4, 4), y + rand(-4, 4), rand(-25, 25), rand(-25, 25), rand(0.25, 0.45), rand(1.4, 2.4),
+                0, new Color(255, 214, 110), true);
+    }
+
+    /** [B4] La chispa breve que queda sobre Candil cuando el fragmento llega. */
+    public void emitFragmentArrive(double x, double y) {
+        for (int i = 0; i < 8; i++) {
+            double a = rand(0, Math.PI * 2), speed = rand(20, 70);
+            add(x, y, Math.cos(a) * speed, Math.sin(a) * speed - 15, rand(0.25, 0.5), rand(1.6, 2.6),
+                    -20, new Color(255, 226, 150), true);
         }
     }
 

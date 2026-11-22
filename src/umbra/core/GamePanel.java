@@ -32,6 +32,7 @@ import umbra.entities.Player;
 import umbra.graphics.Background;
 import umbra.graphics.Camera;
 import umbra.graphics.FragmentArt;
+import umbra.graphics.FragmentFlights;
 import umbra.graphics.LevelArt;
 import umbra.graphics.ParticleSystem;
 import umbra.graphics.ShadowCaster;
@@ -119,6 +120,10 @@ public class GamePanel extends JPanel {
     /** [B4] Segundos desde que se tomó el último fragmento: el contador pulsa mientras es corto. */
     private double counterPulse = 99;
     private static final double COUNTER_PULSE_TIME = 0.6;
+    /** [B4] Margen (px) fuera de la vista dentro del cual un fragmento todavía se dibuja: su halo llega a 40. */
+    private static final double FRAGMENT_CULL_MARGIN = 50;
+    /** [B4] Los fragmentos recién tomados que vuelan hacia Candil (solo visual). */
+    private final FragmentFlights fragmentFlights = new FragmentFlights();
     private final Victory victory = new Victory(Resources.readLines("/umbra/res/final.txt"));
     /** Logi del menú y de la pantalla final: etérea, sigue al ratón en coordenadas de pantalla. */
     private final LightSource menuLight = new LightSource(Config.WIDTH / 2.0, Config.HEIGHT / 3.0);
@@ -440,6 +445,7 @@ public class GamePanel extends JPanel {
         VoiceOver.stop();   // si se salta la intro, la narración se corta
         world.reset();   // también borra los fragmentos tomados
         storyLine.hide();
+        fragmentFlights.clear();
         counterPulse = 99;
         useCurrentLevel();
         logiWaiting = false;   // partida nueva: Logi sigue al ratón desde el principio
@@ -470,6 +476,7 @@ public class GamePanel extends JPanel {
         else player.moveTo(p.getArrival());
         camera.snapTo(player.getCenterX(), player.getCenterY());
         checkpoint = p.getRespawn();
+        fragmentFlights.clear();   // Candil saltó de zona: un vuelo en curso se quedaría sin destino
 
         placeLogiAbove();
         ignoreWalkKeys();   // si llegó con A o D apretada, no camina hasta soltarla
@@ -534,6 +541,7 @@ public class GamePanel extends JPanel {
 
     private void showVictory() {
         screen = Screen.VICTORY;
+        fragmentFlights.clear();
         victory.show(playTime, deaths, world.takenCount());
     }
 
@@ -564,6 +572,8 @@ public class GamePanel extends JPanel {
         levelTitle.update(dt);
         storyLine.update(dt);
         counterPulse += dt;
+        if (player.isDead()) fragmentFlights.clear();   // si Candil se desmorona, el vuelo termina sin chispa
+        else fragmentFlights.update(dt, player.getCenterX(), player.getCenterY(), particles);
 
         // ---- Luz: sigue al ratón suavemente; con un clic se fija o se suelta ----
         // El ratón está en coordenadas de pantalla y la luz vive en el mundo:
@@ -719,10 +729,10 @@ public class GamePanel extends JPanel {
             if (world.isTaken(f.getId()) || !body.intersects(f.getBounds())) continue;
             if (!world.take(f.getId())) continue;
             player.restoreLife();
-            particles.emitFragmentBurst(f.getCenterX(), f.getCenterY(), 26);
-            particles.emitSpark(player.getCenterX(), player.getCenterY());
+            fragmentFlights.start(f.getCenterX(), f.getCenterY());   // el cristal vuela hacia Candil (solo visual)
             FragmentAudio.playChime();
-            storyLine.show(world.takenCount() - 1);
+            // Si Candil está en el tercio de abajo de la pantalla, la línea va arriba para no taparlo
+            storyLine.show(world.takenCount() - 1, player.getCenterY() - camera.getY());
             level.setLanternFill(world.takenCount());
             counterPulse = 0;
         }
@@ -762,6 +772,7 @@ public class GamePanel extends JPanel {
     }
 
     private void restart() {
+        fragmentFlights.clear();
         player.respawn(level.getSpawn());
         checkpoint = level.getSpawn();
         light.setPinned(false);
@@ -846,11 +857,18 @@ public class GamePanel extends JPanel {
         levelArt.drawFront(g2, camX, camY, light); // 3. repisas de roca, hongos, losas y runas
         level.draw(g2);                  //    salida
         for (Fragment f : level.getFragments()) {   //    [B4] los fragmentos que faltan por tomar
-            if (screen == Screen.PLAYING && !world.isTaken(f.getId())) FragmentArt.draw(g2, f, level.getTime());
+            if (screen != Screen.PLAYING || world.isTaken(f.getId())) continue;
+            // Solo los que entran en la vista (con margen para el halo, de hasta 40 px de radio)
+            if (f.getCenterX() < camX - FRAGMENT_CULL_MARGIN || f.getCenterX() > camX + Config.WIDTH + FRAGMENT_CULL_MARGIN
+                    || f.getCenterY() < camY - FRAGMENT_CULL_MARGIN || f.getCenterY() > camY + Config.HEIGHT + FRAGMENT_CULL_MARGIN) continue;
+            FragmentArt.draw(g2, f, level.getTime());
         }
         background.drawSpores(g2, camX, camY); // 4. esporas flotando
         particles.draw(g2);              // 5. partículas
         player.draw(g2);                 // 6. jugador
+        if (screen == Screen.PLAYING && !player.isDead()) {   //    [B4] los fragmentos que vuelan hacia Candil
+            fragmentFlights.draw(g2, player.getCenterX(), player.getCenterY());
+        }
         if (screen == Screen.PLAYING) light.drawCore(g2);   // 7. Logi (en la pantalla final, la etérea)
 
         // Lo demás no usa la matriz de vista: se dibuja en coordenadas de pantalla
