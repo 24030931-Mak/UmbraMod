@@ -74,7 +74,7 @@ public class Victory {
         return 0.8 + lines.size() * LINE_GAP;
     }
 
-    /** Ya se ve todo y se puede elegir: jugar de nuevo o volver al menú. */
+    /** Ya se ve todo y se puede elegir: volver al menú. */
     public boolean isReady() {
         return time >= statsAt() + 0.6;
     }
@@ -118,7 +118,7 @@ public class Victory {
 
         if (isReady()) {
             double pulse = 0.6 + 0.4 * Math.sin(time * 3);
-            Text.centered(g, "Enter o clic: jugar de nuevo            Esc: men\u00fa", cx, Config.HEIGHT - 86,
+            Text.centered(g, "Enter o clic: volver al men\u00fa", cx, Config.HEIGHT - 86,
                     Text.BRIGHT, pulse, 1.2);
         }
     }

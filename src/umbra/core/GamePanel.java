@@ -493,7 +493,7 @@ public class GamePanel extends JPanel {
         menu.setSlots(rows);
     }
 
-    /** Pantalla final: Enter juega de nuevo, Esc regresa al menú. */
+    /** Pantalla final: Enter, Espacio, clic o Esc regresan al menú. */
     private void updateVictory(double dt, boolean leaving) {
         victory.update(dt);
         level.advanceTime(dt);        // el Gran Farol sigue meciéndose
@@ -508,15 +508,13 @@ public class GamePanel extends JPanel {
                 || input.wasClicked();
         if (!victory.isReady()) {
             if (confirm) victory.skip();   // muestra todo el texto de una vez
-        } else if (confirm) {
-            fadeTo(() -> startGame(slot), FADE_TIME, 0);
-        } else if (input.wasPressed(KeyEvent.VK_ESCAPE)) {
-            fadeTo(this::backToMenu);
+        } else if (confirm || input.wasPressed(KeyEvent.VK_ESCAPE)) {
+            fadeTo(this::backToMenu);   // [B6] la partida queda guardada: se vuelve al menú
         }
     }
 
     /**
-     * Empieza una partida nueva en el espacio 'slot' (desde el menú o al jugar de nuevo) y la
+     * Empieza una partida nueva en el espacio 'slot' (desde el menú) y la
      * guarda de inmediato. Nada de la partida anterior pasa a esta.
      */
     private void startGame(int slot) {
@@ -611,6 +609,22 @@ public class GamePanel extends JPanel {
 
         particles.clear();
         levelTitle.show(level.getNumber(), level.getName());   // sin leyenda: solo el numeral y el nombre
+        autosave();   // [B6] ya con el punto de reaparición en la llegada
+    }
+
+    /**
+     * [B6] Guarda la partida en su espacio. Solo si hay partida en juego (slot >= 0) y la pantalla es
+     * PLAYING: en el menú, la intro o la pantalla final no se escribe nada. Si no se pudo escribir
+     * (disco lleno, sin permiso) se ignora: el juego sigue.
+     */
+    private void autosave() {
+        if (slot < 0 || screen != Screen.PLAYING) return;
+        saves.save(slot, SaveData.capture(world, playTime, deaths, checkpoint));
+    }
+
+    /** [B6] Lo llama Main al cerrar la ventana: guarda solo si se está jugando. */
+    public void saveOnExit() {
+        autosave();
     }
 
     /**
@@ -657,6 +671,9 @@ public class GamePanel extends JPanel {
     }
 
     private void backToMenu() {
+        // El ratón no se movió: así el primer cuadro del menú no cambia la fila elegida
+        menuMouseX = input.getMouseX();
+        menuMouseY = input.getMouseY();
         if (slot >= 0) menu.setSelected(slot);   // el menú deja elegida la partida que se estaba jugando
         slot = -1;
         screen = Screen.MENU;
@@ -697,6 +714,7 @@ public class GamePanel extends JPanel {
             return;
         }
         if (input.wasPressed(KeyEvent.VK_ESCAPE)) {
+            autosave();   // [B6] se guarda al apretar Esc (aún PLAYING), antes de que backToMenu suelte el espacio
             fadeTo(this::backToMenu);
             return;
         }

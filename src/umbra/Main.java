@@ -1,5 +1,8 @@
 package umbra;
 
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 
@@ -18,7 +21,15 @@ public class Main {
             JFrame window = new JFrame(Config.TITLE + " " + Config.VERSION);
             GamePanel game = new GamePanel();
 
-            window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            // [B6] Al cerrar se guarda la partida (si se está jugando) y luego se sale
+            window.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+            window.addWindowListener(new WindowAdapter() {
+                @Override
+                public void windowClosing(WindowEvent e) {
+                    game.saveOnExit();
+                    System.exit(0);
+                }
+            });
             window.setResizable(false);
             window.add(game);
             window.pack();                       // ajusta la ventana al tamaño del panel
