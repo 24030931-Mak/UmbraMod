@@ -41,9 +41,9 @@ Proyecto final de **Graficación**.
 
 ## Cómo ejecutarlo
 
-Requisitos: **Java 8 o superior** (recomendado 17 o 21). No usa librerías externas, solo Java2D (Swing) y `javax.sound` para la música.
+**Sin Java (Windows, lo más fácil):** en [Releases](https://github.com/TecnoLector/Umbra/releases), descarga `Umbra-vX-Windows.zip` de la versión más reciente. Descomprímelo («Extraer todo») y abre `Umbra.exe` con doble clic dentro de la carpeta `Umbra`. Ya trae su propio Java, así que no hay que instalar nada. Si Windows muestra «Windows protegió su PC», elige **Más información** y luego **Ejecutar de todas formas**: aparece porque el programa no está firmado.
 
-**Rápido:** descarga el `.jar` de la versión más reciente en [Releases](https://github.com/TecnoLector/Umbra/releases) y ábrelo con doble clic, o con `java -jar Umbra-vX.jar`.
+**Con Java:** se necesita **Java 8 o superior** (recomendado 17 o 21). No usa librerías externas, solo Java2D (Swing) y `javax.sound` para el audio. Descarga `Umbra-vX.jar` de la versión más reciente en [Releases](https://github.com/TecnoLector/Umbra/releases) y ábrelo con doble clic, o con `java -jar Umbra-vX.jar`. Esta opción también sirve en Linux y macOS.
 
 **Desde un IDE**
 - **IntelliJ IDEA:** `File > Open` y elige la carpeta del proyecto. Si no detecta el código, clic derecho en `src` > `Mark Directory as > Sources Root`. Ejecuta `umbra.Main`.
