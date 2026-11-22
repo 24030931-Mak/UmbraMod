@@ -1,5 +1,10 @@
 # Texto de la pantalla final, una línea a la vez.
 # Se puede editar igual que intro.txt.
+# Una línea puede empezar con una marca entre corchetes que dice con cuántos fragmentos del Gran
+# Farol (de 0 a 6) se ve: [0] solo con ninguno, [3] solo con 3, [1-5] de 1 a 5. Sin marca, se ve siempre.
+# Las marcas no se ven en pantalla. Por cada cantidad de fragmentos debe quedar una sola línea del Farol.
 Candil y Logi llegan a la Cúpula.
-El Gran Farol sigue apagado, con sus huecos vacíos.
+[0] El Gran Farol sigue apagado, con sus huecos vacíos.
+[1-5] El Gran Farol se enciende a medias; aún le faltan piezas.
+[6] El Gran Farol se enciende entero, con todos sus huecos llenos.
 Pero ahora saben dónde está…

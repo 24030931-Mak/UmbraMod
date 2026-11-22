@@ -3,7 +3,10 @@ package umbra.ui;
 import java.awt.Color;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import umbra.core.Config;
 import umbra.world.World;
@@ -16,19 +19,48 @@ import umbra.world.World;
 public class Victory {
 
     private static final double LINE_GAP = 1.8;   // s entre una línea y la siguiente
+    private static final Pattern MARK = Pattern.compile("^\\[(\\d+)(?:-(\\d+))?\\]\\s*(.*)$");
     private static final Color VEIL = new Color(3, 4, 10, 205);
 
-    private final List<String> lines;
+    private final List<String> allLines;   // todas las del archivo, con sus marcas
+    private List<String> lines;            // las que se muestran según los fragmentos juntados
     private String stats = "";
     private double time;
 
     public Victory(List<String> lines) {
-        this.lines = lines;
+        this.allLines = lines;
+        this.lines = select(lines, 0);
+    }
+
+    /**
+     * Elige las líneas que se ven con 'fragments' fragmentos juntados. Una línea del archivo puede
+     * empezar con una marca entre corchetes: "[0]" (solo con ese número), "[1-5]" (de uno a otro) o
+     * "[6]". Sin marca se ve siempre. Una marca mal escrita se deja como parte del texto.
+     */
+    public static List<String> select(List<String> lines, int fragments) {
+        List<String> result = new ArrayList<>();
+        for (String line : lines) {
+            Matcher m = MARK.matcher(line);
+            if (!m.matches()) {
+                result.add(line);
+                continue;
+            }
+            int from = Integer.parseInt(m.group(1));
+            int to = m.group(2) != null ? Integer.parseInt(m.group(2)) : from;
+            if (fragments >= from && fragments <= to) result.add(m.group(3).trim());
+        }
+        return result;
+    }
+
+    /** Las líneas que se muestran ahora (las pruebas las revisan). */
+    public List<String> getLines() {
+        return lines;
     }
 
     /** @param seconds tiempo jugado; @param deaths veces que Candil se desmoronó; @param fragments fragmentos juntados (de 6) */
     public void show(double seconds, int deaths, int fragments) {
         time = 0;
+        lines = select(allLines, fragments);
         int s = (int) Math.round(seconds);
         stats = String.format("Tiempo: %d:%02d          Candil se desmoron\u00f3 %d %s          Fragmentos: %d/%d",
                 s / 60, s % 60, deaths, deaths == 1 ? "vez" : "veces", fragments, World.FRAGMENTS);
