@@ -152,11 +152,22 @@ public final class Cave {
     }
 
     /**
-     * La Cúpula: una zona de 1280 x 2160 (una pantalla de ancho y tres de alto) encima del tiro
-     * derecho de Los Pozos. Se llega por abajo, por el hueco del piso (x 640 a 720), que es el
+     * [v0.9.5] Cuántos px creció la Cúpula hacia arriba para la sala del trono. Todo lo de la v0.9
+     * (la subida, el inicio y la llegada desde Los Pozos) bajó esta misma cantidad y su posición en
+     * el plano subió lo mismo. Es múltiplo de 80, el tamaño de las celdas del mapa (Exploration).
+     */
+    public static final int CUPULA_EXTRA = 480;
+
+    /**
+     * La Cúpula: una zona de 1280 x 2640 (una pantalla de ancho y casi cuatro de alto) encima del
+     * tiro derecho de Los Pozos. Se llega por abajo, por el hueco del piso (x 640 a 720), que es el
      * mismo hueco del techo de Los Pozos; por ahí también se baja de regreso. Arriba, al centro,
      * cuelga el Gran Farol: tocarlo empieza el final (es la salida de la zona, como el portal que
      * tenían Las Galerías). Sin numeral en el letrero. Sin pasos: Cave.create los pone.
+     *
+     * [v0.9.5] Las medidas de abajo son las de la v0.9, cuando la zona medía 2160 de alto: en el
+     * código todas tienen CUPULA_EXTRA (480) px más en y, porque la zona creció hacia arriba para
+     * la sala del trono (ver el final de este comentario). La subida no cambió.
      *
      * La subida por relevos (la chimenea, del piso y = 2040 a la cima y = 800, unos 1240 px): tres
      * etapas en zigzag entre las paredes, con dos descansos. Logi va abajo de cada etapa y las
@@ -206,45 +217,70 @@ public final class Cave {
      * hasta el techo del mundo. La prueba (PruebaCupula) lo comprueba todo con todos los saltos y
      * caídas posibles, cada medio píxel; la chimenea, también con Logi fija en cada punto de una
      * malla de 40 px.
+     *
+     * [v0.9.5] La sala del trono. Ya con las medidas del código: lo que era el techo del mundo
+     * (y = 0 en la v0.9) quedó en y = CUPULA_EXTRA (480), el "techo de hoy", y arriba de él está la
+     * sala, de 640 x 470 (x 280 a 920, y 0 a 470), con el Gran Farol colgando al centro, encima del
+     * estrado. Con la cámara arriba del todo se ve completa, con el estrado, en una pantalla.
+     *   - El estrado es la repisa del Farol de siempre (x 530 a 670, y = 570): ahí termina la
+     *     subida y ahí, de pie, Candil toca la salida, que es la zona a su altura bajo el Farol.
+     *   - El piso de la sala son dos losas de piedra de 10 px, una a cada lado del estrado (x 280 a
+     *     530 y 670 a 920, con la cara de arriba en y = 470). Su cara de abajo es justo el techo de
+     *     hoy: encima de las paredes del domo y del hueco entre ellas, Candil choca donde antes
+     *     chocaba con el techo del mundo, así que la subida no cambia. El techo solo se abre encima
+     *     del estrado. Del estrado al piso de la sala hay 100 px: se sube con un salto simple (el
+     *     salto alcanza 107) y se vuelve caminando, dejándose caer por la orilla.
+     *   - Los escalones del domo terminan bajo el piso de la sala, que es más ancho que ellos: el
+     *     domo se abre hacia la sala. Una pared nueva a la derecha (x 920 a 1000) deja la sala
+     *     centrada en el estrado y en el Farol (x 600).
+     *   - La sala no tiene losas: no agrega sombras ni tramos.
+     * PruebaSala revisa la sala, y PruebaCupula sigue revisando la subida con las medidas bajadas.
      */
     public static Level createCupula() {
-        Level lvl = new Level("", "La C\u00fapula", 1280, 2160, new Vec2(750, 2040 - Player.H),
-                new Rectangle2D.Double(545, 0, 110, 80));   // el Gran Farol, sobre su repisa
+        final int e = CUPULA_EXTRA;   // todo lo de la v0.9 baja e px (ver el comentario)
+        Level lvl = new Level("", "La C\u00fapula", 1280, 2160 + e, new Vec2(750, 2040 + e - Player.H),
+                new Rectangle2D.Double(545, 50 + e, 110, 40));   // el Gran Farol: se toca de pie en el estrado
         lvl.setExitIsLantern(true);
-        lvl.setWorldPosition(8960, -2160);
+        lvl.setWorldPosition(8960, -(2160 + e));
         lvl.setScenery(43, 47, 1.0);
 
-        //              x     y     ancho  alto
-        lvl.addPlatform(280,  2040, 360,   120);    // el piso, a la izquierda del hueco
-        lvl.addPlatform(720,  2040, 280,   120);    // el piso, a la derecha del hueco (la llegada)
-        lvl.addPlatform(0,    0,    280,   2160);   // pared izquierda
-        lvl.addPlatform(1000, 0,    280,   2160);   // pared derecha
-        lvl.addPlatform(280,  1640, 220,   30);     // descanso 1: fin de la etapa 1, inicio de la 2
-        lvl.addPlatform(780,  1200, 220,   30);     // descanso 2: fin de la etapa 2, inicio de la 3
-        lvl.addPlatform(280,  800,  220,   30);     // la cima: fin de la etapa 3, inicio del domo
-        lvl.addPlatform(780,  650,  160,   30);     // repisa 1 del domo
-        lvl.addPlatform(380,  500,  130,   30);     // repisa 2 del domo
-        lvl.addPlatform(760,  360,  100,   30);     // repisa 3 del domo
-        lvl.addPlatform(530,  90,   140,   30);     // la repisa del Farol
-        lvl.addPlatform(0,    0,    340,   700);    // el domo: las paredes se cierran en escalones
-        lvl.addPlatform(0,    0,    380,   540);
-        lvl.addPlatform(0,    0,    420,   400);
-        lvl.addPlatform(0,    0,    460,   260);
-        lvl.addPlatform(940,  0,    340,   700);
-        lvl.addPlatform(900,  0,    380,   540);
-        lvl.addPlatform(860,  0,    420,   400);
+        //              x     y         ancho  alto
+        lvl.addPlatform(280,  2040 + e, 360,   120);        // el piso, a la izquierda del hueco
+        lvl.addPlatform(720,  2040 + e, 280,   120);        // el piso, a la derecha del hueco (la llegada)
+        lvl.addPlatform(0,    0,        280,   2160 + e);   // pared izquierda
+        lvl.addPlatform(1000, 0,        280,   2160 + e);   // pared derecha
+        lvl.addPlatform(280,  1640 + e, 220,   30);         // descanso 1: fin de la etapa 1, inicio de la 2
+        lvl.addPlatform(780,  1200 + e, 220,   30);         // descanso 2: fin de la etapa 2, inicio de la 3
+        lvl.addPlatform(280,  800 + e,  220,   30);         // la cima: fin de la etapa 3, inicio del domo
+        lvl.addPlatform(780,  650 + e,  160,   30);         // repisa 1 del domo
+        lvl.addPlatform(380,  500 + e,  130,   30);         // repisa 2 del domo
+        lvl.addPlatform(760,  360 + e,  100,   30);         // repisa 3 del domo
+        lvl.addPlatform(530,  90 + e,   140,   30);         // la repisa del Farol: el estrado de la sala
+        lvl.addPlatform(0,    e,        340,   700);        // el domo: las paredes se cierran en escalones
+        lvl.addPlatform(0,    e,        380,   540);
+        lvl.addPlatform(0,    e,        420,   400);
+        lvl.addPlatform(0,    e,        460,   260);
+        lvl.addPlatform(940,  e,        340,   700);
+        lvl.addPlatform(900,  e,        380,   540);
+        lvl.addPlatform(860,  e,        420,   400);
+        // [v0.9.5] La sala del trono, arriba del techo de hoy (y = e)
+        lvl.addPlatform(280,  e - 10,   250,   10);         // el piso de la sala, a la izquierda del estrado
+        lvl.addPlatform(670,  e - 10,   250,   10);         //                      y a la derecha
+        lvl.addPlatform(920,  0,        80,    e);          // la pared derecha de la sala
+        lvl.setThroneHall(new Rectangle2D.Double(280, 0, 640, e - 10));
+        lvl.setCandelabraBox(new Rectangle2D.Double(360, 0, 480, e - 30));   // centrado en el estrado
 
-        lvl.addBlock(new Block(560, 1930, 80,  30));   // etapa 1: la primera losa
-        lvl.addBlock(new Block(280, 1670, 220, 30));   // descanso 1: la losa de debajo
-        lvl.addBlock(new Block(120, 1560, 345, 48));   //             y su techo (largo y bajo: hasta la cabeza de Candil)
-        lvl.addBlock(new Block(780, 1230, 220, 30));   // descanso 2: la losa de debajo
-        lvl.addBlock(new Block(815, 1120, 345, 48));   //             y su techo (largo y bajo)
-        lvl.addBlock(new Block(520, 1410, 50,  30));   // etapa 2: la losa de en medio
-        lvl.addBlock(new Block(550, 790,  40,  30));   // domo: las losas pequeñas
-        lvl.addBlock(new Block(650, 640,  40,  30));
-        lvl.addBlock(new Block(600, 490,  40,  30));
-        lvl.addBlock(new Block(775, 225,  30,  40));   // las losas colgantes: la de la derecha
-        lvl.addBlock(new Block(690, 140,  30,  25));   //                      y la de la izquierda
+        lvl.addBlock(new Block(560, 1930 + e, 80,  30));   // etapa 1: la primera losa
+        lvl.addBlock(new Block(280, 1670 + e, 220, 30));   // descanso 1: la losa de debajo
+        lvl.addBlock(new Block(120, 1560 + e, 345, 48));   //             y su techo (largo y bajo: hasta la cabeza de Candil)
+        lvl.addBlock(new Block(780, 1230 + e, 220, 30));   // descanso 2: la losa de debajo
+        lvl.addBlock(new Block(815, 1120 + e, 345, 48));   //             y su techo (largo y bajo)
+        lvl.addBlock(new Block(520, 1410 + e, 50,  30));   // etapa 2: la losa de en medio
+        lvl.addBlock(new Block(550, 790 + e,  40,  30));   // domo: las losas pequeñas
+        lvl.addBlock(new Block(650, 640 + e,  40,  30));
+        lvl.addBlock(new Block(600, 490 + e,  40,  30));
+        lvl.addBlock(new Block(775, 225 + e,  30,  40));   // las losas colgantes: la de la derecha
+        lvl.addBlock(new Block(690, 140 + e,  30,  25));   //                      y la de la izquierda
         return lvl;
     }
 }

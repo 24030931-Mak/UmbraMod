@@ -45,6 +45,8 @@ public class Level {
     private double time;              // segundos desde que se creó (el Gran Farol se mece con él)
     private int lanternFill;           // [B4] huecos llenos del Gran Farol
     private boolean exitIsLantern;    // la salida es el Gran Farol, no el portal
+    private Rectangle2D throneHall;     // [v0.9.5] el espacio libre de la sala del trono (solo la Cúpula)
+    private Rectangle2D candelabraBox;  // [v0.9.5] dónde se dibuja el Gran Farol (solo la Cúpula)
 
     // Pasos hacia los niveles vecinos [mundo conectado]: dónde aparece Candil al llegar
     // por ese lado. null = no hay paso de ese lado.
@@ -98,6 +100,20 @@ public class Level {
 
     /** ¿La salida es el Gran Farol? */
     public boolean exitIsLantern() { return exitIsLantern; }
+
+    /** [v0.9.5] El espacio libre de la sala del trono, en coordenadas de la zona (null si no tiene). */
+    public void setThroneHall(Rectangle2D hall) { this.throneHall = hall; }
+
+    public Rectangle2D getThroneHall() { return throneHall; }
+
+    /**
+     * [v0.9.5] La caja donde se dibuja el Gran Farol: la corona, las cadenas, los brazos y el
+     * corazón del candelabro (null si la zona no lo tiene). La salida, la zona que se toca, va
+     * aparte (getExit), debajo de ella.
+     */
+    public void setCandelabraBox(Rectangle2D box) { this.candelabraBox = box; }
+
+    public Rectangle2D getCandelabraBox() { return candelabraBox; }
 
     /**
      * Abre los pasos a los niveles vecinos. Cada argumento es la posición (esquina superior
@@ -428,7 +444,8 @@ public class Level {
             g.setStroke(old);
         }
         if (exit != null) {
-            if (exitIsLantern) LanternArt.draw(g, exit, time, lanternFill);
+            // [v0.9.5] El Gran Farol se dibuja en su caja; la salida es solo la zona que se toca
+            if (exitIsLantern) LanternArt.draw(g, candelabraBox != null ? candelabraBox : exit, time, lanternFill);
             else drawPortal(g);
         }
         if (leftEntry != null) drawPassage(g, 0, 1, leftEntry.y + Player.H);

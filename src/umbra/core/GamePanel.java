@@ -1105,8 +1105,10 @@ public class GamePanel extends JPanel {
         g.setColor(new Color(220, 220, 235));
         g.drawString(Config.TITLE + " " + Config.VERSION, 16, 24);
         g.setColor(new Color(150, 150, 170));
-        // La línea de ayuda taparía el Gran Farol (y 0 a 80 en pantalla): no se dibuja ahí.
-        if (!(level.exitIsLantern() && camera.getY() < 100))
+        // La línea de ayuda (y 30 a 50 en pantalla) taparía el Gran Farol: no se dibuja si su caja pasa por ahí.
+        // [v0.9.5] Desde que cuelga en la sala del trono baja hasta y = 450, no solo hasta 80.
+        Rectangle2D farol = level.getCandelabraBox();
+        if (!(farol != null && farol.getMinY() - camera.getY() < 50 && farol.getMaxY() - camera.getY() > 30))
         g.drawString("A/D: mover   W/Espacio: saltar o subir   S: bajar   Mouse: Logi   Clic: fijarla"
                 + "   R: reiniciar   Tab: mapa   M: m\u00fasica   Esc: men\u00fa", 16, 44);
         if (light.isPinned()) {
