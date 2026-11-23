@@ -57,6 +57,12 @@ public class LightSource {
     private double blinkLeft;              // segundos que le quedan al parpadeo actual
     private double eyeDarkness;            // [v0.8.6] 0 = como siempre; 1 = ojos negros y llama enrojecida
 
+    // ---- [B5] Logi se resiste: lo manda LogiTemper desde GamePanel ----
+    private double smoothingFactor = 1;    // multiplica a LIGHT_SMOOTHING: menor = sigue al ratón más lento
+    private double darkness;               // 0 = el Logi de siempre; 0,5 = rojo; 1 = llama negra con ojos blancos
+    private double warning;                // 0 a 1: el aviso rojo antes de un arrebato
+    private final LogiArt.Palette palette = new LogiArt.Palette();   // colores de la llama para 'darkness'
+
     public LightSource(double x, double y) {
         this.x = x;
         this.y = y;
@@ -114,11 +120,34 @@ public class LightSource {
      */
     public void setEyeDarkness(double d) { eyeDarkness = Math.max(0, Math.min(1, d)); }
 
+    /**
+     * [B5] Qué tan rápido sigue al ratón: multiplica a Config.LIGHT_SMOOTHING en update.
+     * 1 (por omisión) es como siempre; con 0,5 tarda el doble en recorrer lo mismo.
+     */
+    public void setSmoothingFactor(double f) { smoothingFactor = f; }
+
+    /**
+     * [B5] Oscuridad de Logi, de 0 a 1 (con cada fragmento sube 1/6): 0 es el Logi de siempre,
+     * 0,5 rojo y 1 la llama negra con ojos blancos del final. Solo cambia los colores de drawCore;
+     * la luz (drawGlow, el radio y las sombras) y las formas siguen iguales. Es distinta de
+     * setEyeDarkness, la de la intro. La paleta se recalcula aquí, una vez, y no en cada cuadro.
+     */
+    public void setDarkness(double d) {
+        darkness = Math.max(0, Math.min(1, d));
+        palette.setDarkness(darkness);
+    }
+
+    public double getDarkness() { return darkness; }
+
+    /** [B5] Aviso de un arrebato, de 0 a 1: la llama parpadea en rojo. 0 (por omisión) = sin aviso. */
+    public void setWarning(double w) { warning = Math.max(0, Math.min(1, w)); }
+
     public void update(double dt) {
         // Suavizado exponencial: en cada update recorre una fracción 't' del camino restante.
         // Usar exp() hace que la velocidad sea la misma sin importar los FPS.
         double oldX = x, oldY = y;
-        double t = 1 - Math.exp(-Config.LIGHT_SMOOTHING * dt);
+        // [B5] smoothingFactor < 1 la hace más lenta (Logi obedece de mala gana); con 1 es como siempre.
+        double t = 1 - Math.exp(-Config.LIGHT_SMOOTHING * smoothingFactor * dt);
         x += (targetX - x) * t;
         y += (targetY - y) * t;
 
@@ -269,4 +298,6 @@ public class LightSource {
     double getLookY() { return lookY; }
     double getBlinkLeft() { return blinkLeft; }
     double getEyeDarkness() { return eyeDarkness; }
+    double getWarning() { return warning; }
+    LogiArt.Palette getPalette() { return palette; }
 }

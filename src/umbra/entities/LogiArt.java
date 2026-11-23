@@ -53,6 +53,13 @@ final class LogiArt {
     private static final Color DANGER_OUTER = new Color(235, 45, 35);
     private static final Color DANGER_MIDDLE = new Color(255, 110, 60);
     private static final Color DANGER_HALO = new Color(255, 75, 55);
+    // [B5] El aviso de un arrebato: un rojo vivo que se nota también sobre la llama negra
+    private static final Color WARN_OUTER = new Color(255, 30, 20);
+    private static final Color WARN_MIDDLE = new Color(255, 70, 45);
+    private static final Color WARN_CORE = new Color(255, 150, 120);
+    private static final Color WARN_HALO = new Color(255, 40, 30);
+    /** Parpadeo del aviso: 5 veces por segundo (rad/s), así en sus 0,8 s late 4 veces. */
+    private static final double WARN_SPEED = 2 * Math.PI * 5;
 
     /**
      * Halo de luz: degradado radial que se desvanece hacia afuera; cambia de color (azul si está fijo,
@@ -114,37 +121,60 @@ final class LogiArt {
                 + 0.08 * Math.sin(time * 1.9) * (1 - motion)          // vaivén en calma
                 + 0.25 * agitation * Math.sin(flickerPhase * 0.55);   // agitada: se sacude
 
-        // Colores de la llama: normal -> azul si está fijo -> rojo si Candil está cerca -> más oscuro con los ojos oscuros
-        double pinMix = l.getPinMix();
+        // Colores de la llama: la paleta de su oscuridad [B5] -> azul si está fijo -> rojo si Candil
+        // está cerca -> más oscuro con los ojos oscuros (intro) -> rojo vivo si avisa un arrebato [B5].
+        // Cada paso es una interpolación lineal mix(a, b, t) = a + (b - a)·t; con t = 0 deja el color igual.
+        Palette pal = l.getPalette();   // naranja (0) -> rojo (0,5) -> negro (1); ya calculada
+        double dk = l.getDarkness();
+        // Mientras más oscuro, menos tiñen el azul de fijo y el rojo de agitado (con 1, solo un 40%),
+        // para que la oscuridad se vea también fijo o agitado; con oscuridad 0 'tint' vale 1, como antes
+        double tint = 1 - 0.6 * dk;
+        double pinMix = l.getPinMix() * tint;
+        double danger = agitation * 0.85 * tint;
         double d = 0.5 * eyeDarkness;   // [v0.8.6] la llama se enfría solo a medias: lo que cambia son los ojos
-        Color cOuter = mix(mix(mix(OUTER, PIN_OUTER, pinMix), DANGER_OUTER, agitation * 0.85), DARK_OUTER, d);
-        Color cMiddle = mix(mix(mix(MIDDLE, PIN_MIDDLE, pinMix), DANGER_MIDDLE, agitation * 0.85), DARK_MIDDLE, d);
-        Color cCore = mix(mix(CORE, PIN_CORE, pinMix), DARK_CORE, d);
-        Color cHalo = mix(mix(HALO, PIN_HALO, pinMix), DANGER_HALO, agitation * 0.85);
+        Color cOuter = mix(mix(mix(pal.outer, PIN_OUTER, pinMix), DANGER_OUTER, danger), DARK_OUTER, d);
+        Color cMiddle = mix(mix(mix(pal.middle, PIN_MIDDLE, pinMix), DANGER_MIDDLE, danger), DARK_MIDDLE, d);
+        Color cCore = mix(mix(pal.core, PIN_CORE, pinMix), DARK_CORE, d);
+        Color cHalo = mix(mix(pal.halo, PIN_HALO, pinMix), DANGER_HALO, danger);
+        double haloAlpha = (80 + 40 * e) * (1 - 0.4 * eyeDarkness);
 
-        // 1. Halo cálido (con el color de la llama: azul si está fijo, rojo agitada)
+        // [B5] El aviso: la llama late hacia el rojo vivo. 'pulse' va de 0,3 a 1 (por el seno), así
+        // que mientras avisa nunca vuelve del todo a su color; el halo cercano se enciende también.
+        double warning = l.getWarning();
+        if (warning > 0) {
+            double pulse = warning * (0.65 + 0.35 * Math.sin(time * WARN_SPEED));
+            cOuter = mix(cOuter, WARN_OUTER, pulse);
+            cMiddle = mix(cMiddle, WARN_MIDDLE, pulse);
+            cCore = mix(cCore, WARN_CORE, pulse);
+            cHalo = mix(cHalo, WARN_HALO, pulse);
+            haloAlpha += 110 * pulse;
+        }
+
+        // 1. Halo cálido (con el color de la llama: azul si está fijo, rojo si está agitado)
         float hr = (float) (HEAD * (2.6 + 2 * e));
         g.setPaint(new RadialGradientPaint(new Point2D.Double(cx, cy), hr, new float[] { 0f, 1f },
-                new Color[] { withAlpha(cHalo, (80 + 40 * e) * (1 - 0.4 * eyeDarkness)), withAlpha(cHalo, 0) }));
+                new Color[] { withAlpha(cHalo, haloAlpha), withAlpha(cHalo, 0) }));
         g.fill(new Ellipse2D.Double(cx - hr, cy - hr, 2 * hr, 2 * hr));
 
         // 2 y 3. La llama en coordenadas locales: M = T(cx, cy) · R(angle)
         g.transform(Mat3.translation(cx, cy).multiply(Mat3.rotation(angle)).toAffineTransform());
-        if (e > 0.01) drawWisps(g, flamePhase, r, len, 255 * e);
+        if (e > 0.01) drawWisps(g, pal, flamePhase, r, len, 255 * e);
         // Las proporciones de las tres capas (0.7, 0.75, 0.8; 0.42, 0.5, 0.6) y sus desfases (0.4 y 0.8)
         // son las mismas en drawDark: si se cambian aquí, hay que cambiarlas allá también
         // (PruebaLlamaNegra.ceroIgual lo vigila: con darkness = 0 ambas deben salir iguales).
         Path2D outer = layer(0, r, len, amp, flamePhase);
         fillLayer(g, outer, cOuter, 225 * flick * (1 - 0.8 * e));
-        if (rise > 0.02) drawSpiral(g, flamePhase, outer, r, len, 205 * rise * tail * flick);
+        if (rise > 0.02) drawSpiral(g, pal.spiral, flamePhase, outer, r, len, 205 * rise * tail * flick);
         fillLayer(g, layer(-0.1 * HEAD, 0.7 * r, 0.75 * len, 0.8 * amp, flamePhase + 0.4), cMiddle,
                 235 * flick * (1 - 0.45 * e));
         fillLayer(g, layer(-0.18 * HEAD, 0.42 * r, 0.5 * len, 0.6 * amp, flamePhase + 0.8), cCore,
-                245 * flick * (1 - 0.1 * e));
+                245 * flick * (1 - 0.1 * e) * (1 - smooth(0.4, 0.9, dk)));   // [B5] oscuro, el centro se apaga
         g.setTransform(old);   // los ojos y el anillo van en coordenadas del mundo, no en las de la llama
 
-        // 4. Ojos
-        drawEyes(g, l, cx, cy, (235 + 20 * eyeDarkness) * (1 - 0.35 * e));
+        // 4. Ojos ([B5] blancos con la llama negra)
+        double white = smooth(0.6, 0.8, dk);
+        drawEyes(g, l, pal.eyes, white, cx, cy, (235 + 20 * eyeDarkness + 20 * white) * (1 - 0.35 * e));
+        g.setTransform(old);   // por si los ojos blancos se torcieron
 
         // 5. Un anillo indica que está fijo
         if (l.isPinned()) {
@@ -155,6 +185,7 @@ final class LogiArt {
     }
 
     // ---- La llama negra: los colores por donde pasa de naranja a rojo y a negro ----
+    // ([B5] drawCore los usa también, con Palette, para oscurecer a Logi en el juego)
     private static final Color RED_OUTER = new Color(190, 40, 40);     // a la mitad (boceto: 190, 40, 40)
     private static final Color RED_MIDDLE = new Color(215, 70, 45);
     private static final Color RED_CORE = new Color(240, 150, 100);
@@ -164,6 +195,40 @@ final class LogiArt {
     private static final Color RED_HALO = new Color(255, 122, 61);
     private static final Color BLACK_HALO = new Color(120, 20, 30);
     private static final Color WHITE_EYES = new Color(244, 246, 255);
+    /**
+     * [B5] El centro de la llama roja en el juego. drawDark lo deja claro (RED_CORE), pero en el
+     * juego Logi es chico y con el centro claro se lee naranja, no rojo; aquí se enrojece más.
+     */
+    private static final Color RED_HOT_CORE = new Color(245, 78, 55);
+
+    /**
+     * [B5] Los colores de la llama de drawCore para una oscuridad dk, por el mismo camino de drawDark:
+     *   0 a 0,5     del naranja de siempre al rojo   (toRed   = 2·dk, de 0 a 1);
+     *   0,5 a 1     del rojo al negro                (toBlack = 2·dk - 1, de 0 a 1);
+     *   0,6 a 0,8   los ojos pasan de negros a blancos (white, con la curva suave).
+     * Cada color es mix(mix(naranja, rojo, toRed), negro, toBlack). Con dk = 0 da justo los colores de
+     * siempre, así que Logi se dibuja igual que en la v0.9.5. La oscuridad solo cambia al juntar un
+     * fragmento: la paleta se guarda y se recalcula solo entonces, no en cada cuadro.
+     */
+    static final class Palette {
+        private double darkness = 0;
+        Color outer = OUTER, middle = MIDDLE, core = CORE, halo = HALO, eyes = EYES, spiral = MIDDLE;
+
+        void setDarkness(double dk) {
+            if (dk == darkness) return;
+            darkness = dk;
+            double toRed = Math.min(1, 2 * dk);
+            double toBlack = Math.max(0, 2 * dk - 1);
+            double white = smooth(0.6, 0.8, dk);
+            outer = mix(mix(OUTER, RED_OUTER, toRed), BLACK_OUTER, toBlack);
+            middle = mix(mix(MIDDLE, RED_MIDDLE, toRed), BLACK_MIDDLE, toBlack);
+            core = mix(mix(CORE, RED_HOT_CORE, toRed), BLACK_CORE, toBlack);
+            halo = mix(mix(HALO, RED_HALO, toRed), BLACK_HALO, toBlack);
+            eyes = mix(mix(EYES, Color.BLACK, Math.min(1, dk / 0.6)), WHITE_EYES, white);
+            // La espiral (al subir): sobre la llama negra queda como brasas rojo oscuro, para que se vea
+            spiral = mix(mix(MIDDLE, RED_MIDDLE, toRed), BLACK_HALO, toBlack);
+        }
+    }
 
     /**
      * La llama negra: Logi en calma, como lo dibuja drawCore,, pero sin LightSource (en (x, y), con 'time'), que se va
@@ -277,7 +342,7 @@ final class LogiArt {
      * Cada lengua son tres copias de la misma curva, cada vez más chicas, muy transparentes y una
      * sobre otra: la orilla queda tenue y el centro más intenso, así que no tiene bordes fijos.
      */
-    private static void drawWisps(Graphics2D g, double flamePhase, double r, double len, double alpha) {
+    private static void drawWisps(Graphics2D g, Palette pal, double flamePhase, double r, double len, double alpha) {
         for (int i = 0; i < 3; i++) {
             double ph = flamePhase * 0.8 + i * 2.1;
             double ox = HEAD * 0.4 * Math.sin(ph * 1.3), oy = HEAD * 0.45 * Math.sin(ph * 0.9 + i);
@@ -285,7 +350,7 @@ final class LogiArt {
             g.translate(ox, oy);
             for (int s = 0; s < 3; s++) {
                 double f = 1 - 0.28 * s;   // 1, 0.72 y 0.44
-                Color c = s == 0 ? OUTER : s == 1 ? MIDDLE : CORE;
+                Color c = s == 0 ? pal.outer : s == 1 ? pal.middle : pal.core;
                 fillLayer(g, layer(-0.1 * s * HEAD, r * (1.2 - 0.15 * i) * f, wl * f, HEAD * 0.5, ph), c,
                         alpha * (0.24 + 0.1 * s));
             }
@@ -301,12 +366,13 @@ final class LogiArt {
      * Cada hebra pasa por 9 puntos unidos con curvas de Bézier cuadráticas que pasan por los
      * puntos medios, para que se vea lisa.
      */
-    private static void drawSpiral(Graphics2D g, double flamePhase, Shape outer, double r, double len, double alpha) {
+    private static void drawSpiral(Graphics2D g, Color strands, double flamePhase, Shape outer, double r, double len,
+            double alpha) {
         Stroke oldStroke = g.getStroke();
         Shape oldClip = g.getClip();
         g.clip(outer);
         g.setStroke(new BasicStroke(1.75f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.setColor(withAlpha(MIDDLE, alpha));
+        g.setColor(withAlpha(strands, alpha));
         int n = 8;
         double[] px = new double[n + 1], py = new double[n + 1];
         for (int s = 0; s < 2; s++) {
@@ -327,17 +393,27 @@ final class LogiArt {
         g.setStroke(oldStroke);
     }
 
-    /** Ojos oscuros: se mueven hasta 2 px hacia donde mira, agitada los abre más, y parpadean. */
-    private static void drawEyes(Graphics2D g, LightSource l, double cx, double cy, double alpha) {
+    /**
+     * Ojos oscuros: se mueven hasta 2 px hacia donde mira, agitado los abre más, y parpadean.
+     * [B5] 'color' viene de la paleta, y 'white' (0 a 1) los vuelve blancos como en drawDark: más
+     * anchos, más altos y torcidos (los de arriba hacia adentro). Con white = 0 quedan como siempre.
+     */
+    private static void drawEyes(Graphics2D g, LightSource l, Color color, double white, double cx, double cy,
+            double alpha) {
         double eyeDarkness = l.getEyeDarkness(), agitation = l.getAgitation(), blinkLeft = l.getBlinkLeft();
         double lookX = l.getLookX(), lookY = l.getLookY();
         // [v0.8.6] Oscurecidos: más anchos, más altos y negros (y no parpadean en ese instante)
-        double w = 2.4 * (1 + 0.3 * eyeDarkness);
-        double h = (blinkLeft > 0 && eyeDarkness < 0.1 ? 0.8 : 3.8 * (1 + 0.35 * agitation)) * (1 + 0.3 * eyeDarkness);
+        double w = 2.4 * (1 + 0.3 * eyeDarkness) * (1 + 0.3 * white);
+        double h = (blinkLeft > 0 && eyeDarkness < 0.1 ? 0.8 : 3.8 * (1 + 0.35 * agitation)) * (1 + 0.3 * eyeDarkness)
+                * (1 + 0.8 * white);
         double ex = cx + 2 * lookX, ey = cy - 0.5 + 1.6 * lookY;
-        g.setColor(withAlpha(mix(EYES, Color.BLACK, eyeDarkness), alpha));
-        g.fill(new Ellipse2D.Double(ex - 3.4 - w / 2, ey - h / 2, w, h));
-        g.fill(new Ellipse2D.Double(ex + 3.4 - w / 2, ey - h / 2, w, h));
+        double tilt = 0.35 * white;
+        g.setColor(withAlpha(mix(color, Color.BLACK, eyeDarkness), alpha));
+        for (int s = -1; s <= 1; s += 2) {
+            if (tilt > 0) g.rotate(-s * tilt, ex + s * 3.4, ey);
+            g.fill(new Ellipse2D.Double(ex + s * 3.4 - w / 2, ey - h / 2, w, h));
+            if (tilt > 0) g.rotate(s * tilt, ex + s * 3.4, ey);
+        }
     }
 
     /** Interpolación lineal entre dos colores: t = 0 regresa 'a', t = 1 regresa 'b'. */
