@@ -153,7 +153,6 @@ public final class LogiTemper {
                     break;
                 }
                 phaseTimer += dt;
-                warning = Math.min(1, phaseTimer / WARN_TIME);
                 if (phaseTimer >= WARN_TIME) {
                     phase = Phase.FROZEN;
                     phaseTimer = 0;
@@ -182,6 +181,9 @@ public final class LogiTemper {
                 }
                 break;
         }
+
+        // El aviso solo vale algo si seguimos en WARN tras las transiciones (en FROZEN ya es 0).
+        if (phase == Phase.WARN) warning = Math.min(1, phaseTimer / WARN_TIME);
 
         // Objetivo y suavizado según la fase (la de este cuadro, tras las transiciones).
         switch (phase) {
