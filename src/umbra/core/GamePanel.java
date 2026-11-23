@@ -105,7 +105,7 @@ public class GamePanel extends JPanel {
     private static final double EXPLORE_RADIUS = 180;
     /** Segundos entre tocar la salida y pasar a la pantalla final. */
     private static final double VICTORY_DELAY = 1.0;
-    /** Partículas de Logi por segundo: chispas mientras está fija (o sube rápido) y ceniza si va rápido. */
+    /** Partículas de Logi por segundo: chispas mientras se queda en su sitio (o sube rápido) y ceniza si va rápido. */
     private static final double SPARK_RATE = 12, ASH_RATE = 30;
 
     private final Input input = new Input();
@@ -158,7 +158,7 @@ public class GamePanel extends JPanel {
     private Player player;
     private LightSource light;
     private Camera camera;
-    /** Logi espera quieta arriba de Candil hasta que el jugador mueva el ratón (ver placeLogiAbove). */
+    /** Logi espera arriba de Candil hasta que el jugador mueva el ratón (ver placeLogiAbove). */
     private boolean logiWaiting;
     private int waitMouseX, waitMouseY;   // dónde estaba el ratón (pantalla) cuando empezó la espera
     private Background background;
@@ -775,7 +775,7 @@ public class GamePanel extends JPanel {
         if (player.isDead()) fragmentFlights.clear();   // si Candil se desmorona, el vuelo termina sin chispa
         else fragmentFlights.update(dt, player.getCenterX(), player.getCenterY(), particles);
 
-        // ---- Luz: sigue al ratón suavemente; con un clic se fija o se suelta ----
+        // ---- Luz: sigue al ratón suavemente; con un clic se fija en su sitio o se suelta ----
         // El ratón está en coordenadas de pantalla y la luz vive en el mundo:
         // la cámara convierte de una a otra con la inversa de su matriz de vista.
         if (input.wasClicked()) {
@@ -790,7 +790,7 @@ public class GamePanel extends JPanel {
         }
         if (!logiWaiting) light.setTarget(mouse.x, mouse.y);
         light.update(dt);
-        emitLogiEffects(dt);   // chispas si está fija; ceniza si va rápido
+        emitLogiEffects(dt);   // chispas si Logi se queda en su sitio; ceniza si va rápido
 
         // ---- Sombras ----
         shadows = shadowCaster.computeShadows(light, level.getBlocks());
@@ -841,7 +841,7 @@ public class GamePanel extends JPanel {
             if (dx * dx + dy * dy <= Config.CRUMBLE_RADIUS * Config.CRUMBLE_RADIUS) {
                 player.crumble();
                 DangerAudio.playCrumble();
-                light.setPinned(false);   // si estaba fija ahí, no lo deshace otra vez al reaparecer
+                light.setPinned(false);   // si estaba fijo ahí, no lo deshace otra vez al reaparecer
             }
 
             emitPlayerEffects(dt);
@@ -1005,7 +1005,7 @@ public class GamePanel extends JPanel {
     }
 
     /**
-     * Partículas de Logi [v1.0]: chispas que flotan mientras está fija (y al subir rápido, como
+     * Partículas de Logi [v1.0]: chispas que flotan mientras se queda en su sitio (y al subir rápido, como
      * en la hoja de Logi) y ceniza que se queda atrás de la cola cuando va rápido (CHASE o RISING).
      * Mismos acumuladores que emitPlayerEffects: salen a un ritmo fijo por segundo, sin importar
      * los FPS.
@@ -1072,7 +1072,8 @@ public class GamePanel extends JPanel {
                 finale.drawOverlay(g2);   // [v0.9.5] subtítulos y fundido
             } else {
                 victory.drawVeil(g2);
-                menuLight.drawCore(g2);   // Logi etérea sigue al ratón: encima del velo, pero detrás del texto
+                // Tras la animación final, Logi ya no está (se llevó la llama negra): sin luz del ratón
+                if (!victoryAfterFinale) menuLight.drawCore(g2);   // Logi etérea sigue al ratón: encima del velo, pero detrás del texto
                 victory.drawText(g2);
             }
         }
@@ -1204,11 +1205,11 @@ public class GamePanel extends JPanel {
         // [v0.9.5] Desde que cuelga en la sala del trono baja hasta y = 450, no solo hasta 80.
         Rectangle2D farol = level.getCandelabraBox();
         if (!(farol != null && farol.getMinY() - camera.getY() < 50 && farol.getMaxY() - camera.getY() > 30))
-        g.drawString("A/D: mover   W/Espacio: saltar o subir   S: bajar   Mouse: Logi   Clic: fijarla"
+        g.drawString("A/D: mover   W/Espacio: saltar o subir   S: bajar   Mouse: Logi   Clic: fijar a Logi"
                 + "   R: reiniciar   Tab: mapa   M: m\u00fasica   Esc: men\u00fa", 16, 44);
         if (light.isPinned()) {
             g.setColor(new Color(255, 230, 150));
-            g.drawString("Logi est\u00e1 fija (clic para soltarla)", 16, 64);
+            g.drawString("Logi no se mueve (clic para soltar)", 16, 64);
         }
         drawLifeBar(g);
         if (!mapView.isOpen()) {   // el círculo se ve siempre al jugar, menos con el mapa grande

@@ -17,7 +17,7 @@ import umbra.math.Vec2;
  */
 public class LightSource {
 
-    /** Las formas de Logi: quieta, persecución, ascenso, agitada, chispeando y etérea. */
+    /** Las formas de Logi: en su sitio, persecución, ascenso, agitada, chispeando y etérea. */
     public enum Form { CALM, CHASE, RISING, AGITATED, SPARKING, ETHEREAL }
 
     /** Más rápido que esto (px/s) ya no está calmada: va en persecución (o asciende, si sube). */

@@ -132,7 +132,7 @@ public final class DarkStage {
     public void reset(double candilX) {
         candil = new Player(new Vec2(candilX - Player.W / 2, GROUND - Player.H));
         logi = new LightSource(-200, -200);
-        logi.setPinTint(false);   // en la intro Logi sigue cálida aunque esté fija (el azul es solo del juego)
+        logi.setPinTint(false);   // en la intro Logi sigue cálida aunque esté fijo (el azul es solo del juego)
         logiPresent = false;
         logiLight = 0;
         afraid = false;
@@ -155,7 +155,7 @@ public final class DarkStage {
         for (Rectangle2D r : areas) darkness.add(new Path2D.Double(r));
     }
 
-    /** Logi entra a escena (o sale). Con ella presente, las sombras son las que proyecta su luz. */
+    /** Logi entra a escena (o sale). Con Logi presente, las sombras son las que proyecta su luz. */
     public void setLogiPresent(boolean present) { logiPresent = present; }
 
     /** Qué tanto alumbra Logi, de 0 a 1. */
@@ -225,7 +225,7 @@ public final class DarkStage {
         }
     }
 
-    /** Chispas si Logi está fija y ceniza si va rápido, como en GamePanel.emitLogiEffects. */
+    /** Chispas si Logi se queda en su sitio y ceniza si va rápido, como en GamePanel.emitLogiEffects. */
     private void emitLogiEffects(double dt) {
         LightSource.Form form = logi.getForm();
         boolean fast = form == LightSource.Form.CHASE || form == LightSource.Form.RISING;
@@ -291,9 +291,9 @@ public final class DarkStage {
     }
 
     /**
-     * Reflejo cálido de Logi en las rocas: un degradado radial dorado centrado en ella, recortado
+     * Reflejo cálido de Logi en las rocas: un degradado radial dorado centrado en Logi, recortado
      * a cada roca. Como se apaga con la distancia al centro, solo la cara que mira a Logi se
-     * alumbra; y la roca entera casi no se ve si Logi está lejos de ella.
+     * alumbra; y la roca entera casi no se ve si Logi está lejos de la roca.
      */
     private void drawRockGlow(Graphics2D g) {
         Shape oldClip = g.getClip();
