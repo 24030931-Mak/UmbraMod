@@ -166,7 +166,7 @@ final class LogiArt {
     private static final Color WHITE_EYES = new Color(244, 246, 255);
 
     /**
-     * La llama negra: la Logi calmada de drawCore, pero sin LightSource (en (x, y), con 'time'), que se va
+     * La llama negra: Logi en calma, como lo dibuja drawCore,, pero sin LightSource (en (x, y), con 'time'), que se va
      * oscureciendo. La forma es la misma y el reloj de la llama es 'time' (en calma, la fase de LightSource
      * avanza igual que su reloj: con darkness = 0 y scale = 1 sale pixel a pixel lo mismo que drawCore).
      *   0 a 0,5     el color pasa de naranja a rojo (y el centro blanco amarillo se entibia);

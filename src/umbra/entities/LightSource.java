@@ -20,7 +20,7 @@ public class LightSource {
     /** Las formas de Logi: en su sitio, persecución, ascenso, agitada, chispeando y etérea. */
     public enum Form { CALM, CHASE, RISING, AGITATED, SPARKING, ETHEREAL }
 
-    /** Más rápido que esto (px/s) ya no está calmada: va en persecución (o asciende, si sube). */
+    /** Más rápido que esto (px/s) ya no está en calma: va en persecución (o asciende, si sube). */
     public static final double CHASE_SPEED = 380;
     /** Con Candil más cerca que esto (px), Logi se agita: avisa que él corre peligro. */
     public static final double AGITATED_DISTANCE = 150;
@@ -233,7 +233,7 @@ public class LightSource {
     /**
      * La llama negra del final: Logi sin LightSource, en (x, y). Es el mismo camino que drawCore
      * (LightSource es la puerta pública de LogiArt, que es de paquete). Lo dibuja LogiArt.
-     * @param darkness 0 = Logi calmada; 0,5 = roja; 1 = la llama negra
+     * @param darkness 0 = Logi en calma; 0,5 = roja; 1 = la llama negra
      * @param scale    tamaño (1 = el normal)
      * @param time     reloj de la animación, en segundos
      */

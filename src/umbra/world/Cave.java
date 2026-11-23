@@ -68,9 +68,9 @@ public final class Cave {
      *      sola losa en medio, 230 px más arriba que la orilla y 300 px más abajo que el piso. Una
      *      sombra quieta no sirve: para llegar a la orilla, Logi tiene que estar arriba de la losa
      *      (la sombra baja a la izquierda); para llegar al piso, abajo de ella (la sombra sube a la
-     *      derecha). Con Logi a la altura de la losa, pegada a su izquierda, la sombra cae recta
+     *      derecha). Con Logi a la altura de la losa, pegado a su izquierda, la sombra cae recta
      *      bajo la losa, pero la orilla está 260 px a su izquierda: un salto no llega ahí sin caer
-     *      más hondo que lo que alcanza la sombra. Con Logi suelta, llevada despacio (140 px/s)
+     *      más hondo que lo que alcanza la sombra. Con Logi suelto, llevado despacio (140 px/s)
      *      de arriba a la derecha (1045, 1295), por encima de la losa (995, 1270), a su izquierda
      *      (935, 1350) y hasta abajo a la izquierda (945, 1385), la sombra se columpia por debajo:
      *      Candil entra a ella en la orilla, nada hasta debajo de la losa mientras Logi pasa por
@@ -89,7 +89,7 @@ public final class Cave {
      *   5. El hueco del techo: el techo del tiro derecho es roca de 200 px de grueso, con un hueco
      *      angosto (x 1920 a 2000) y una losa chica justo debajo (x 1940 a 1980, y = 270). Sin
      *      sombras ningún salto llega arriba: lo más alto que sube Candil es y = 138, desde la losa.
-     *      Con Logi fijo bien alineada abajo de la losa, en (1960, 350), la sombra sube recta por el
+     *      Con Logi fijo bien alineado abajo de la losa, en (1960, 350), la sombra sube recta por el
      *      hueco: Candil salta desde la punta de la repisa del hueco a la sombra, arriba de la losa,
      *      y sube nadando hasta la Cúpula. Pasa con Logi a ±25 px de ahí (hasta unos ±40); a más de
      *      60 px la sombra sale chueca, pega en la roca del techo y no hay camino. Quien baje de la
@@ -105,7 +105,7 @@ public final class Cave {
      *     hueco), su sombra sale de lado, una franja casi horizontal hacia la derecha (y 255 a 315
      *     ahí). Candil salta de la repisa del hueco a la losa, se deja caer por su orilla derecha a la
      *     franja y nada por ella hasta el fragmento. Sin sombras no se llega: a esa altura, ningún
-     *     salto ni caída pasa de x = 2110, a más de 120 px de él. Aguanta a Logi corrida 15 px a
+     *     salto ni caída pasa de x = 2110, a más de 120 px de él. Aguanta a Logi corrido 15 px a
      *     cualquier lado y se llega con casi toda la vida (88 % en el peor caso). De vuelta: nada a
      *     la izquierda y arriba, sale de la sombra de un salto, cae en la losa y de ahí salta a la
      *     repisa del hueco (bajo su techo); o se deja caer al piso derecho, que se vuelve su punto
@@ -173,7 +173,7 @@ public final class Cave {
      * etapas en zigzag entre las paredes, con dos descansos. Logi va abajo de cada etapa y las
      * sombras suben inclinadas hacia el otro lado. Ninguna posición fija de Logi sirve para toda la
      * chimenea: la etapa 2 sube a la derecha y pide a Logi abajo a la izquierda; la etapa 3 sube a
-     * la izquierda y pide a Logi abajo a la derecha; y Logi suelta solo llega a lo que se ve. Así que
+     * la izquierda y pide a Logi abajo a la derecha; y Logi suelto solo llega a lo que se ve. Así que
      * se sube por partes: Candil espera en un descanso mientras el jugador lleva a Logi a la etapa
      * siguiente.
      *   Un descanso es una repisa pegada a la pared con una losa debajo y otra encima (su techo,
@@ -183,10 +183,10 @@ public final class Cave {
      *   abajo, mientras los rayos crucen la losa de debajo; así no pierde vida mientras Logi cambia
      *   de lugar. Franja que no se puede cubrir: los rayos que entran casi a la altura de Candil,
      *   por debajo del techo (a menos de unos 6 grados sobre su horizonte, del lado abierto del
-     *   descanso o desde dentro de la roca del otro lado), y Logi metida dentro del propio techo;
+     *   descanso o desde dentro de la roca del otro lado), y Logi metido dentro del propio techo;
      *   el techo no puede bajar más que la cabeza de Candil. PruebaCupula la cuenta y la avisa.
      *   La etapa 1 empieza con Candil en la luz del piso mientras Logi llega al hueco: es lo que más
-     *   vida cuesta del relevo (peor caso con Logi corrida 15 px: 62 %).
+     *   vida cuesta del relevo (peor caso con Logi corrido 15 px: 62 %).
      *   1. Etapa 1, del piso al descanso 1 (izquierda, y = 1640): Logi fijo en el hueco del piso,
      *      en (670, 2100), abajo a la derecha de la primera losa. Candil salta del piso a la losa
      *      y sube nadando en su sombra, que va hacia arriba a la izquierda, hasta la punta del

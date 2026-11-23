@@ -25,7 +25,7 @@ Proyecto final de **Graficación**.
 - **Dentro de una sombra** Candil está a salvo: flota sin gravedad (W o Espacio para subir, S para bajar) y recupera vida.
 - **Fuera de la sombra** camina y salta, pero pierde vida (la barra de arriba a la derecha, debajo del mapa circular) y se va deshaciendo en polvo de luz.
 - **Si la Llama(Logi) se acerca demasiado**, Candil se desmorona.
-- Mueve la Llama(Logi) con el ratón y **haz clic para fijarla**: así no se mueve mientras avanzas. Otro clic la suelta.
+- Mueve la Llama(Logi) con el ratón y **haz clic para fijar a Logi**: así no se mueve mientras avanzas. Otro clic lo suelta.
 - Si sales de una sombra nadando hacia arriba, **sales de un salto**: sirve para alcanzar repisas altas.
 - Si te desmoronas o caes al vacío, reapareces en la última repisa firme que pisaste.
 
@@ -37,7 +37,7 @@ Proyecto final de **Graficación**.
 
 **Guardar la partida.** El menú tiene 3 espacios de partida. Elige uno con **W/S** o con el ratón y pulsa **Enter**: si está vacío empieza una partida nueva, y si no, sigue donde la dejaste. **Supr** borra una partida, siempre preguntando antes. El juego guarda solo al cruzar a otra zona, al volver al menú con **Esc** y al cerrar la ventana. Al continuar, Candil aparece en la última repisa firme que pisó. Después del final, la partida queda frente a la Cúpula. Los archivos van en `%APPDATA%\Umbra\`.
 
-**Candil y Logi cambian de forma.** Candil es un fantasma encapuchado y tiene una forma para cada acción: descansa, corre, salta, cae y flota. Logi también cambia: se estira como cometa cuando la mueves rápido, se enrosca en espiral al subir y se calma cuando está quieta.
+**Candil y Logi cambian de forma.** Candil es un fantasma encapuchado y tiene una forma para cada acción: descansa, corre, salta, cae y flota. Logi también cambia: se estira como cometa cuando lo mueves rápido, se enrosca en espiral al subir y se calma cuando está quieto.
 
 ## Cómo ejecutarlo
 
@@ -79,7 +79,7 @@ Proyecto final de **Graficación**.
 
 Ningún hueco se puede cruzar saltando: hay que usar las sombras. En cada tramo pon la luz donde se indica, haz clic para fijarla, métete a la sombra y avanza flotando con **D**. Al llegar arriba, sigue subiendo y Candil sale de un salto.
 
-Ojo con **W**: en los tramos 1 y 2 la sombra queda lejos de Logi y puedes mantener **D + W**. En los tramos 3 y 4 la sombra pasa cerca de Logi: si subes con W, Candil se acerca a ella y se desmorona. Ahí avanza solo con D.
+Ojo con **W**: en los tramos 1 y 2 la sombra queda lejos de Logi y puedes mantener **D + W**. En los tramos 3 y 4 la sombra pasa cerca de Logi: si subes con W, Candil se acerca a Logi y se desmorona. Ahí avanza solo con D.
 
 | Tramo | Obstáculo | Dónde va la luz | Cómo avanzar |
 |---|---|---|---|
@@ -125,7 +125,7 @@ Cuatro pantallas de alto, con paredes que se cierran como un domo. Arriba de tod
 
 **El final.** Al tocar el candelabro corre una animación con voz y subtítulos: los brazos se encienden, la luz de Logi se vuelve una llama negra y se abalanza sobre Candil, que se refugia en su sombra. Con los 6 fragmentos, los brazos se cierran sobre la llama y la encierran en el corazón de vidrio; con menos, queda un hueco y la llama escapa por lo alto del domo. Después sale la pantalla final. Se puede saltar con **Enter** (también Esc, Espacio o clic, medio segundo después de empezar).
 
-Las partidas guardadas con la v0.9 que estaban en la Cúpula salen como «dañadas», porque la Cúpula creció hacia arriba: hay que empezar una nueva.
+Las partidas guardadas con la v0.9 salen todas como «dañadas», en cualquier zona: la Cúpula creció hacia arriba y el mapa explorado ya no coincide. No se convierten ni se borran solas: bórralas desde el menú con **Supr** (Enter confirma) y empieza una nueva.
 
 ## Estructura del proyecto
 
@@ -134,7 +134,7 @@ src/umbra/
 ├── Main.java                 Crea la ventana y arranca el juego
 ├── audio/
 │   ├── Music.java            Música de ambiente en bucle (entrada suave, tecla M; baja mientras habla la narración)
-│   ├── VoiceOver.java        Narración de la intro: un clip a la vez, cargados de antemano, con reloj real
+│   ├── VoiceOver.java        Las voces de la intro, de los fragmentos y del final: un clip a la vez, cargados de antemano, con reloj real
 │   ├── DangerAudio.java      Sonido del peligro y del desmoronarse, sintetizado por código
 │   ├── FragmentAudio.java    Tono de campana al tomar un fragmento, sintetizado por código
 │   └── FinaleAudio.java      El rugido y los golpes de la llama negra en el final, sintetizados
@@ -148,7 +148,7 @@ src/umbra/
 │   ├── Player.java           Candil: física, vida, flotar en la sombra y animación
 │   ├── CandilArt.java        El dibujo de Candil en cada una de sus formas
 │   ├── LightSource.java      Logi: sigue al ratón con interpolación; se fija con un clic
-│   ├── LogiArt.java          El dibujo de Logi (cometa, espiral, calmada)
+│   ├── LogiArt.java          El dibujo de Logi (cometa, espiral, en calma)
 │   └── Block.java            Objetos que proyectan sombra
 ├── graphics/
 │   ├── Background.java       Cueva por capas (parallax), niebla, esporas y viñeta
@@ -263,11 +263,11 @@ src/umbra/
 - [ ] La Cúpula crece hacia arriba y termina en la sala del trono, con el Gran Farol como candelabro de seis brazos
 - [ ] La animación final con voz: la llama negra de Logi, que el candelabro encierra (o que escapa si faltan fragmentos); se salta con Enter
 - [ ] La intro usa el mismo candelabro
-- [ ] Las partidas de la v0.9 en la Cúpula salen dañadas
+- [ ] Las partidas de la v0.9 salen todas dañadas (se borran desde el menú con Supr)
 
 ### Después
 Las versiones siguen: el juego todavía puede crecer.
-- [ ] v0.9.5 — La persecución: la llama negra, luces que se mueven solas y obstáculos nuevos
+- [ ] La persecución: la llama negra, luces que se mueven solas y obstáculos nuevos
 - [ ] Capturas de pantalla en este README
 
 ## Técnicas de graficación
@@ -284,7 +284,7 @@ Las versiones siguen: el juego todavía puede crecer.
 | Terreno fractal por desplazamiento del punto medio | `Background.midpointDisplacement()` |
 | Perspectiva atmosférica y viñeta | `Background` |
 | Composición alfa (`DST_IN`) y pre-renderizado en imágenes | `Background`, `LevelArt` |
-| Curvas de Bézier (la silueta de Candil) | `Player.ghostShape()` |
+| Curvas de Bézier (la silueta de Candil) | `CandilArt.cloakShape()` |
 | Detección y respuesta de colisiones AABB | `Player.update()` |
 | Proyección de sombras desde una luz puntual | `ShadowCaster.computeShadows()` |
 | Envolvente convexa (monotone chain de Andrew) | `ShadowCaster.convexHull()` |
@@ -294,7 +294,7 @@ Las versiones siguen: el juego todavía puede crecer.
 | Mapa: escala y traslación fijas, y su recorte circular | `MapView`, `MiniMap` |
 | Neblina con máscara bilineal (orillas suaves) | `MapFog` |
 | Parallax por planos: la vista de cada plano según su profundidad | `IntroCamera.getViewMatrix(factor)`, `GoldenCavern`, `DarkCavern` |
-| Interpolación bilineal al escalar imágenes (con la tarjeta de video) | `Scene.drawImage()`, `GreatLantern.drawLayer()` |
+| Interpolación bilineal al escalar imágenes (con la tarjeta de video) | `Scene.drawImage()`, `GreatLantern.draw()` |
 | Proyección 2.5D de un círculo: `T · R · S(1, 0.28)` | `GreatLantern.drawArcaneRings()` |
 | Tiro parabólico con rebote amortiguado | `LightShards` |
 | Máscara de degradado con composición alfa (`DST_IN`) | `DarkStage.drawCandil()` |

@@ -293,7 +293,7 @@ public class Level {
      *      para sobre la segunda losa; con Logi fijo arriba de ella, en (935, 270), la sombra de la
      *      losa baja como una carpa y se abre hacia el fondo. Candil camina fuera de la losa, cae en
      *      la carpa, baja nadando (S) y lo toma con la vida llena. Sin sombra no se alcanza: quien
-     *      cae desde las losas o las repisas se aleja de la losa o pasa muy abajo, y con la Logi del
+     *      cae desde las losas o las repisas se aleja de la losa o pasa muy abajo, y con el Logi del
      *      puente la sombra no baja tanto. Para volver, baja un poco, sale por la orilla derecha de la
      *      carpa nadando hacia arriba (W), de un salto, y cae sobre la losa; de ahí sigue el puente.
      *      Si cae al vacío reaparece en A, porque las losas no son repisas.

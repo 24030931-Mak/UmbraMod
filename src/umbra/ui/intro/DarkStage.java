@@ -132,7 +132,7 @@ public final class DarkStage {
     public void reset(double candilX) {
         candil = new Player(new Vec2(candilX - Player.W / 2, GROUND - Player.H));
         logi = new LightSource(-200, -200);
-        logi.setPinTint(false);   // en la intro Logi sigue cálida aunque esté fijo (el azul es solo del juego)
+        logi.setPinTint(false);   // en la intro Logi sigue cálido aunque esté fijo (el azul es solo del juego)
         logiPresent = false;
         logiLight = 0;
         afraid = false;

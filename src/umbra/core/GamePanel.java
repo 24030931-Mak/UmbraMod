@@ -138,7 +138,7 @@ public class GamePanel extends JPanel {
     private final Finale finale = new Finale(Resources.readLines("/umbra/res/final_animacion.txt"));
     /** [v0.9.5] La pantalla final vino de la animación: detrás del texto se ve la Cúpula como quedó. */
     private boolean victoryAfterFinale;
-    /** Logi del menú y de la pantalla final: etérea, sigue al ratón en coordenadas de pantalla. */
+    /** Logi del menú y de la pantalla final, en su forma etérea: sigue al ratón en coordenadas de pantalla. */
     private final LightSource menuLight = new LightSource(Config.WIDTH / 2.0, Config.HEIGHT / 3.0);
 
     private final World world;
@@ -540,7 +540,7 @@ public class GamePanel extends JPanel {
         background.update(dt);        // la niebla y las esporas siguen moviéndose
         levelArt.update(dt, null);    // las plantas se mecen con el aire
         particles.update(dt);
-        menuLight.setTarget(input.getMouseX(), input.getMouseY());   // Logi, etérea, sigue al ratón
+        menuLight.setTarget(input.getMouseX(), input.getMouseY());   // la forma etérea de Logi sigue al ratón
         menuLight.update(dt);
         if (leaving) return;
 
@@ -672,10 +672,10 @@ public class GamePanel extends JPanel {
     }
 
     /**
-     * Suelta a Logi y la coloca 220 px arriba del centro de Candil (snapTo también reinicia su
+     * Suelta a Logi y lo coloca 220 px arriba del centro de Candil (snapTo también reinicia su
      * velocidad: el salto no cuenta como movimiento). Se queda ahí mientras el ratón no se mueva
      * más de 4 px en pantalla desde este momento; en cuanto se mueve vuelve a seguirlo como
-     * siempre (si el jugador la lleva hasta Candil, lo desmorona: es la mecánica normal).
+     * siempre (si el jugador lo lleva hasta Candil, lo desmorona: es la mecánica normal).
      * La distancia al ratón se mide con Pitágoras: sqrt(dx² + dy²).
      */
     private void placeLogiAbove() {
@@ -1073,7 +1073,7 @@ public class GamePanel extends JPanel {
             } else {
                 victory.drawVeil(g2);
                 // Tras la animación final, Logi ya no está (se llevó la llama negra): sin luz del ratón
-                if (!victoryAfterFinale) menuLight.drawCore(g2);   // Logi etérea sigue al ratón: encima del velo, pero detrás del texto
+                if (!victoryAfterFinale) menuLight.drawCore(g2);   // la forma etérea de Logi sigue al ratón: encima del velo, pero detrás del texto
                 victory.drawText(g2);
             }
         }
@@ -1100,7 +1100,7 @@ public class GamePanel extends JPanel {
         menuLight.drawGlow(g2);
         background.drawFront(g2, camX, 0);
         menu.drawVeil(g2);
-        menuLight.drawCore(g2);   // Logi etérea: encima del velo (para que brille), pero detrás del texto
+        menuLight.drawCore(g2);   // la forma etérea de Logi: encima del velo (para que brille), pero detrás del texto
         menu.drawText(g2);
     }
 
@@ -1148,7 +1148,7 @@ public class GamePanel extends JPanel {
         if (screen == Screen.PLAYING && !player.isDead()) {   //    [B4] los fragmentos que vuelan hacia Candil
             fragmentFlights.draw(g2, player.getCenterX(), player.getCenterY());
         }
-        if (screen == Screen.PLAYING) light.drawCore(g2);   // 7. Logi (en la pantalla final, la etérea)
+        if (screen == Screen.PLAYING) light.drawCore(g2);   // 7. Logi (en la pantalla final, la forma etérea)
 
         // Lo demás no usa la matriz de vista: se dibuja en coordenadas de pantalla
         g2.setTransform(onScreen);
