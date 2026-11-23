@@ -1,15 +1,21 @@
 package umbra.ui.intro;
 
+import java.awt.AlphaComposite;
 import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.Composite;
 import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.Stroke;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Line2D;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+import umbra.graphics.FragmentArt;
 import umbra.math.Mat3;
 import umbra.math.Vec2;
 
@@ -32,6 +38,12 @@ import umbra.math.Vec2;
  *
  * Además de los pedazos hay chispas: salen parejo en todas direcciones, la gravedad las jala
  * igual y se apagan en menos de un segundo.
+ *
+ * [v0.9.5] Y los 6 pedazos grandes (launchPiece): los fragmentos del Gran Farol, uno por cada
+ * copa del candelabro, que el juego hace buscar por la cueva. Vuelan igual que los pedazos de
+ * luz, con estela y brillo más anchos, y en la cabeza llevan el fragmento dorado del juego
+ * (FragmentArt), girando. El fragmento se dibuja una sola vez en una imagen (PIECE_IMAGE píxeles
+ * por unidad) y en cada cuadro solo se copia, girado y a escala.
  */
 public final class LightShards {
 
@@ -49,6 +61,12 @@ public final class LightShards {
     private static final double VANISH = 0.25;         // segundos que tarda en apagarse al llegar
     private static final Color LIGHT = new Color(255, 232, 160);
     private static final Color WHITE = new Color(255, 252, 236);
+    /**
+     * [v0.9.5] Los pedazos grandes: tamaño (el de los de luz va de 0.7 a 1.5; la estela y el
+     * brillo crecen con él), escala del fragmento en el mundo (1 = el del juego, de unos 26 de
+     * alto), cuántas vueltas por segundo da y los píxeles por unidad de su imagen ya dibujada.
+     */
+    private static final double PIECE_SIZE = 1.6, PIECE_SCALE = 1.7, PIECE_SPIN = 1.3, PIECE_IMAGE = 4;
 
     /** Un pedazo: de dónde sale, con qué velocidad, cuándo y cuánto tarda en llegar. */
     private static final class Shard {
@@ -63,7 +81,9 @@ public final class LightShards {
     }
 
     private final List<Shard> shards = new ArrayList<>();
+    private final List<Shard> pieces = new ArrayList<>();   // [v0.9.5] los 6 pedazos grandes
     private final List<Spark> sparks = new ArrayList<>();
+    private final BufferedImage piece = renderPiece();   // [v0.9.5] el fragmento ya dibujado, una sola vez
     private final Random rnd;
     private final Glow glow = new Glow(64, new Color(255, 214, 120), 1.5, 0.55);
 
@@ -73,6 +93,7 @@ public final class LightShards {
 
     public void clear() {
         shards.clear();
+        pieces.clear();
         sparks.clear();
     }
 
@@ -81,6 +102,19 @@ public final class LightShards {
      * 'flight' segundos: v0 = (destino - p0) / T - ½·g·T.
      */
     public void launch(double x0, double y0, double tx, double ty, double start, double flight, double size) {
+        shards.add(shard(x0, y0, tx, ty, start, flight, size));
+    }
+
+    /**
+     * [v0.9.5] Lanza uno de los pedazos grandes (un fragmento del Farol) desde su copa (x0, y0)
+     * para que llegue a (tx, ty) en 'flight' segundos, con el mismo tiro parabólico.
+     */
+    public void launchPiece(double x0, double y0, double tx, double ty, double start, double flight) {
+        pieces.add(shard(x0, y0, tx, ty, start, flight, PIECE_SIZE));
+    }
+
+    /** Un pedazo con su tiro calculado: v0 = (destino - p0) / T - ½·g·T, y su rebote. */
+    private static Shard shard(double x0, double y0, double tx, double ty, double start, double flight, double size) {
         Shard s = new Shard();
         s.x0 = x0;
         s.y0 = y0;
@@ -96,7 +130,19 @@ public final class LightShards {
         s.start = start;
         s.flight = flight;
         s.size = size;
-        shards.add(s);
+        return s;
+    }
+
+    /** El fragmento dorado del juego, dibujado una vez a PIECE_IMAGE píxeles por unidad (mide unos 26 de alto). */
+    private static BufferedImage renderPiece() {
+        int side = (int) Math.ceil(32 * PIECE_IMAGE);
+        BufferedImage img = new BufferedImage(side, side, BufferedImage.TYPE_INT_ARGB_PRE);
+        Graphics2D g = img.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.translate(side / 2.0, side / 2.0);
+        FragmentArt.drawIcon(g, 0, 0, PIECE_IMAGE);
+        g.dispose();
+        return img;
     }
 
     /**
@@ -152,39 +198,64 @@ public final class LightShards {
             g.setColor(Ease.fade(WHITE, fade * fade));
             g.fill(new Ellipse2D.Double(p.x - r, p.y - r, 2 * r, 2 * r));
         }
-        for (Shard s : shards) {
-            double age = t - s.start;
-            double rest = s.flight + BOUNCE_LIFE;   // desde aquí se queda quieto en (tx, ty) y se apaga
-            if (age < 0 || age > rest + VANISH) continue;
-            double alpha = age <= rest ? Math.min(1, age / 0.08) : 1 - (age - rest) / VANISH;
-            Vec2 head = view.apply(position(s, age));
-
-            // Estela: posiciones de instantes anteriores, cada vez más delgada y transparente
-            Vec2 from = head;
-            for (int k = 1; k <= TRAIL; k++) {
-                double past = age - k * TRAIL_STEP;
-                if (past < 0) break;
-                Vec2 to = view.apply(position(s, past));
-                double f = 1 - (double) k / (TRAIL + 1);
-                g.setStroke(new BasicStroke((float) (TRAIL_WIDTH[k - 1] * s.size * zoom), BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL));
-                g.setColor(Ease.fade(LIGHT, alpha * 0.75 * f * f));
-                g.draw(new Line2D.Double(from.x, from.y, to.x, to.y));
-                from = to;
-            }
-            // El destello puntual al caer: ilumina la boca donde llega
-            double hit = age - s.flight;
-            if (hit >= 0 && hit < FLASH) {
-                double k = 1 - hit / FLASH;
-                Vec2 tp = view.apply(new Vec2(s.tx, s.ty));
-                glow.draw(g, tp.x, tp.y, 34 * s.size * zoom * (0.5 + 0.5 * k));
-            }
-            // La cabeza: una mancha de brillo y un centro casi blanco
-            glow.draw(g, head.x, head.y, 15 * s.size * zoom * (0.6 + 0.4 * alpha));
-            double r = 2.1 * s.size * zoom;
-            g.setColor(Ease.fade(WHITE, alpha));
-            g.fill(new Ellipse2D.Double(head.x - r, head.y - r, 2 * r, 2 * r));
-        }
+        for (Shard s : shards) drawShard(g, view, zoom, t, s, false);
+        for (Shard s : pieces) drawShard(g, view, zoom, t, s, true);
         g.setStroke(old);
+    }
+
+    /**
+     * Un pedazo en el segundo t: su estela, el destello al caer y la cabeza. La de un pedazo de
+     * luz es una mancha de brillo con un centro casi blanco; la de uno grande ('piece'), el
+     * fragmento dorado girando sobre su brillo.
+     */
+    private void drawShard(Graphics2D g, Mat3 view, double zoom, double t, Shard s, boolean isPiece) {
+        double age = t - s.start;
+        double rest = s.flight + BOUNCE_LIFE;   // desde aquí se queda quieto en (tx, ty) y se apaga
+        if (age < 0 || age > rest + VANISH) return;
+        double alpha = age <= rest ? Math.min(1, age / 0.08) : 1 - (age - rest) / VANISH;
+        Vec2 head = view.apply(position(s, age));
+
+        // Estela: posiciones de instantes anteriores, cada vez más delgada y transparente
+        Vec2 from = head;
+        for (int k = 1; k <= TRAIL; k++) {
+            double past = age - k * TRAIL_STEP;
+            if (past < 0) break;
+            Vec2 to = view.apply(position(s, past));
+            double f = 1 - (double) k / (TRAIL + 1);
+            g.setStroke(new BasicStroke((float) (TRAIL_WIDTH[k - 1] * s.size * zoom), BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL));
+            g.setColor(Ease.fade(LIGHT, alpha * 0.75 * f * f));
+            g.draw(new Line2D.Double(from.x, from.y, to.x, to.y));
+            from = to;
+        }
+        // El destello puntual al caer: ilumina la boca donde llega
+        double hit = age - s.flight;
+        if (hit >= 0 && hit < FLASH) {
+            double k = 1 - hit / FLASH;
+            Vec2 tp = view.apply(new Vec2(s.tx, s.ty));
+            glow.draw(g, tp.x, tp.y, 34 * s.size * zoom * (0.5 + 0.5 * k));
+        }
+        // La cabeza: una mancha de brillo y un centro casi blanco (o el fragmento)
+        glow.draw(g, head.x, head.y, 15 * s.size * zoom * (0.6 + 0.4 * alpha));
+        if (isPiece) {
+            drawPiece(g, head, zoom * PIECE_SCALE / PIECE_IMAGE, age * PIECE_SPIN * 2 * Math.PI, alpha);
+            return;
+        }
+        double r = 2.1 * s.size * zoom;
+        g.setColor(Ease.fade(WHITE, alpha));
+        g.fill(new Ellipse2D.Double(head.x - r, head.y - r, 2 * r, 2 * r));
+    }
+
+    /** El fragmento ya dibujado, con centro en 'head' (pantalla), a esta escala y girado 'angle'; se desvanece con 'alpha'. */
+    private void drawPiece(Graphics2D g, Vec2 head, double scale, double angle, double alpha) {
+        AffineTransform old = g.getTransform();
+        Composite oldComposite = g.getComposite();
+        if (alpha < 0.99) g.setComposite(AlphaComposite.SrcOver.derive((float) Ease.clamp01(alpha)));
+        g.translate(head.x, head.y);
+        g.rotate(angle);
+        g.scale(scale, scale);
+        g.drawImage(piece, -piece.getWidth() / 2, -piece.getHeight() / 2, null);
+        g.setTransform(old);
+        g.setComposite(oldComposite);
     }
 
     /** p(s) = p0 + v0·s + ½·g·s² */

@@ -11,8 +11,12 @@ import umbra.core.Config;
  * [v0.8.7] La cámara empieza cerca de los dos y se aleja despacio hacia arriba (un plano general
  * ascendente) mientras aparece UMBRA: al final se ven a la vez Candil abajo, Logi alumbrando, la
  * silueta del Gran Farol apagado en lo alto de la chimenea (DarkCavern) y el título debajo de
- * ella, sin taparla. Justo antes del fundido a negro, los ojos de Logi se oscurecen un instante
- * (un parpadeo de BLINK segundos): la pista de lo que es ella se queda, pero apenas se alcanza a ver.
+ * esa silueta, sin taparla. Justo antes del fundido a negro, los ojos de Logi se oscurecen un
+ * instante (un parpadeo de BLINK segundos): la pista de lo que es Logi se queda, pero apenas se
+ * alcanza a ver.
+ *
+ * [v0.9.5] La silueta es la del candelabro de la sala del trono, apagado: las copas vacías y el
+ * corazón oscuro (ver DarkCavern).
  */
 public final class TitleScene extends Scene {
 

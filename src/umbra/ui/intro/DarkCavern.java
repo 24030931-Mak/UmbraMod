@@ -19,6 +19,8 @@ import java.util.Random;
 
 import umbra.core.Config;
 import umbra.graphics.Background;
+import umbra.graphics.CandelabraArt;
+import umbra.graphics.CandelabraState;
 import umbra.graphics.CaveShapes;
 import umbra.math.Mat3;
 import umbra.math.Vec2;
@@ -37,6 +39,8 @@ import umbra.math.Vec2;
  *   - del mundo (1, transparente): las estalactitas cercanas, las dos repisas con su musgo y sus
  *     hongos, y las dos rocas. Es la misma vista de Candil, de Logi y de las sombras.
  * Así, cuando la cámara se mueve o se acerca, la cueva del fondo se mueve menos que las repisas.
+ *
+ * [v0.9.5] El Gran Farol de la chimenea es el candelabro de la sala del trono, apagado.
  */
 public final class DarkCavern {
 
@@ -49,17 +53,21 @@ public final class DarkCavern {
     /** Lo que el plano lejano se extiende más allá del escenario, en unidades del mundo. */
     private static final double MARGIN = 60;
     /**
-     * El Gran Farol apagado, colgado en lo alto de la chimenea: su tamaño (respecto al de las
-     * escenas 1 a 3), dónde queda su pie, la semilla con que se rompió su vidrio (la del Farol
-     * de GoldenStage: se ve roto igual) y el color de su silueta, un azul casi negro. El pie
-     * queda justo arriba de lo que alcanza a ver la escena 5 al final (y = 78): no se asoma
+     * [v0.9.5] El Gran Farol apagado, colgado en lo alto de la chimenea: el candelabro de la sala
+     * del trono (CandelabraArt), a LANTERN_SCALE de su tamaño en la Cúpula; dónde queda su punta
+     * (y su centro en x) y de dónde cuelgan sus cadenas (arriba de la orilla del plano lejano). La
+     * punta queda justo arriba de lo que alcanza a ver la escena 5 al final (y = 78): no se asoma
      * cortado por la orilla de la pantalla y aparece hasta que sube la cámara de la escena 6. Va
      * un poco a la izquierda del centro de la chimenea para que la estalactita cercana de
-     * x = 640 (plano del mundo) no le tape el alero.
+     * x = 640 (plano del mundo) no le tape un brazo.
      */
-    private static final double LANTERN_SCALE = 0.22, LANTERN_X = FAR_GLOW_X - 8, LANTERN_FOOT_Y = 74;
-    private static final long LANTERN_SEED = 17;
+    private static final double LANTERN_SCALE = 0.24, LANTERN_X = FAR_GLOW_X - 8, LANTERN_TIP_Y = 74, LANTERN_TOP = -MARGIN - 10;
+    /**
+     * El color de su silueta, un azul casi negro, y cuánto de su color propio conserva (de 0 a
+     * 1): lo justo para que se adivinen las copas vacías y el corazón oscuro.
+     */
     private static final int LANTERN_INK = 0x0B0E1A;
+    private static final double LANTERN_DETAIL = 0.22;
 
     // ---- Paleta: la del fondo y las repisas del juego ----
     private static final Color SKY_TOP = new Color(5, 8, 16), SKY_BOTTOM = new Color(17, 24, 41);
@@ -247,28 +255,56 @@ public final class DarkCavern {
     }
 
     /**
-     * [v0.8.7] La silueta fría del Gran Farol roto y apagado, colgado de sus dos cadenas en la
-     * chimenea, a LANTERN_SCALE de su tamaño (GreatLantern.distantSilhouette: las mismas formas,
-     * sin llama y con el vidrio quebrado). La imagen viene en unidades del Farol, con res píxeles
-     * por unidad; la matriz que la lleva al mundo es
-     *     M = T(pie) · S(LANTERN_SCALE) · T(esquina de la silueta) · S(1 / res)
-     * Como res = LANTERN_SCALE · SCALE, en la imagen del plano cada píxel de la silueta cae en
-     * un píxel: solo se mueve, no se estira. Se pinta una sola vez, con el plano.
+     * [v0.9.5] La silueta fría del Gran Farol apagado, colgado de sus tres cadenas en la chimenea:
+     * el candelabro de CandelabraArt sin ningún fragmento (copas vacías, vidrio frío y oscuro), a
+     * LANTERN_SCALE de su tamaño, con sus partes quietas (drawBackStill, drawBackMoving con la
+     * respiración del vidrio fija y drawFrontStill: no toca lo que CandelabraArt guarda dibujado
+     * para el juego). Se dibuja una sola vez, con el plano: primero
+     * en una imagen aparte, a la misma resolución del plano (SCALE píxeles por unidad), y de ahí
+     * se oscurece hacia LANTERN_INK conservando LANTERN_DETAIL de su color:
+     *     color = tinta · (1 - detalle) + color · detalle      (con su misma opacidad)
+     * Luego se copia al plano píxel por píxel (la matriz del plano ya trae la escala SCALE).
+     *
+     * La caja del candelabro va de LANTERN_TOP (las cadenas suben hasta ahí) hasta su punta; como
+     * su escala es la menor de ancho / 480 y alto / 450 y la caja es más alta que 450 · escala, la
+     * escala la pone el ancho: 480 · LANTERN_SCALE.
      */
     private static void drawDeadLantern(Graphics2D g) {
-        double res = LANTERN_SCALE * SCALE;
-        BufferedImage ruin = GreatLantern.distantSilhouette(LANTERN_SEED, res, LANTERN_INK);
+        double k = LANTERN_SCALE * SCALE;   // unidades del candelabro a píxeles de la imagen
+        double bottom = LANTERN_TIP_Y + 2 * LANTERN_SCALE;   // CandelabraArt deja la punta 2 unidades sobre la orilla de abajo
+        double left = LANTERN_X - 240 * LANTERN_SCALE;
+        int w = (int) Math.ceil(480 * k) + 2, h = (int) Math.ceil((bottom - LANTERN_TOP) * SCALE) + 2;
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB_PRE);
+        Graphics2D cg = img.createGraphics();
+        cg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        Rectangle2D box = new Rectangle2D.Double(1, 1, 480 * k, (bottom - LANTERN_TOP) * SCALE);
+        CandelabraState dead = new CandelabraState();   // sin fragmentos: copas vacías y vidrio frío
+        CandelabraArt.drawBackStill(cg, box, dead);
+        CandelabraArt.drawBackMoving(cg, box, dead, 0);
+        CandelabraArt.drawFrontStill(cg, box, dead);
+        cg.dispose();
+        darken(img);
         AffineTransform old = g.getTransform();
-        Object sampling = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
-        g.translate(LANTERN_X, LANTERN_FOOT_Y);
-        g.scale(LANTERN_SCALE, LANTERN_SCALE);
-        g.translate(GreatLantern.DISTANT_LEFT, GreatLantern.DISTANT_TOP);
-        g.scale(1 / res, 1 / res);
-        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-        g.drawImage(ruin, 0, 0, null);
-        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, sampling != null ? sampling
-                : RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        g.translate(left - 1 / SCALE, LANTERN_TOP - 1 / SCALE);
+        g.scale(1 / SCALE, 1 / SCALE);
+        g.drawImage(img, 0, 0, null);
         g.setTransform(old);
+    }
+
+    /** La imagen oscurecida hacia LANTERN_INK (ver drawDeadLantern), con su misma opacidad (premultiplicada). */
+    private static void darken(BufferedImage img) {
+        int w = img.getWidth(), h = img.getHeight();
+        int[] px = (int[]) img.getRaster().getDataElements(0, 0, w, h, null);
+        int ir = (LANTERN_INK >> 16) & 255, ig = (LANTERN_INK >> 8) & 255, ib = LANTERN_INK & 255;
+        double d = LANTERN_DETAIL;
+        for (int i = 0; i < px.length; i++) {
+            int a = px[i] >>> 24;
+            int r = (int) Math.round(ir * a / 255.0 * (1 - d) + ((px[i] >> 16) & 255) * d);
+            int gr = (int) Math.round(ig * a / 255.0 * (1 - d) + ((px[i] >> 8) & 255) * d);
+            int b = (int) Math.round(ib * a / 255.0 * (1 - d) + (px[i] & 255) * d);
+            px[i] = (a << 24) | (r << 16) | (gr << 8) | b;
+        }
+        img.getRaster().setDataElements(0, 0, w, h, px);
     }
 
     /**

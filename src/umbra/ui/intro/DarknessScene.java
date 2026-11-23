@@ -36,6 +36,7 @@ public final class DarknessScene extends Scene {
         lantern.setBroken(true);
         lantern.setCrack(1);
         stage.shards.clear();
+        stage.setBraziers(0);   // [v0.9.5] los braseros de la sala ya se apagaron en la escena 2
     }
 
     @Override

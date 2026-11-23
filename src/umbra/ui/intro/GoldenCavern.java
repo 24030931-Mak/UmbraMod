@@ -11,9 +11,7 @@ import java.awt.RenderingHints;
 import java.awt.Shape;
 import java.awt.Stroke;
 import java.awt.geom.AffineTransform;
-import java.awt.geom.Arc2D;
 import java.awt.geom.Ellipse2D;
-import java.awt.geom.Line2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
@@ -24,6 +22,7 @@ import java.util.Random;
 
 import umbra.graphics.Background;
 import umbra.graphics.CaveShapes;
+import umbra.graphics.ThroneHallArt;
 import umbra.math.Mat3;
 import umbra.math.Vec2;
 
@@ -48,11 +47,29 @@ import umbra.math.Vec2;
  * planos lejano y medio tienen un margen alrededor de la pantalla para que, con el temblor y el
  * paneo, nunca se vea su orilla. Encima va un primer plano de rocas casi negras, más "cercano"
  * todavía (profundidad 1.45): crece y se sale de la pantalla más rápido que todo lo demás.
+ *
+ * [v0.9.5] La caverna es la sala del trono en su época dorada: el mismo lugar del final, antes de
+ * la caída. En el plano lejano, detrás del Farol, va la sala de graphics.ThroneHallArt en su
+ * versión dorada (golden = true: rosetón encendido, columnas, estandartes enteros y relieves),
+ * con sus orillas fundidas en la roca de la caverna y bañada por la luz del Farol. Las ruinas de
+ * columnas del plano medio se quitaron (ahora está la sala) y sus estalactitas se apartan del
+ * rosetón. El fuego de los braseros es lo único de la sala que se dibuja en cada cuadro
+ * (drawBack, con la vista del plano lejano).
  */
 public final class GoldenCavern {
 
-    /** Dónde se para el Gran Farol: el centro del pie de su pedestal. */
+    /** [v0.9.5] Dónde cuelga el Gran Farol: el centro del estrado, bajo la punta del candelabro. */
     public static final double LANTERN_X = 640, LANTERN_Y = 574;
+    /**
+     * [v0.9.5] La sala del trono (en unidades del mundo, en el plano lejano): centrada en el
+     * Farol, con su piso detrás del estrado (y = 580). Mide 860 x 560: un poco más baja que la
+     * del juego (640 x 470 a la escala del candelabro), para que el rosetón quede debajo del techo
+     * de roca. Su esquina cae justo en un píxel de la imagen del plano lejano: (210 + 60) · 1.6 = 432
+     * y (20 + 60) · 1.6 = 128.
+     */
+    private static final Rectangle2D HALL = new Rectangle2D.Double(210, 20, 860, 560);
+    /** Cuánto se funden con la roca las orillas de la sala: los lados y la de arriba. */
+    private static final double HALL_SIDE_FADE = 70, HALL_TOP_FADE = 60;
     /**
      * Píxeles de imagen por unidad del mundo de cada plano: los de la mayor ampliación con que se
      * ve. La cámara se acerca hasta CLOSE_ZOOM · 1.05 ≈ 2.57 (en la escena 2), y un plano a
@@ -63,6 +80,11 @@ public final class GoldenCavern {
     private static final int W = 1280, H = 720;
     /** Lo que los planos lejano y medio se extienden más allá de la pantalla, en unidades del mundo. */
     private static final double MARGIN = 60;
+    /**
+     * [v0.9.5] El piso del plano medio (antes en 566: tapaba los braseros de la sala) y el medio
+     * ancho de la franja del centro donde no cuelgan estalactitas del plano medio.
+     */
+    private static final double MID_FLOOR_Y = 590, CLEAR_X = 340;
     /** Dónde empieza (arriba) el plano cercano: arriba de esto no tiene nada. */
     private static final double NEAR_FROM = 540;
     /** Profundidad de cada plano (ver IntroCamera.getViewMatrix). */
@@ -130,9 +152,26 @@ public final class GoldenCavern {
     //  DIBUJAR
     // =========================================================
 
-    /** Los planos lejano y medio: lo que queda detrás del Farol. */
-    public void drawBack(Graphics2D g, IntroCamera camera) {
-        far.draw(g, camera.getViewMatrix(FAR_DEPTH));
+    /**
+     * Los planos lejano y medio: lo que queda detrás del Farol. [v0.9.5] Entre los dos, el fuego
+     * de los braseros de la sala ('braziers' de 0, apagados, a 1, ardiendo), con la vista del
+     * plano lejano, que es donde está la sala. Su resplandor es una imagen ya hecha que aquí se
+     * estira: se muestrea como los planos (Scene.smoothScaling), no con el muestreo bilineal que
+     * Java2D usaría por su cuenta con la calidad alta, que sin tarjeta de video es muy caro.
+     */
+    public void drawBack(Graphics2D g, IntroCamera camera, double braziers, double time) {
+        Mat3 farView = camera.getViewMatrix(FAR_DEPTH);
+        far.draw(g, farView);
+        if (braziers > 0.001) {
+            AffineTransform old = g.getTransform();
+            Object sampling = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, Scene.smoothScaling(g));
+            g.transform(farView.toAffineTransform());
+            ThroneHallArt.drawLights(g, HALL, 0, braziers, time);
+            g.setTransform(old);
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, sampling != null ? sampling
+                    : RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);   // sin indicación, Java2D usa el vecino
+        }
         mid.draw(g, camera.getViewMatrix(MID_DEPTH));
     }
 
@@ -213,8 +252,10 @@ public final class GoldenCavern {
         g.fill(new Rectangle2D.Double(x0, y0, w, h));
 
         // 2. Rayos: cuñas muy tenues que salen de la llama (se ven en el polvo del aire)
-        g.setPaint(new RadialGradientPaint(FLAME, 900, new float[] { 0f, 1f },
-                new Color[] { new Color(255, 248, 214, 44), new Color(255, 248, 214, 0) }));
+        Paint rayPaint = new RadialGradientPaint(FLAME, 900, new float[] { 0f, 1f },
+                new Color[] { new Color(255, 248, 214, 44), new Color(255, 248, 214, 0) });
+        g.setPaint(rayPaint);
+        Path2D rays = new Path2D.Double();
         for (int i = 0; i < 18; i++) {
             double a = i * Math.PI * 2 / 18 + (rnd.nextDouble() - 0.5) * 0.25;
             double half = 0.025 + rnd.nextDouble() * 0.06;
@@ -224,6 +265,7 @@ public final class GoldenCavern {
             ray.lineTo(FLAME.getX() + 1100 * Math.cos(a + half), FLAME.getY() + 1100 * Math.sin(a + half));
             ray.closePath();
             g.fill(ray);
+            rays.append(ray, false);
         }
 
         // 3. El techo y el piso lejanos, con estalactitas finas
@@ -244,22 +286,65 @@ public final class GoldenCavern {
             g.fill(CaveShapes.spike(x, CaveShapes.heightAt(floor, left, right, 512, x) + 4,
                     22 + rnd.nextDouble() * 30, 50 + rnd.nextDouble() * 100, false));
         }
+
+        // 4. [v0.9.5] La sala del trono, ya fundida en la roca (ver renderHall). Su esquina cae
+        //    justo en un píxel de esta imagen: se copia sin la matriz, píxel por píxel
+        AffineTransform world = g.getTransform();
+        g.setTransform(new AffineTransform());
+        g.drawImage(renderHall(), (int) Math.round((HALL.getX() - x0) * FAR_SCALE), (int) Math.round((HALL.getY() - y0) * FAR_SCALE), null);
+        g.setTransform(world);
+
+        // 5. La luz del Farol sobre la sala: un baño dorado que sale de la llama y se apaga hacia
+        //    las orillas, y otra vez los mismos rayos, para que la sala también los tenga
+        g.setPaint(new RadialGradientPaint(FLAME, 760, new float[] { 0f, 0.22f, 0.55f, 1f },
+                new Color[] { Ease.fade(LIGHT, 0.62), Ease.fade(GOLD, 0.34), Ease.fade(AMBER, 0.12), Ease.fade(AMBER, 0) }));
+        g.fill(HALL);
+        g.setPaint(rayPaint);
+        g.fill(rays);
         g.dispose();
         return Plane.whole(img, x0, y0, FAR_SCALE);
     }
 
     /**
-     * El plano medio (transparente): paredes con las bocas de dos túneles, estalactitas y las
-     * ruinas de columnas y arcos de quienes vivían a la luz del Farol (chiquitas: el Farol es
-     * gigante). Cada estalactita y cada columna lleva un hilo de luz en la orilla que mira a la
-     * llama (rim light), y nada más en esa: la otra queda en sombra y así se ve el volumen.
+     * [v0.9.5] La sala del trono dorada (ThroneHallArt.drawStatic con golden = true: ya trae el
+     * rosetón encendido y las brasas de los braseros), en una imagen transparente a la resolución
+     * del plano lejano. Sus orillas se funden en
+     * la roca: la imagen se multiplica por degradados de opacidad (AlphaComposite.DstIn, que deja
+     * lo ya dibujado con su opacidad por la del degradado) que van de 0 en la orilla a 1 adentro,
+     * HALL_SIDE_FADE en los lados y HALL_TOP_FADE arriba. Abajo no hace falta: ahí está el estrado.
+     */
+    private static BufferedImage renderHall() {
+        BufferedImage img = newPlane(HALL.getWidth(), HALL.getHeight(), FAR_SCALE, BufferedImage.TYPE_INT_ARGB_PRE);
+        Graphics2D g = worldGraphics(img, HALL.getX(), HALL.getY(), FAR_SCALE);
+        ThroneHallArt.drawStatic(g, HALL, true);
+        g.setComposite(AlphaComposite.DstIn);
+        double x0 = HALL.getX(), y0 = HALL.getY(), x1 = HALL.getMaxX(), h = HALL.getHeight();
+        Color clear = new Color(0, 0, 0, 0), solid = Color.BLACK;
+        g.setPaint(new GradientPaint((float) x0, 0, clear, (float) (x0 + HALL_SIDE_FADE), 0, solid));
+        g.fill(new Rectangle2D.Double(x0, y0, HALL_SIDE_FADE, h));
+        g.setPaint(new GradientPaint((float) x1, 0, clear, (float) (x1 - HALL_SIDE_FADE), 0, solid));
+        g.fill(new Rectangle2D.Double(x1 - HALL_SIDE_FADE, y0, HALL_SIDE_FADE, h));
+        g.setPaint(new GradientPaint(0, (float) y0, clear, 0, (float) (y0 + HALL_TOP_FADE), solid));
+        g.fill(new Rectangle2D.Double(x0, y0, HALL.getWidth(), HALL_TOP_FADE));
+        g.dispose();
+        return img;
+    }
+
+    /**
+     * El plano medio (transparente): paredes con las bocas de dos túneles y estalactitas. Cada
+     * estalactita lleva un hilo de luz en la orilla que mira a la llama (rim light), y nada más en
+     * esa: la otra queda en sombra y así se ve el volumen.
+     *
+     * [v0.9.5] Las ruinas de columnas y arcos que había aquí se quitaron: ahora está la sala del
+     * trono (plano lejano). Y las estalactitas no cuelgan delante del rosetón ni de las cadenas
+     * del Farol (a menos de CLEAR_X del centro), y el piso se bajó hasta MID_FLOOR_Y para que se
+     * vean los braseros y el piso de la sala.
      */
     private static Plane renderMid(Random rnd) {
         double x0 = -MARGIN, y0 = -MARGIN, w = W + 2 * MARGIN, h = H + 2 * MARGIN;
         BufferedImage img = newPlane(w, h, MID_SCALE, BufferedImage.TYPE_INT_ARGB_PRE);
         Graphics2D g = worldGraphics(img, x0, y0, MID_SCALE);
         Stroke rim = new BasicStroke(1.3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
-        Stroke arcs = new BasicStroke(7, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND);
         Paint rock = lit(MID);
 
         double left = x0, right = x0 + w;
@@ -267,43 +352,19 @@ public final class GoldenCavern {
         double[] floor = Background.midpointDisplacement(rnd, 64, 22, 0.6);
         g.setPaint(rock);
         g.fill(CaveShapes.ridge(ceiling, left, right, 46, y0));
-        g.fill(CaveShapes.ridge(floor, left, right, 566, y0 + h));
+        g.fill(CaveShapes.ridge(floor, left, right, MID_FLOOR_Y, y0 + h));
         g.fill(wall(rnd, true));
         g.fill(wall(rnd, false));
         for (int i = 0; i < 22; i++) {
             double x = left + rnd.nextDouble() * w;
             double base = CaveShapes.heightAt(ceiling, left, right, 46, x) - 4;
             double sw = 12 + rnd.nextDouble() * 24, len = 40 + rnd.nextDouble() * 130;
+            if (Math.abs(x - LANTERN_X) < CLEAR_X) continue;   // ni delante del rosetón ni de las cadenas
             g.setPaint(rock);
             g.fill(CaveShapes.spike(x, base, sw, len, true));
             g.setStroke(rim);
             g.setColor(rimColor(x, base + len * 0.6));
             g.draw(CaveShapes.spikeSide(x, base, sw, len, true, x < FLAME.getX()));
-        }
-        for (double x = 168; x < W - 160; x += 70 + rnd.nextDouble() * 80) {
-            if (Math.abs(x - LANTERN_X) < 215) continue;
-            double span = 34 + rnd.nextDouble() * 22, height = 46 + rnd.nextDouble() * 52;
-            double base = CaveShapes.heightAt(floor, left, right, 566, x) + 6;
-            boolean arch = rnd.nextDouble() < 0.6;
-            for (int k = 0; k < 2; k++) {
-                double tall = arch ? height : height * (0.45 + rnd.nextDouble() * 0.55);
-                double cx = x + k * span;
-                g.setPaint(rock);
-                g.fill(new Rectangle2D.Double(cx - 5.5, base - tall, 11, tall + 12));
-                g.fill(new Rectangle2D.Double(cx - 8.5, base - tall, 17, 5));
-                // El hilo de luz: la orilla de la columna y la de su capitel, del lado de la llama
-                double side = cx < FLAME.getX() ? 1 : -1;
-                g.setStroke(rim);
-                g.setColor(rimColor(cx, base - tall / 2));
-                g.draw(new Line2D.Double(cx + side * 5.5, base - tall + 5, cx + side * 5.5, base + 4));
-                g.draw(new Line2D.Double(cx + side * 8.5, base - tall, cx + side * 8.5, base - tall + 5));
-            }
-            if (arch) {
-                g.setPaint(rock);
-                g.setStroke(arcs);
-                g.draw(new Arc2D.Double(x, base - height - span / 2, span, span, 0, 180, Arc2D.OPEN));
-            }
-            x += span;
         }
         // Las bocas de los túneles y las chimeneas del techo: huecos, pero no negros (hay luz)
         g.setColor(HOLLOW);

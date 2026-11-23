@@ -41,6 +41,12 @@ import java.awt.image.BufferedImage;
  * que en el juego solo cambia al tomar un fragmento, se guarda dibujado en imágenes mientras los
  * brazos estén abiertos (ver backCache): en cada cuadro solo se dibujan las llamas, la
  * respiración del vidrio y el halo.
+ *
+ * [v0.9.5] Quien guarde lo quieto dibujado por su cuenta (la intro, que lo dibuja a otro tamaño y
+ * lo pone en sus propias imágenes) usa las partes por separado: drawBackStill (lo quieto de atrás),
+ * drawBackMoving (las llamas de las copas y la respiración del vidrio) y drawFrontStill (el vidrio
+ * por delante). Con los brazos abiertos, drawBack dibuja lo mismo que drawBackStill seguido de
+ * drawBackMoving.
  */
 public final class CandelabraArt {
 
@@ -239,6 +245,18 @@ public final class CandelabraArt {
         return box.getMaxY() - (TIP + 2) * scale(box);
     }
 
+    /**
+     * [v0.9.5] El contorno del corazón de vidrio en esta caja (sin la sacudida), para recortar lo
+     * que se dibuje sobre el vidrio (las grietas de la intro). Es una forma nueva en cada llamada:
+     * se pide una vez, no en cada cuadro.
+     */
+    public static Shape heartGlass(Rectangle2D box) {
+        double k = scale(box);
+        AffineTransform at = AffineTransform.getTranslateInstance(box.getCenterX(), heartY(box));
+        at.scale(k, k);
+        return at.createTransformedShape(GLASS);
+    }
+
     /** El radio del círculo que cabe dentro del corazón de vidrio (lo que va dentro, como Logi). */
     public static double heartRadius(Rectangle2D box) {
         return HEART_R * scale(box);
@@ -277,7 +295,16 @@ public final class CandelabraArt {
             stoneLayer(g, (box.getMinY() - ty) / k, s);
             litLayer(g, s);
         }
-        // Lo que se mueve: las llamas de las copas y el vidrio frío, que respira
+        moving(g, s, time);
+
+        g.setComposite(oldComposite);
+        g.setStroke(oldStroke);
+        g.setPaint(oldPaint);
+        g.setTransform(saved);
+    }
+
+    /** Lo que se mueve (en unidades): las llamas de las copas abiertas y el vidrio frío, que respira. */
+    private static void moving(Graphics2D g, CandelabraState s, double time) {
         for (int arm = 0; arm < CandelabraState.ARMS; arm++) {
             if (s.armClosed[arm] <= 0.001) cupFlame(g, arm, 0, s.armLit[arm], time);
         }
@@ -287,10 +314,56 @@ public final class CandelabraArt {
             g.setPaint(GLASS_COLD);
             g.fill(GLASS);
         }
+    }
 
+    /**
+     * [v0.9.5] Solo lo quieto de la parte de atrás: las cadenas, la corona, los brazos abiertos con
+     * sus copas (y sus fragmentos y brillos), el cuenco y el vidrio (oscuro, o tibio según
+     * glassWarm), sin las llamas ni la respiración del vidrio (ver drawBackMoving). Siempre lo
+     * dibuja al momento: es para quien lo guarda dibujado por su cuenta, como la intro.
+     */
+    public static void drawBackStill(Graphics2D g, Rectangle2D box, CandelabraState s) {
+        AffineTransform saved = g.getTransform();
+        Paint oldPaint = g.getPaint();
+        Stroke oldStroke = g.getStroke();
+        Composite oldComposite = g.getComposite();
+        double k = scale(box), ty = heartY(box);
+        g.translate(box.getCenterX() + s.shake, ty);
+        g.scale(k, k);
+        stoneLayer(g, (box.getMinY() - ty) / k, s);
+        litLayer(g, s);
         g.setComposite(oldComposite);
         g.setStroke(oldStroke);
         g.setPaint(oldPaint);
+        g.setTransform(saved);
+    }
+
+    /** [v0.9.5] Solo lo que se mueve de la parte de atrás: las llamas de las copas y la respiración del vidrio frío. */
+    public static void drawBackMoving(Graphics2D g, Rectangle2D box, CandelabraState s, double time) {
+        AffineTransform saved = g.getTransform();
+        Paint oldPaint = g.getPaint();
+        Composite oldComposite = g.getComposite();
+        double k = scale(box);
+        g.translate(box.getCenterX() + s.shake, heartY(box));
+        g.scale(k, k);
+        moving(g, s, time);
+        g.setComposite(oldComposite);
+        g.setPaint(oldPaint);
+        g.setTransform(saved);
+    }
+
+    /**
+     * [v0.9.5] Solo lo quieto de la parte de adelante: el brillo y el marco del vidrio (tibio con
+     * glassWarm), sin grietas, ni brazos que se cierran, ni halo.
+     */
+    public static void drawFrontStill(Graphics2D g, Rectangle2D box, CandelabraState s) {
+        AffineTransform saved = g.getTransform();
+        Stroke oldStroke = g.getStroke();
+        double k = scale(box);
+        g.translate(box.getCenterX() + s.shake, heartY(box));
+        g.scale(k, k);
+        glassFront(g, s.glassWarm);
+        g.setStroke(oldStroke);
         g.setTransform(saved);
     }
 

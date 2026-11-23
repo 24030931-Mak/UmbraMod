@@ -33,6 +33,9 @@ import java.util.Random;
  * con formas y pinturas fijas, cambiando solo la matriz (el rosetón encendido, que en el juego
  * solo cambia al tomar un fragmento, se guarda dibujado: ver roseCache). 'golden' es la versión de la intro: la
  * misma sala en su mejor época, con piedra cálida, oro y los estandartes enteros.
+ * [v0.9.5] En la época dorada el Farol estaba encendido, así que drawStatic(golden) ya trae el
+ * rosetón encendido (sus 6 pétalos y el centro) y brasas en los braseros en vez de ceniza; el fuego
+ * de los braseros, que se mueve, sigue siendo de drawLights.
  *
  * Todas las medidas están en una sala de referencia de 640 x 470 (la de la Cúpula) y se reparten
  * en la sala que llegue: las posiciones con su ancho y su alto, los tamaños con la menor de las
@@ -150,12 +153,19 @@ public final class ThroneHallArt {
         wall(g2, hall, p, rnd, golden);
         vault(g2, hall, p);
         rosetteFrame(g2, hall, p);
+        if (golden) {   // [v0.9.5] en la época dorada, el rosetón siempre encendido
+            AffineTransform saved = g2.getTransform();
+            g2.translate(px(hall, ROSE_X), py(hall, ROSE_Y));
+            g2.scale(ROSE_R * size(hall) / 100, ROSE_R * size(hall) / 100);
+            litRosette(g2, 6);
+            g2.setTransform(saved);
+        }
         floor(g2, hall, p);
         for (int i = 0; i < 2; i++) {
             column(g2, hall, p, COLUMN_X[i], rnd, golden);
             banner(g2, hall, p, COLUMN_X[i], i, golden);
             relief(g2, hall, p, RELIEF_X[i], i == 0 ? 1 : -1, golden);
-            brazier(g2, hall, p, BRAZIER_X[i]);
+            brazier(g2, hall, p, BRAZIER_X[i], golden);
         }
         g2.dispose();
     }
@@ -458,8 +468,11 @@ public final class ThroneHallArt {
         return f;
     }
 
-    /** Un brasero apagado: trípode y cuenco de piedra, con ceniza. El fuego lo pone drawLights. */
-    private static void brazier(Graphics2D g, Rectangle2D hall, Palette p, double refX) {
+    /**
+     * Un brasero apagado: trípode y cuenco de piedra, con ceniza ([v0.9.5] en la época dorada,
+     * 'golden', con brasas). El fuego lo pone drawLights.
+     */
+    private static void brazier(Graphics2D g, Rectangle2D hall, Palette p, double refX, boolean golden) {
         double k = size(hall), x = px(hall, refX), y = py(hall, BRAZIER_Y), floorY = hall.getMaxY() - 2 * k;
         g.setStroke(new BasicStroke((float) (3 * k), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g.setColor(p.stoneHi);
@@ -478,8 +491,17 @@ public final class ThroneHallArt {
         bowl.closePath();
         g.setPaint(new GradientPaint(0, (float) y, p.stoneHi, 0, (float) (y + 13 * k), p.stoneLo));
         g.fill(bowl);
-        g.setColor(new Color(24, 26, 34));   // la ceniza
-        g.fill(new Ellipse2D.Double(x - 15 * k, y - 3 * k, 30 * k, 6 * k));
+        if (golden) {   // las brasas, como las de drawLights
+            AffineTransform saved = g.getTransform();
+            g.translate(x, y);
+            g.scale(k, k);
+            g.setPaint(EMBER_PAINT);
+            g.fill(EMBERS);
+            g.setTransform(saved);
+        } else {
+            g.setColor(new Color(24, 26, 34));   // la ceniza
+            g.fill(new Ellipse2D.Double(x - 15 * k, y - 3 * k, 30 * k, 6 * k));
+        }
         g.setStroke(new BasicStroke((float) Math.max(1, 1.2 * k)));
         g.setColor(Background.alpha(p.stoneHi, 200));
         g.draw(new Line2D.Double(x - 20 * k, y + 0.5 * k, x + 20 * k, y + 0.5 * k));

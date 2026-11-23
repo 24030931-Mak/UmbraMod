@@ -12,6 +12,9 @@ import umbra.math.Mat3;
  * Farol, los pedazos de luz y la neblina. Las escenas 1, 2 y 3 son una sola toma seguida (sin
  * fundido entre ellas), así que usan los mismos objetos y cada una continúa donde quedó la
  * anterior.
+ *
+ * [v0.9.5] La caverna dorada es la sala del trono en su época dorada y el Farol, el candelabro de
+ * 6 brazos de esa sala.
  */
 public final class GoldenStage {
 
@@ -19,10 +22,12 @@ public final class GoldenStage {
      * La cámara "de lejos" (se ve toda la caverna) y la "de cerca" (la llama llena la pantalla).
      * [v0.8.7] La de cerca mira 28 unidades arriba de la llama: con el vidrio alto cabe entero,
      * del plato al collar.
+     * [v0.9.5] Con el candelabro, la de cerca mira al centro del corazón de vidrio: cabe entero,
+     * con la corona arriba y el cuenco abajo.
      */
     public static final double WIDE_X = 640, WIDE_Y = 360, WIDE_ZOOM = 1;
     public static final double CLOSE_X = GoldenCavern.LANTERN_X,
-            CLOSE_Y = GoldenCavern.LANTERN_Y + GreatLantern.FLAME_Y - 28, CLOSE_ZOOM = 2.45;
+            CLOSE_Y = GoldenCavern.LANTERN_Y + GreatLantern.HEART_Y, CLOSE_ZOOM = 2.45;
     /** Qué tan oscura queda la caverna al terminar la escena 2 (de 0 a 1); con eso empieza la 3. */
     public static final double DUSK = 0.74;
 
@@ -34,6 +39,12 @@ public final class GoldenStage {
     public final LightShards shards = new LightShards(5);
     public final Mist mist = new Mist(43);
     private double clock;   // reloj que no se reinicia entre escenas: el polvo flota de corrido
+    private double braziers = 1;   // [v0.9.5] el fuego de los braseros de la sala (0 apagados, 1 ardiendo)
+
+    /** [v0.9.5] Qué tanto arden los braseros de la sala del trono: 0 apagados, 1 ardiendo. */
+    public void setBraziers(double b) {
+        braziers = Ease.clamp01(b);
+    }
 
     public void update(double dt) {
         clock += dt;
@@ -41,17 +52,18 @@ public final class GoldenStage {
     }
 
     /**
-     * La caverna con el Farol. 'dim' (0 a 1) la oscurece con un velo del color de la noche:
+     * La caverna con la sala del trono y el Farol. 'dim' (0 a 1) la oscurece con un velo del color de la noche:
      *     pantalla = pantalla · (1 - dim) + noche · dim
      * 'motes' (0 a 1) es qué tanto polvo dorado se ve.
      *
-     * El Farol se dibuja con la matriz  vista · T(pie del Farol): sus coordenadas propias (pie
+     * El Farol se dibuja con la matriz  vista · T(estrado): sus coordenadas propias (el estrado
      * en el origen) pasan al mundo y de ahí a la pantalla. Detrás de él van los planos lejano y
-     * medio de la caverna (cada uno con su vista) y, debajo, el piso donde se para, con la misma
-     * vista que el Farol para que no se "despegue" de su terraza al moverse la cámara.
+     * medio de la caverna (cada uno con su vista; el fuego de los braseros, entre los dos) y,
+     * debajo, el estrado, con la misma vista que el Farol para que no se "despegue" de él al
+     * moverse la cámara.
      */
     public void draw(Graphics2D g, IntroCamera camera, double dim, double motes) {
-        cavern.drawBack(g, camera);
+        cavern.drawBack(g, camera, braziers, clock);
         cavern.drawGround(g, camera);
 
         AffineTransform old = g.getTransform();

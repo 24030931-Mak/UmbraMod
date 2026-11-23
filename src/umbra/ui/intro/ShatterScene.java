@@ -13,6 +13,11 @@ import umbra.math.Vec2;
  * [v0.8.6] Escena 2: el vidrio se agrieta, un destello, y la luz sale volando en pedazos que
  * caen por túneles y pozos. Sigue de corrido a la escena 1 (misma cámara, misma llama).
  *
+ * [v0.9.5] El Farol es el candelabro de la sala del trono: se agrieta el vidrio de su corazón y,
+ * al romperse, de cada una de sus 6 copas sale volando un pedazo grande (un fragmento, de los que
+ * el juego hace buscar), junto con el polvo de luz de siempre. Por eso en el juego las copas
+ * están vacías. La implosión también apaga los braseros de la sala.
+ *
  * [v0.8.7] El clímax en tres golpes: la implosión (la luz se encoge hacia el Farol y la caverna
  * se oscurece), el cuadro de impacto (4 cuadros en blanco con la silueta negra del Farol roto)
  * y la onda expansiva que sale de la llama. El destello que antes subía justo antes de romperse
@@ -54,6 +59,18 @@ public final class ShatterScene extends Scene {
      */
     private static final double WAVE_LIFE = 1.1;
     private static final Color WAVE = new Color(255, 184, 72);
+    /**
+     * [v0.9.5] Los 6 pedazos grandes: a qué boca de GoldenCavern.getHoles() va el de cada copa
+     * (los de la izquierda, por la izquierda: el de arriba al túnel, el de en medio al pozo y el
+     * de abajo a la galería; los de la derecha, igual por la derecha), cuánto tarda en llegar y
+     * con qué retraso sale cada uno (segundos, desde la rotura). Vuelan despacio, en arcos altos
+     * que no se salen por arriba: así se alcanzan a ver mientras la cámara se aleja (de BREAK a
+     * BREAK + 2.3), en vez de salir de la pantalla en cuanto se rompe, cuando las copas quedan en
+     * sus orillas.
+     */
+    private static final int[] PIECE_HOLE = { 0, 2, 6, 1, 3, 7 };
+    private static final double[] PIECE_FLIGHT = { 2.5, 2.6, 2.3, 2.4, 2.7, 2.2 };
+    private static final double[] PIECE_DELAY = { 0.02, 0.05, 0.0, 0.03, 0.06, 0.01 };
 
     private final GoldenStage stage;
     private boolean burst;   // ya salieron los pedazos
@@ -87,6 +104,7 @@ public final class ShatterScene extends Scene {
         lantern.setEmber(0);
         lantern.setHaloScale(1);
         stage.shards.clear();
+        stage.setBraziers(1);
         burst = false;
     }
 
@@ -105,6 +123,7 @@ public final class ShatterScene extends Scene {
             lantern.setAgitation(Ease.lerp(LanternScene.OMEN, 1, Ease.smooth(time, 0.4, 2.4)));
             lantern.setRingPulse(1);
             lantern.setHaloScale(1 - IMPLODE_SHRINK * implosion(time));
+            stage.setBraziers(1 - implosion(time));   // [v0.9.5] la implosión también se traga el fuego de los braseros
         } else {
             if (!burst) {
                 burst = true;
@@ -112,9 +131,18 @@ public final class ShatterScene extends Scene {
                 lantern.setBroken(true);
                 lantern.setAgitation(0);
                 lantern.setCrack(1);
+                Vec2[] holes = stage.cavern.getHoles();
                 stage.shards.burst(GoldenCavern.LANTERN_X, GoldenCavern.LANTERN_Y + GreatLantern.FLAME_Y,
-                        stage.cavern.getHoles(), SHARDS, BREAK);
+                        holes, SHARDS, BREAK);
+                // Los 6 pedazos grandes, uno desde cada copa
+                for (int arm = 0; arm < PIECE_HOLE.length; arm++) {
+                    Vec2 to = holes[PIECE_HOLE[arm]];
+                    stage.shards.launchPiece(GoldenCavern.LANTERN_X + GreatLantern.cupX(arm),
+                            GoldenCavern.LANTERN_Y + GreatLantern.cupY(arm), to.x, to.y,
+                            BREAK + PIECE_DELAY[arm], PIECE_FLIGHT[arm]);
+                }
             }
+            stage.setBraziers(0);
             lantern.setEmber(1 - 0.7 * Ease.smooth(time, BREAK + 1, BREAK + 4.5));
         }
         camera.setShake(shake(time, 5.3), shake(time + 0.37, 4.1));
