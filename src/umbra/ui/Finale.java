@@ -4,9 +4,11 @@ import java.awt.AlphaComposite;
 import java.awt.Color;
 import java.awt.Composite;
 import java.awt.Graphics2D;
+import java.awt.RadialGradientPaint;
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,6 +33,9 @@ import umbra.world.Level;
  * Logi se dibuja con LightSource.drawDark y el candelabro es el estado del propio nivel
  * (Level.getCandelabra), así que la pantalla final muestra el candelabro como quedó.
  *
+ * Antes del primer paso hay una espera de 2 s (WAIT): Candil baja al estrado, Logi se queda donde
+ * estaba y, entre 0,7 s y 1,5 s, el corazón de vidrio y las copas encendidas dan un destello (sin voz).
+ *
  * Hay dos guiones. Con los 6 fragmentos el sello aguanta; con 0 a 5, falla:
  *
  *   aguanta                                   falla
@@ -45,11 +50,11 @@ import umbra.world.Level;
  * Los segundos son la duración mínima de cada paso. Un paso termina cuando pasó su mínimo y su voz
  * terminó (VoiceOver deja de sonar y ya corrió lo que dura el clip), y nunca espera más de su mínimo
  * más VOICE_WAIT (12 s): si una voz no termina nunca, o si no hay tarjeta de sonido, el guion sigue.
- * Sin archivos de voz el aguanta dura 27 s y el falla 20 s, más el fundido del final.
+ * Sin archivos de voz el aguanta dura 29 s y el falla 22 s (con la espera), más el fundido del final.
  *
  * Lo que pasa en cada paso (todo es función del tiempo del paso, t, con las curvas de Ease):
- *   LUZ        Candil, que pudo tocar la salida en el aire, baja al estrado (0,45 s). Logi vuela a
- *              su lugar junto a la luz, abajo a la izquierda del candelabro. Los brazos con
+ *   (espera)   Candil, que pudo tocar la salida en el aire, baja al estrado (0,45 s).
+ *   LUZ        Logi vuela a su lugar junto a la luz, abajo a la izquierda del candelabro. Los brazos con
  *              fragmento se apagan un instante y se encienden uno por uno, en el orden fijo
  *              (CandelabraState.lightOrder); cada pétalo del rosetón responde con su brazo.
  *   OSCURECE   Logi tiembla y pasa de naranja a rojo y a negro (darkness de 0 a 1), y crece.
@@ -90,6 +95,10 @@ public final class Finale {
     public static final double END_FADE = 1.0, SKIP_FADE = 0.35;
     /** Segundos del principio en que no se puede saltar (ver skip). */
     public static final double SKIP_GUARD = 0.5;
+    /** La espera antes del primer paso: Candil baja al estrado y el candelabro da un destello (s). */
+    public static final double WAIT = 2.0;
+    /** El destello: cuándo empieza (contado desde el inicio de la espera) y cuánto dura (s). */
+    public static final double FLASH_AT = 0.7, FLASH_TIME = 0.8;
 
     // ---- Tiempos dentro de los pasos (s) ----
     private static final double SETTLE = 0.45;                         // Candil baja al estrado
@@ -107,6 +116,11 @@ public final class Finale {
     private static final double DARK_SCALE = 1.7, INSIDE_SCALE = 1.5;  // la llama negra afuera, y dentro del vidrio
     private static final Color CONE = new Color(2, 3, 8);
     private static final double CONE_ALPHA = 0.62;
+
+    // ---- El destello ----
+    private static final int FLASH_SIZE = 256;                         // lado de la imagen del brillo (px)
+    private static final double CUP_FLASH = 0.8, CUP_ALPHA = 0.7;      // el destello sobre cada copa encendida: tamaño (en radios del corazón) y fuerza
+    private static BufferedImage flashImage;                           // se hace una sola vez, la primera vez que se dibuja
 
     private static final String SKIP_HINT = "Enter: saltar";
 
@@ -134,13 +148,15 @@ public final class Finale {
     private double endTime = -1;    // segundos desde que empezó el fundido del final; -1 = todavía no
     private double endFade = END_FADE;
     private boolean started, finished;
+    private boolean waiting;        // en la espera de antes del primer paso (ver WAIT)
 
     // ---- Medidas, calculadas en start() ----
     private Level level;
     private CandelabraState state;
     private Rectangle2D box, hall;
     private int fragments;
-    private double heartX, heartY;
+    private double heartX, heartY, heartR;
+    private final double[] cupX = new double[CandelabraState.ARMS], cupY = new double[CandelabraState.ARMS];   // el centro de cada copa
     private double c0x, c0y, c1x, standY, refugeX;   // Candil: donde tocó, asentado y en la sombra (centros)
     private double l0x, l0y, l1x, l1y, l2y, l3x, l3y, l4x, l4y, qx, qy, restY;   // la ruta de Logi
     private double ex, ey, qex, qey;                  // la salida por el hueco (guion que falla)
@@ -183,6 +199,12 @@ public final class Finale {
         Point2D heart = CandelabraArt.heartCenter(box);
         heartX = heart.getX();
         heartY = heart.getY();
+        heartR = CandelabraArt.heartRadius(box);
+        for (int arm = 0; arm < CandelabraState.ARMS; arm++) {
+            Point2D cup = CandelabraArt.cupCenter(box, state, arm);
+            cupX[arm] = cup.getX();
+            cupY[arm] = cup.getY();
+        }
         double floorY = exit.getMaxY();   // la cara de arriba del estrado
         c0x = candilX;
         c0y = candilY;
@@ -222,9 +244,41 @@ public final class Finale {
         endFade = END_FADE;
         clock = 0;
         elapsed = 0;
-        enterBeat(0);
-        pose(script[0], 0);
+        // La espera: el candelabro y la sala quedan como al llegar; Candil baja al estrado y Logi se queda donde estaba
+        waiting = true;
+        beat = 0;
+        beatTime = 0;
+        nextKnock = 0;
+        voiced = false;
+        voiceLength = 0;
+        subtitle = null;
+        petals = this.fragments;
+        braziers = 0;
+        cone = 0;
+        dust = 0;
+        poseWait(0);
         level.setHallLights(petals, braziers);
+    }
+
+    /** La espera a los 't' s: Candil baja al estrado (como lo hacía el paso LUZ) y Logi queda donde estaba, sin oscuridad. */
+    private void poseWait(double t) {
+        double s = Ease.smooth(t, 0, SETTLE);
+        double y = Ease.lerp(c0y, standY, s);
+        candilAt(Ease.lerp(c0x, c1x, s), y, y >= standY - 0.01, false);   // si ya estaba de pie, no "cae"
+        logiAt(l0x, l0y, 0, 1, false);
+    }
+
+    /** ¿Está en la espera de antes del primer paso? Es false si ya terminó o se saltó. */
+    public boolean isWaiting() {
+        return waiting && !finished && endTime < 0;
+    }
+
+    /** La fuerza del destello del candelabro, de 0 a 1: sube rápido (un cuarto del tiempo) y baja despacio. */
+    public double getFlash() {
+        if (!started || finished) return 0;
+        double u = (elapsed - FLASH_AT) / FLASH_TIME;
+        if (u <= 0 || u >= 1) return 0;
+        return Ease.smooth(u, 0, 0.25) * (1 - Ease.smooth(u, 0.25, 1));
     }
 
     /**
@@ -260,12 +314,23 @@ public final class Finale {
                 finish();
                 return;
             }
+        } else if (waiting) {
+            if (elapsed >= WAIT) {
+                waiting = false;
+                enterBeat(0);
+            }
         } else {
             beatTime += dt;
             if (beatDone()) {
                 if (beat + 1 < script.length) enterBeat(beat + 1);
                 else endTime = 0;   // el último paso terminó: el fundido del final
             }
+        }
+        if (waiting) {   // (también si se salta en la espera: el paso LUZ no se llega a ver)
+            poseWait(elapsed);
+            moveCandil(dt);
+            level.setHallLights(petals, braziers);
+            return;
         }
         int id = script[beat];
         pose(id, beatTime);
@@ -309,6 +374,7 @@ public final class Finale {
     /** Termina: se calla la voz y todo queda como al final del guion (también si se saltó). */
     private void finish() {
         finished = true;
+        waiting = false;
         VoiceOver.stop();
         beat = script.length - 1;
         pose(script[beat], LATER);
@@ -333,9 +399,7 @@ public final class Finale {
         dust = 0;
         switch (id) {
             case LIGHT: {
-                double s = Ease.smooth(t, 0, SETTLE);
-                double y = Ease.lerp(c0y, standY, s);
-                candilAt(Ease.lerp(c0x, c1x, s), y, y >= standY - 0.01, false);   // si ya estaba de pie, no "cae"
+                candilAt(c1x, standY, true, false);   // ya bajó al estrado en la espera
                 double f = Ease.smooth(t, 0, FLY);
                 logiAt(Ease.lerp(l0x, l1x, f), Ease.lerp(l0y, l1y, f), 0, 1, false);
                 // Los brazos con fragmento se apagan un instante y se encienden uno por uno
@@ -516,8 +580,39 @@ public final class Finale {
         CandelabraArt.drawBack(g, box, state, time);
         if (inside) LightSource.drawDark(g, lx, ly, darkness, scale, clock);
         CandelabraArt.drawFront(g, box, state, time);
+        double flash = getFlash();
+        if (flash > 0.004) drawFlash(g, flash);
         candil.draw(g);
         if (!inside) LightSource.drawDark(g, lx, ly, darkness, scale, clock);
+    }
+
+    /** El destello: un brillo sobre el corazón de vidrio, que crece y se desvanece, y uno más chico sobre cada copa encendida. */
+    private void drawFlash(Graphics2D g, double flash) {
+        if (flashImage == null) flashImage = makeFlashImage();
+        Composite old = g.getComposite();
+        double u = (elapsed - FLASH_AT) / FLASH_TIME;
+        double r = heartR * Ease.lerp(1, 3, Ease.clamp01(u));
+        g.setComposite(alpha(flash));
+        g.drawImage(flashImage, (int) Math.round(heartX - r), (int) Math.round(heartY - r), (int) Math.round(2 * r), (int) Math.round(2 * r), null);
+        double c = heartR * CUP_FLASH;
+        g.setComposite(alpha(CUP_ALPHA * flash));
+        for (int arm = 0; arm < CandelabraState.ARMS; arm++) {
+            if (state.armLit[arm] > 0.5)
+                g.drawImage(flashImage, (int) Math.round(cupX[arm] - c), (int) Math.round(cupY[arm] - c), (int) Math.round(2 * c), (int) Math.round(2 * c), null);
+        }
+        g.setComposite(old);
+    }
+
+    /** La imagen del brillo: blanco en el núcleo, dorado hacia el medio, transparente en el borde. */
+    private static BufferedImage makeFlashImage() {
+        BufferedImage img = new BufferedImage(FLASH_SIZE, FLASH_SIZE, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        float c = FLASH_SIZE / 2f;
+        g.setPaint(new RadialGradientPaint(c, c, c, new float[] { 0f, 0.18f, 0.5f, 1f },
+                new Color[] { new Color(255, 255, 255, 255), new Color(255, 236, 170, 235), new Color(255, 200, 90, 110), new Color(255, 190, 70, 0) }));
+        g.fillRect(0, 0, FLASH_SIZE, FLASH_SIZE);
+        g.dispose();
+        return img;
     }
 
     /** En coordenadas de pantalla: el subtítulo, la indicación para saltar y el fundido del final. */
