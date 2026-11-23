@@ -16,6 +16,7 @@ import umbra.audio.FinaleAudio;
 import umbra.audio.VoiceOver;
 import umbra.core.Config;
 import umbra.entities.LightSource;
+import umbra.entities.LogiTemper;
 import umbra.entities.Player;
 import umbra.graphics.CandelabraArt;
 import umbra.graphics.CandelabraState;
@@ -57,7 +58,7 @@ import umbra.world.Level;
  *   LUZ        Logi vuela a su lugar junto a la luz, abajo a la izquierda del candelabro. Los brazos con
  *              fragmento se apagan un instante y se encienden uno por uno, en el orden fijo
  *              (CandelabraState.lightOrder); cada pétalo del rosetón responde con su brazo.
- *   OSCURECE   Logi tiembla y pasa de naranja a rojo y a negro (darkness de 0 a 1), y crece.
+ *   OSCURECE   Logi tiembla y pasa de naranja a rojo y a negro (de su oscuridad de partida, n/6, a 1), y crece.
  *   SE ABALANZA La llama negra se lanza hacia Candil y rebota; Candil corre bajo la punta del
  *              candelabro, donde aparece su sombra (un cono oscuro hasta el estrado).
  *   EL TRONO   Logi sube en curva hasta el corazón de vidrio y los 6 brazos se cierran sobre él.
@@ -165,6 +166,7 @@ public final class Finale {
     private double tcx, tcy;              // dónde va Candil (centro)
     private boolean grounded, sheltered;
     private double lx, ly, darkness, scale = 1;
+    private double startDark;             // la oscuridad con que Logi llega al final: LogiTemper.darknessFor(fragmentos)
     private boolean inside;               // Logi está dentro del corazón de vidrio
     private double cone, dust, braziers;
     private int petals;
@@ -186,6 +188,7 @@ public final class Finale {
      */
     public void start(int fragments, Level cupula, double candilX, double candilY, double logiX, double logiY) {
         this.fragments = Math.max(0, Math.min(CandelabraState.ARMS, fragments));
+        startDark = LogiTemper.darknessFor(this.fragments);   // [B5] Logi llega tan oscuro como venía jugando (6 fragmentos: ya negro)
         level = cupula;
         state = cupula.getCandelabra();
         Rectangle2D exit = cupula.getExit();
@@ -260,12 +263,12 @@ public final class Finale {
         level.setHallLights(petals, braziers);
     }
 
-    /** La espera a los 't' s: Candil baja al estrado (como lo hacía el paso LUZ) y Logi queda donde estaba, sin oscuridad. */
+    /** La espera a los 't' s: Candil baja al estrado (como lo hacía el paso LUZ) y Logi queda donde estaba, con la oscuridad que traía. */
     private void poseWait(double t) {
         double s = Ease.smooth(t, 0, SETTLE);
         double y = Ease.lerp(c0y, standY, s);
         candilAt(Ease.lerp(c0x, c1x, s), y, y >= standY - 0.01, false);   // si ya estaba de pie, no "cae"
-        logiAt(l0x, l0y, 0, 1, false);
+        logiAt(l0x, l0y, startDark, 1, false);
     }
 
     /** ¿Está en la espera de antes del primer paso? Es false si ya terminó o se saltó. */
@@ -401,7 +404,7 @@ public final class Finale {
             case LIGHT: {
                 candilAt(c1x, standY, true, false);   // ya bajó al estrado en la espera
                 double f = Ease.smooth(t, 0, FLY);
-                logiAt(Ease.lerp(l0x, l1x, f), Ease.lerp(l0y, l1y, f), 0, 1, false);
+                logiAt(Ease.lerp(l0x, l1x, f), Ease.lerp(l0y, l1y, f), startDark, 1, false);
                 // Los brazos con fragmento se apagan un instante y se encienden uno por uno
                 int lit = 0;
                 double sum = 0;
@@ -430,7 +433,7 @@ public final class Finale {
                 double d = Ease.smooth(t, 0.5, 4.5);
                 double tremble = 1 + 3 * d;
                 logiAt(l1x + tremble * Math.sin(t * 41), Ease.lerp(l1y, l2y, Ease.smooth(t, 0, 4.5)) + 0.5 * tremble * Math.sin(t * 53 + 1),
-                        d, 1 + (DARK_SCALE - 1) * Ease.smooth(t, 2.0, 4.6), false);
+                        Ease.lerp(startDark, 1, d), 1 + (DARK_SCALE - 1) * Ease.smooth(t, 2.0, 4.6), false);
                 gameArms(t, false, 0);
                 cone = 0;
                 break;

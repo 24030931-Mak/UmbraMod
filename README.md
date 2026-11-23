@@ -37,6 +37,8 @@ Proyecto final de **Graficación**.
 
 **Guardar la partida.** El menú tiene 3 espacios de partida. Elige uno con **W/S** o con el ratón y pulsa **Enter**: si está vacío empieza una partida nueva, y si no, sigue donde la dejaste. **Supr** borra una partida, siempre preguntando antes. El juego guarda solo al cruzar a otra zona, al volver al menú con **Esc** y al cerrar la ventana. Al continuar, Candil aparece en la última repisa firme que pisó. Después del final, la partida queda frente a la Cúpula. Los archivos van en `%APPDATA%\Umbra\`.
 
+**Logi se resiste.** Con cada fragmento que juntas, Logi te sigue más despacio y se oscurece: de naranja a rojo y, con los 6, a la llama negra. Si dejas el ratón quieto un momento, se acerca solo a Candil. Y a ratos tiene un arrebato: la llama parpadea en rojo para avisar, se queda en su sitio un instante (el clic no lo fija) y luego tira hacia Candil. Con más fragmentos los arrebatos son más seguidos y más largos. Fijar a Logi con un clic te protege: mientras esté fijo no hay arrebato, y al soltarlo tienes un momento antes del siguiente. Sin fragmentos, Logi se comporta como siempre.
+
 **Candil y Logi cambian de forma.** Candil es un fantasma encapuchado y tiene una forma para cada acción: descansa, corre, salta, cae y flota. Logi también cambia: se estira como cometa cuando lo mueves rápido, se enrosca en espiral al subir y se calma cuando está quieto.
 
 ## Cómo ejecutarlo
@@ -149,6 +151,7 @@ src/umbra/
 │   ├── CandilArt.java        El dibujo de Candil en cada una de sus formas
 │   ├── LightSource.java      Logi: sigue al ratón con interpolación; se fija con un clic
 │   ├── LogiArt.java          El dibujo de Logi (cometa, espiral, en calma)
+│   ├── LogiTemper.java       El carácter de Logi: arrebatos al azar, lentitud y oscuridad según los fragmentos
 │   └── Block.java            Objetos que proyectan sombra
 ├── graphics/
 │   ├── Background.java       Cueva por capas (parallax), niebla, esporas y viñeta
@@ -308,6 +311,8 @@ Las versiones siguen: el juego todavía puede crecer.
 | Interpolación por brazo al cerrarse: cada brazo gira de su posición abierta a la cerrada con su propio avance | `CandelabraArt`, `CandelabraState` |
 | Sacudida con amortiguación (golpes que se apagan) | `Finale`, `CandelabraState` |
 | Cambio de color de la llama negra por interpolación (naranja, rojo, negro) | `LogiArt`, `Finale` |
+| Máquina de estados con azar (calma, aviso, quieto, tirón): esperas uniformes al azar según los fragmentos | `LogiTemper` |
+| Suavizado exponencial con factor variable (Logi más lento con cada fragmento) | `LightSource.update()` |
 
 ## Música
 

@@ -29,6 +29,7 @@ import umbra.audio.FragmentAudio;
 import umbra.audio.Music;
 import umbra.audio.VoiceOver;
 import umbra.entities.LightSource;
+import umbra.entities.LogiTemper;
 import umbra.entities.Player;
 import umbra.graphics.Background;
 import umbra.graphics.Camera;
@@ -161,6 +162,9 @@ public class GamePanel extends JPanel {
     /** Logi espera arriba de Candil hasta que el jugador mueva el ratón (ver placeLogiAbove). */
     private boolean logiWaiting;
     private int waitMouseX, waitMouseY;   // dónde estaba el ratón (pantalla) cuando empezó la espera
+    /** [B5] El carácter de Logi: arrebatos, lentitud y oscuridad según los fragmentos (semilla al azar en cada ejecución). */
+    private final LogiTemper temper = new LogiTemper(System.nanoTime());
+    private int prevMouseX, prevMouseY;   // el ratón (pantalla) del cuadro anterior, para saber si se movió
     private Background background;
     private LevelArt levelArt;
     private Vec2 checkpoint;   // dónde reaparece si se cae: la última repisa firme que pisó
@@ -680,6 +684,7 @@ public class GamePanel extends JPanel {
      */
     private void placeLogiAbove() {
         light.setPinned(false);
+        temper.reset();   // [B5] otro lugar, otro arrebato: la fase vuelve a CALM y el reloj empieza de nuevo
         // Cerca del techo de la zona, 220 px arriba quedarían fuera de ella: se recorta a y >= 20.
         // Si así queda a menos de 140 px de Candil lo desmoronaría al llegar: se corre de lado
         // (hacia donde haya zona) hasta quedar a 140 px, con Pitágoras: dx = sqrt(140² - dy²).
@@ -707,6 +712,7 @@ public class GamePanel extends JPanel {
      * misma regla que al cruzar de nivel. Si todo está lejos no se toca nada.
      */
     private void keepLogiAwayFromCandil() {
+        temper.reset();   // [B5] al reaparecer o reiniciar, Logi vuelve a obedecer en el acto (sin arrebato en curso)
         Vec2 mouse = camera.screenToWorld(input.getMouseX(), input.getMouseY());
         double min2 = ARRIVAL_SAFE_DISTANCE * ARRIVAL_SAFE_DISTANCE;
         double lx = light.getX() - player.getCenterX(), ly = light.getY() - player.getCenterY();
@@ -778,7 +784,8 @@ public class GamePanel extends JPanel {
         // ---- Luz: sigue al ratón suavemente; con un clic se fija en su sitio o se suelta ----
         // El ratón está en coordenadas de pantalla y la luz vive en el mundo:
         // la cámara convierte de una a otra con la inversa de su matriz de vista.
-        if (input.wasClicked()) {
+        // [B5] En un arrebato (quieto o tirando) Logi no obedece al clic.
+        if (input.wasClicked() && temper.acceptsClick()) {
             light.togglePinned();
             particles.emitPinPulse(light.getX(), light.getY(), light.isPinned());
         }
@@ -788,7 +795,20 @@ public class GamePanel extends JPanel {
                 > MOUSE_WAKE_DISTANCE) {
             logiWaiting = false;   // el jugador movió el ratón: Logi vuelve a seguirlo
         }
-        if (!logiWaiting) light.setTarget(mouse.x, mouse.y);
+        if (logiWaiting) {
+            temper.reset();   // [B5] mientras Logi espera no se acerca solo a Candil ni empieza un arrebato
+        } else {
+            boolean mouseMoved = Math.hypot(input.getMouseX() - prevMouseX, input.getMouseY() - prevMouseY) > MOUSE_WAKE_DISTANCE;
+            temper.update(dt, world.takenCount(), light.isPinned(), light.getX(), light.getY(),
+                    player.getCenterX(), player.getCenterY(), mouse.x, mouse.y, mouseMoved);
+            light.setTarget(temper.getTargetX(), temper.getTargetY());
+        }
+        prevMouseX = input.getMouseX();
+        prevMouseY = input.getMouseY();
+        // La oscuridad sigue a los fragmentos aun en la espera; lo demás lo trae el temper (con 0 fragmentos: factor 1, oscuridad 0, sin aviso)
+        light.setSmoothingFactor(temper.getSmoothingFactor());
+        light.setDarkness(LogiTemper.darknessFor(world.takenCount()));
+        light.setWarning(temper.getWarning());
         light.update(dt);
         emitLogiEffects(dt);   // chispas si Logi se queda en su sitio; ceniza si va rápido
 
