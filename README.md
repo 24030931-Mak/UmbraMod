@@ -12,6 +12,71 @@ Pero Candil es frágil. El vacío lo apaga poco a poco, y la luz directa lo desh
 
 Así avanzan juntos, caverna por caverna: la Llama(Logi) abre caminos de sombra y Candil los recorre, buscando el Gran Farol para volver a encenderlo. En las losas antiguas todavía quedan runas del Farol, y despiertan cuando la Llama(Logi) pasa cerca.
 
+## Capturas
+
+**La historia (la intro)**
+
+![La sala dorada, con el Gran Farol encendido](capturas/intro-1-sala-dorada.jpg)
+Escena 1: el Gran Farol, encendido en su sala dorada.
+
+![El Gran Farol se rompe y los pedazos salen volando](capturas/intro-2-se-rompe.png)
+Escena 2: el Farol se apaga y se rompe; sus pedazos salen volando.
+
+![El Farol apagado y la cueva a oscuras, con Candil y Logi](capturas/intro-3-apagado.png)
+Escena 6: el Farol apagado cuelga en la oscuridad; Candil y Logi empiezan el camino.
+
+**El menú**
+
+![El menú con las tres partidas](capturas/menu.png)
+Tres espacios de partida: cada uno dice la zona, los fragmentos y el tiempo.
+
+**El mundo**
+
+![Las Raíces: Candil flotando en una sombra, con Logi fijo](capturas/mundo-1-raices.png)
+Las Raíces: Logi, fijo con un clic, proyecta la sombra de un bloque y Candil flota dentro de ella.
+
+![Las Galerías](capturas/mundo-2-galerias.png)
+Las Galerías: la sombra de un bloque es el puente que Candil cruza.
+
+![Los Pozos](capturas/mundo-3-pozos.png)
+Los Pozos: columnas y tiros profundos, con la sombra de Logi como único camino.
+
+![El mapa grande](capturas/mundo-4-mapa.png)
+El mapa grande (Tab): las zonas recorridas se iluminan, lo demás sigue en neblina y los fragmentos tomados quedan marcados.
+
+![Un fragmento vuela hacia Candil](capturas/mundo-5-fragmento.png)
+Al tomar un fragmento, vuela hacia Candil y aparece una línea de la historia; el contador sube.
+
+**Logi se resiste**
+
+![Logi con 3 fragmentos y con 6, lado a lado](capturas/logi-1-tres-y-seis.png)
+Con 3 fragmentos (izquierda) Logi se pone rojo; con 6 (derecha), de un rojo muy oscuro y con los ojos claros.
+
+![Un arrebato: Logi tira hacia Candil](capturas/logi-2-arrebato.png)
+Un arrebato: Logi se suelta del ratón y tira hacia Candil, y la luz le quita vida.
+
+**La sala del trono**
+
+![El Gran Farol con sus copas encendidas](capturas/sala-trono.png)
+La Cúpula: el Gran Farol, con sus copas encendidas, sobre el estrado.
+
+<details>
+<summary>El final (contiene spoilers)</summary>
+
+![La espera con el destello del Farol](capturas/final-1-espera.png)
+Al tocar el Farol hay una espera: el corazón de vidrio y las copas dan un destello.
+
+![La llama negra encerrada en el corazón del Farol](capturas/final-2-corazon.png)
+Con los 6 fragmentos, la llama negra queda encerrada en el corazón de vidrio.
+
+![La llama negra escapa por un brazo sin fragmento](capturas/final-3-escapa.png)
+Si faltan fragmentos, la llama negra escapa por un brazo del Farol que quedó apagado.
+
+![La pantalla final](capturas/final-4-pantalla.png)
+La pantalla final: el cierre de la historia, con el tiempo y las veces que Candil se desmoronó.
+
+</details>
+
 ---
 
 Proyecto final de **Graficación**.
@@ -271,7 +336,7 @@ src/umbra/
 ### Después
 Las versiones siguen: el juego todavía puede crecer.
 - [ ] La persecución: la llama negra, luces que se mueven solas y obstáculos nuevos
-- [ ] Capturas de pantalla en este README
+- [x] Capturas de pantalla en este README
 
 ## Técnicas de graficación
 
