@@ -103,7 +103,7 @@ public class LightSource {
     /** [v1.0] Etérea: fuego sin bordes fijos (Logi del menú y de la pantalla final). */
     public void setEthereal(boolean e) { ethereal = e; }
 
-    /** Si es false, Logi no se tiñe de azul al fijarse (en la intro sigue cálida; el anillo se dibuja igual). */
+    /** Si es false, Logi no se tiñe de azul al fijarse (en la intro sigue cálido; el anillo se dibuja igual). */
     public void setPinTint(boolean on) { pinTint = on; }
 
     /**

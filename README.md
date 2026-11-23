@@ -221,7 +221,7 @@ src/umbra/
 - [x] Ambiente de cueva: fondo por capas con parallax, niebla, esporas y viñeta
 - [x] Decoraciones: repisas de roca con musgo, hongos que brillan, losas con runas y columnas rotas
 - [x] Candil encapuchado, con una forma para cada acción (descansa, corre, salta, cae, flota)
-- [x] Logi cambia de forma según se mueve: cometa, espiral al subir, calmada
+- [x] Logi cambia de forma según se mueve: cometa, espiral al subir, en calma
 - [x] Partículas: rastro de luz, chispas, polvo al perder vida, niebla y ceniza al desmoronarse
 - [x] Plantas que se mecen al pasar Candil
 - [x] Música de ambiente
