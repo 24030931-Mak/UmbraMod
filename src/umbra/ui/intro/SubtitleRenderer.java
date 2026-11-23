@@ -11,6 +11,8 @@ import java.awt.RenderingHints;
 /**
  * [v0.8.7] Dibuja el subtitulo activo en coordenadas de pantalla (1280 x 720): un velo oscuro
  * degradado en la franja inferior y el texto centrado, que sube unos pixeles al aparecer.
+ * [v0.9.5] Lo que empieza con raya lo dice Logi y se pinta de su color, como en la intro y en las
+ * lineas de los fragmentos (lo usa la animacion final).
  */
 public final class SubtitleRenderer {
 
@@ -22,6 +24,7 @@ public final class SubtitleRenderer {
     private static final Color VEIL = new Color(4, 6, 14, 135);
     private static final Color VEIL_CLEAR = new Color(4, 6, 14, 0);
     private static final Color INK = new Color(245, 240, 228);
+    private static final Color VOICE = new Color(255, 226, 172);   // lo que dice Logi (empieza con raya)
     private static final Color SHADOW = new Color(0, 0, 0, 180);
 
     private static Font font;
@@ -81,6 +84,7 @@ public final class SubtitleRenderer {
         FontMetrics fm = g.getFontMetrics();
 
         String[] lines = split(s.text, fm, W - 2 * MARGIN);
+        Color ink = s.text.startsWith("\u2014") ? VOICE : INK;
         float drift = (float) ((1 - s.rise(audioTime)) * 5.0);
         // Bloque centrado verticalmente en el velo.
         float y0 = mid - (lines.length - 1) * LINE_H / 2f + fm.getAscent() / 2f - fm.getDescent() / 2f + drift;
@@ -89,7 +93,7 @@ public final class SubtitleRenderer {
             float y = y0 + i * LINE_H;
             g.setColor(Ease.fade(SHADOW, alpha));
             g.drawString(lines[i], x, y + 1.5f);
-            g.setColor(Ease.fade(INK, alpha));
+            g.setColor(Ease.fade(ink, alpha));
             g.drawString(lines[i], x, y);
         }
         if (oldAA != null) g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, oldAA);

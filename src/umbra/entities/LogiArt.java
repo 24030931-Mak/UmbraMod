@@ -131,6 +131,9 @@ final class LogiArt {
         // 2 y 3. La llama en coordenadas locales: M = T(cx, cy) · R(angle)
         g.transform(Mat3.translation(cx, cy).multiply(Mat3.rotation(angle)).toAffineTransform());
         if (e > 0.01) drawWisps(g, flamePhase, r, len, 255 * e);
+        // Las proporciones de las tres capas (0.7, 0.75, 0.8; 0.42, 0.5, 0.6) y sus desfases (0.4 y 0.8)
+        // son las mismas en drawDark: si se cambian aquí, hay que cambiarlas allá también
+        // (PruebaLlamaNegra.ceroIgual lo vigila: con darkness = 0 ambas deben salir iguales).
         Path2D outer = layer(0, r, len, amp, flamePhase);
         fillLayer(g, outer, cOuter, 225 * flick * (1 - 0.8 * e));
         if (rise > 0.02) drawSpiral(g, flamePhase, outer, r, len, 205 * rise * tail * flick);
@@ -210,6 +213,9 @@ final class LogiArt {
                 g.setTransform(at);
             }
         }
+        // Las proporciones de las tres capas (0.7, 0.75, 0.8; 0.42, 0.5, 0.6) y sus desfases (0.4 y 0.8)
+        // son las mismas de drawCore: si se cambian aquí, hay que cambiarlas allá también
+        // (PruebaLlamaNegra.ceroIgual lo vigila: con darkness = 0 ambas deben salir iguales).
         fillLayer(g, layer(0, r, len, amp, time), cOuter, 225);
         fillLayer(g, layer(-0.1 * HEAD, 0.7 * r, 0.75 * len, 0.8 * amp, time + 0.4), cMiddle, 235);
         fillLayer(g, layer(-0.18 * HEAD, 0.42 * r, 0.5 * len, 0.6 * amp, time + 0.8), cCore,

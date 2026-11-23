@@ -228,6 +228,36 @@ public class Player {
     }
 
     /**
+     * [v0.9.5] La animación final mueve a Candil sin teclas ni física: lo pone con la esquina en
+     * (nx, ny) y anima su dibujo como si hubiera llegado ahí por su cuenta (su velocidad sale de
+     * cuánto se movió en dt, así camina o se queda quieto según el guion).
+     *   grounded   tiene los pies en el estrado (al tocarlo después de ir en el aire, se aplasta;
+     *              con dt = 0 solo se coloca, sin aplastarse);
+     *   sheltered  está en la sombra del candelabro: flota y, quieto un rato, se acurruca;
+     *   face       hacia dónde mira cuando no se mueve (1 derecha, -1 izquierda, 0 como estaba).
+     * No pierde vida ni se desmorona: el guion no le hace daño.
+     */
+    public void perform(double dt, double nx, double ny, boolean grounded, boolean sheltered, int face) {
+        boolean wasOnGround = onGround;
+        if (dt > 0) {
+            vx = (nx - x) / dt;
+            vy = (ny - y) / dt;
+        }
+        if (Math.abs(vx) < 1) vx = 0;   // la cola de una curva suave no cuenta como caminar
+        if (Math.abs(vy) < 1 || grounded) vy = 0;
+        if (vx != 0) facing = vx > 0 ? 1 : -1;
+        else if (face != 0) facing = face;
+        x = nx;
+        y = ny;
+        onGround = grounded;
+        onLedge = grounded;
+        inShadow = sheltered;
+        restTime = sheltered && vx == 0 && vy == 0 ? restTime + dt : 0;
+        if (!wasOnGround && onGround && dt > 0) stretch = -1;   // con dt = 0 solo se coloca
+        animate(dt);
+    }
+
+    /**
      * La forma que toca según lo que hace, en orden de prioridad:
      *   SCARED   Logi a menos de 150 px, o menos de 35% de vida fuera de la sombra
      *   RESTING  dentro de la sombra, 6 s seguidos sin teclas

@@ -1,0 +1,15 @@
+# Textos de la animación final (al tocar el Gran Farol en la Cúpula): una línea por voz, en
+# orden, de voz_13.wav a voz_20.wav. La línea n es el subtítulo de voz_(12+n).wav; si falta el
+# archivo, solo se ve el subtítulo. Se puede editar igual que intro.txt y final.txt.
+# Las líneas vacías y las que empiezan con # se ignoran. Lo que empieza con raya (—) lo dice
+# Logi y se pinta de su color; lo demás es del narrador.
+#   voz_13 a voz_17: el sello aguanta (con los 6 fragmentos).
+#   voz_18 a voz_20: el sello falla (con menos de 6); voz_14 se dice en los dos.
+Por primera vez en mucho tiempo, la Cúpula se llenó de luz.
+Pero Logi no buscaba encender el Farol. Buscaba volver a él.
+Y el trono que una vez fue suyo se volvió su prisión.
+—Me encerraste en mi propio trono, Candil. Pero la luz siempre vuelve a su dueño.
+Desde entonces, en la cueva hay luz… y también sombra donde descansar.
+El Gran Farol volvió a arder… pero no del todo.
+—Te faltó un pedazo, pequeño. La oscuridad es mía otra vez.
+Los pedazos que faltan siguen perdidos en algún lugar de la cueva.

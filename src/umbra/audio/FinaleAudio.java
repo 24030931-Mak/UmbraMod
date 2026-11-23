@@ -79,7 +79,7 @@ public final class FinaleAudio {
         }
     }
 
-    /** Una muestra est00e9reo (la misma en los dos lados), de 16 bits. */
+    /** Una muestra est\u00e9reo (la misma en los dos lados), de 16 bits. */
     private static void put(byte[] pcm, int i, double wave) {
         short s = (short) Math.max(-32767, Math.min(32767, wave * 32767));
         byte lo = (byte) (s & 0xFF), hi = (byte) ((s >> 8) & 0xFF);
@@ -108,8 +108,12 @@ public final class FinaleAudio {
         init();
         Clip clip = roar ? roarClip : knockClip;
         if (clip == null || DangerAudio.isMuted()) return;
-        if (clip.isRunning()) clip.stop();
-        clip.setFramePosition(0);
-        clip.start();
+        try {
+            if (clip.isRunning()) clip.stop();
+            clip.setFramePosition(0);
+            clip.start();
+        } catch (IllegalStateException e) {
+            // La l\u00ednea de audio se cerr\u00f3 o se perdi\u00f3 (por ejemplo, al desconectar los aud\u00edfonos): no suena y ya
+        }
     }
 }

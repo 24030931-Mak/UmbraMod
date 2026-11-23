@@ -2,6 +2,7 @@ package umbra.core;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.Composite;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
@@ -38,6 +39,7 @@ import umbra.graphics.ParticleSystem;
 import umbra.graphics.ShadowCaster;
 import umbra.math.Mat3;
 import umbra.math.Vec2;
+import umbra.ui.Finale;
 import umbra.ui.Intro;
 import umbra.ui.LevelTitle;
 import umbra.ui.MapView;
@@ -62,6 +64,8 @@ import umbra.world.World;
  *
  * [v1.0] Pantallas (máquina de estados): INTRO (la historia animada) -> MENU (título) ->
  * PLAYING (el nivel) -> VICTORY (cierre). Cada cambio pasa por un fundido a negro.
+ * [v0.9.5] Entre PLAYING y VICTORY, al tocar el Gran Farol: FINALE (la animación final, en la
+ * Cúpula misma y sin fundido al empezar; ver ui.Finale).
  */
 public class GamePanel extends JPanel {
 
@@ -69,7 +73,7 @@ public class GamePanel extends JPanel {
     private static final double STEP = 1.0 / Config.UPS;
 
     /** Las pantallas del juego. */
-    private enum Screen { INTRO, MENU, PLAYING, VICTORY }
+    private enum Screen { INTRO, MENU, PLAYING, FINALE, VICTORY }
 
     private static final Color BACKGROUND = new Color(8, 8, 16);
     private static final Color SHADOW_COLOR = new Color(6, 6, 10, 235);
@@ -130,6 +134,10 @@ public class GamePanel extends JPanel {
     /** [B4] Los fragmentos recién tomados que vuelan hacia Candil (solo visual). */
     private final FragmentFlights fragmentFlights = new FragmentFlights();
     private final Victory victory = new Victory(Resources.readLines("/umbra/res/final.txt"));
+    /** [v0.9.5] La animación final: sale al tocar el Gran Farol, antes de la pantalla final (res/final_animacion.txt). */
+    private final Finale finale = new Finale(Resources.readLines("/umbra/res/final_animacion.txt"));
+    /** [v0.9.5] La pantalla final vino de la animación: detrás del texto se ve la Cúpula como quedó. */
+    private boolean victoryAfterFinale;
     /** Logi del menú y de la pantalla final: etérea, sigue al ratón en coordenadas de pantalla. */
     private final LightSource menuLight = new LightSource(Config.WIDTH / 2.0, Config.HEIGHT / 3.0);
 
@@ -222,6 +230,7 @@ public class GamePanel extends JPanel {
         FragmentAudio.preload();   // [B4] igual con el tono de los fragmentos
         VoiceOver.preloadKept(FRAGMENT_VOICES);   // las voces de los fragmentos que existan, para que la primera no congele el juego
         DangerAudio.preload();   // sintetiza el zumbido y el desmoronarse ahora, no en el primer cuadro (congelaría la intro)
+        Finale.preload();        // [v0.9.5] las voces del final que existan, el rugido y los golpes
 
         addKeyListener(input);
         addMouseListener(input);
@@ -281,6 +290,8 @@ public class GamePanel extends JPanel {
     private void showFragments() {
         int n = world.takenCount();
         level.getCandelabra().setFragments(n);
+        level.getCandelabra().shake = 0;    // lo que dejó la animación final (al continuar después de verla)
+        level.getCandelabra().cracks = 0;
         level.setHallLights(n, 0);
     }
 
@@ -356,6 +367,7 @@ public class GamePanel extends JPanel {
             case INTRO:   updateIntro(dt, leaving);   break;
             case MENU:    updateMenu(dt, leaving);    break;
             case PLAYING: updateGame(dt, leaving);    break;
+            case FINALE:  updateFinale(dt, leaving);  break;
             case VICTORY: updateVictory(dt, leaving); break;
         }
     }
@@ -523,6 +535,7 @@ public class GamePanel extends JPanel {
     /** Pantalla final: Enter, Espacio, clic o Esc regresan al menú. */
     private void updateVictory(double dt, boolean leaving) {
         victory.update(dt);
+        if (victoryAfterFinale) finale.update(dt);   // Candil y Logi siguen vivos donde quedaron
         level.advanceTime(dt);        // el Gran Farol sigue meciéndose
         background.update(dt);        // la niebla y las esporas siguen moviéndose
         levelArt.update(dt, null);    // las plantas se mecen con el aire
@@ -721,6 +734,7 @@ public class GamePanel extends JPanel {
     }
 
     private void showVictory() {
+        victoryAfterFinale = screen == Screen.FINALE;
         screen = Screen.VICTORY;
         VoiceOver.stop();   // la voz de un fragmento no sigue en la pantalla final
         fragmentFlights.clear();
@@ -852,6 +866,10 @@ public class GamePanel extends JPanel {
 
             if (level.isAtExit(player.getBounds())) {
                 levelComplete = true;
+                if (level.exitIsLantern()) {   // [v0.9.5] el Gran Farol: empieza la animación final
+                    startFinale();
+                    return;
+                }
             } else if (!player.isDead() && onBlack == null) {
                 // Tocar la orilla con paso: fundido corto y cambio de nivel (vivo y sin otro fundido)
                 Passage passage = level.passageAt(player.getBounds());
@@ -859,7 +877,7 @@ public class GamePanel extends JPanel {
             }
         }
 
-        // ---- La salida: un momento después, la pantalla final ----
+        // ---- La salida (un portal, no el Gran Farol): un momento después, la pantalla final ----
         if (levelComplete) {
             completeTimer += dt;
             if (completeTimer >= VICTORY_DELAY) fadeTo(this::showVictory);
@@ -928,6 +946,55 @@ public class GamePanel extends JPanel {
             storyLine.show(n - 1, player.getCenterY() - camera.getY(), voiceSeconds);
             showFragments();
             counterPulse = 0;
+        }
+    }
+
+    /**
+     * [v0.9.5] Candil tocó el Gran Farol: empieza la animación final, ahí mismo (sin fundido). Desde
+     * aquí las teclas y el ratón ya no mueven a Candil ni a Logi (el guion los mueve), no hay daño
+     * ni muerte, y no se guarda nada: la pantalla ya no es PLAYING y levelComplete sigue en true.
+     * Lo que estuviera apretado no cuenta hasta soltarlo; saltar pide una tecla recién apretada.
+     */
+    private void startFinale() {
+        screen = Screen.FINALE;
+        storyLine.hide();
+        fragmentFlights.clear();
+        light.setPinned(false);
+        DangerAudio.setDanger(0.0);
+        input.ignoreUntilReleased(KeyEvent.VK_A, KeyEvent.VK_D, KeyEvent.VK_W, KeyEvent.VK_S, KeyEvent.VK_LEFT,
+                KeyEvent.VK_RIGHT, KeyEvent.VK_UP, KeyEvent.VK_DOWN, KeyEvent.VK_SPACE, KeyEvent.VK_ENTER, KeyEvent.VK_ESCAPE);
+        finale.start(world.takenCount(), level, player.getCenterX(), player.getCenterY(), light.getX(), light.getY());
+    }
+
+    /**
+     * [v0.9.5] La animación final: el guion mueve a Candil y a Logi; la cueva sigue viva (niebla,
+     * plantas, partículas) y la cámara sube a la sala del trono y se queda fija arriba. La luz de
+     * Logi va con él y se apaga a medida que se vuelve la llama negra. Enter, Esc, Espacio o un clic
+     * la saltan (Esc no va al menú). Al terminar, sola o saltada, ya está en negro: sale la
+     * pantalla final con la segunda mitad de un fundido, como al terminar la intro.
+     */
+    private void updateFinale(double dt, boolean leaving) {
+        finale.update(dt);
+        level.advanceTime(dt);        // las llamas del candelabro
+        background.update(dt);
+        levelArt.update(dt, null);
+        particles.update(dt);
+        light.setCandil(finale.getCandilX(), finale.getCandilY());
+        light.snapTo(finale.getLogiX(), finale.getLogiY());
+        light.update(dt);
+        shadows = shadowCaster.computeShadows(light, level.getBlocks());
+        background.setLight(light.getX(), light.getY());
+        camera.follow(finale.getCandilX(), 0, dt);   // hasta arriba de la zona: la sala del trono completa
+        if (leaving) return;
+
+        boolean skip = input.wasPressed(KeyEvent.VK_ENTER) || input.wasPressed(KeyEvent.VK_ESCAPE)
+                || input.wasPressed(KeyEvent.VK_SPACE) || input.wasClicked();
+        if (skip) finale.skip();
+        if (finale.isFinished()) {
+            showVictory();
+            fade = 1;
+            fadeTime = FADE_TIME;
+            fadeDir = -1;
         }
     }
 
@@ -1001,6 +1068,8 @@ public class GamePanel extends JPanel {
                 levelTitle.draw(g2);
                 storyLine.draw(g2);
                 mapView.draw(g2, world, new Vec2(player.getCenterX(), player.getCenterY()), light.getPosition());
+            } else if (screen == Screen.FINALE) {
+                finale.drawOverlay(g2);   // [v0.9.5] subtítulos y fundido
             } else {
                 victory.drawVeil(g2);
                 menuLight.drawCore(g2);   // Logi etérea sigue al ratón: encima del velo, pero detrás del texto
@@ -1041,15 +1110,30 @@ public class GamePanel extends JPanel {
         double camX = camera.getX(), camY = camera.getY();
         background.drawBack(g2, camX, camY);
 
+        // [v0.9.5] En la animación final (y en la pantalla final que le sigue) el guion dibuja el
+        // candelabro, a Candil y a Logi; la luz de Logi y sus sombras se apagan con la llama negra
+        boolean scripted = screen == Screen.FINALE || (screen == Screen.VICTORY && victoryAfterFinale);
+        double logiLight = scripted ? 1 - finale.getLogiDarkness() : 1;
+        Composite plain = g2.getComposite();
+
         // El mundo se dibuja con la matriz de vista de la cámara (mundo -> pantalla)
         AffineTransform onScreen = g2.getTransform();
         g2.transform(camera.getViewMatrix().toAffineTransform());
         levelArt.drawHall(g2, camX, camY);   //    [v0.9.5] la sala del trono (solo la Cúpula), detrás de todo
-        light.drawGlow(g2);              // 1. halo de luz sobre el fondo
+        if (logiLight > 0.004) {
+            if (logiLight < 1) g2.setComposite(Finale.alpha(logiLight));
+            light.drawGlow(g2);          // 1. halo de luz sobre el fondo
+            g2.setComposite(plain);
+        }
         levelArt.drawBehind(g2, camX, camY);   // columnas rotas (decoración)
-        drawShadows(g2);                 // 2. sombras (el refugio de Candil)
+        if (logiLight > 0.004) {
+            if (logiLight < 1) g2.setComposite(Finale.alpha(logiLight));
+            drawShadows(g2);             // 2. sombras (el refugio de Candil)
+            g2.setComposite(plain);
+        }
         levelArt.drawFront(g2, camX, camY, light); // 3. repisas de roca, hongos, losas y runas
-        level.draw(g2);                  //    salida
+        if (scripted) finale.drawWorld(g2);   //    el Gran Farol, Candil y Logi del guion (el candelabro no va dos veces)
+        else level.draw(g2);             //    salida
         for (Fragment f : level.getFragments()) {   //    [B4] los fragmentos que faltan por tomar
             if (screen != Screen.PLAYING || world.isTaken(f.getId())) continue;
             // Solo los que entran en la vista (con margen para el halo, de hasta 40 px de radio)
@@ -1059,7 +1143,7 @@ public class GamePanel extends JPanel {
         }
         background.drawSpores(g2, camX, camY); // 4. esporas flotando
         particles.draw(g2);              // 5. partículas
-        player.draw(g2);                 // 6. jugador
+        if (!scripted) player.draw(g2);  // 6. jugador
         if (screen == Screen.PLAYING && !player.isDead()) {   //    [B4] los fragmentos que vuelan hacia Candil
             fragmentFlights.draw(g2, player.getCenterX(), player.getCenterY());
         }
