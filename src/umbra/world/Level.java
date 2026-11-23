@@ -214,7 +214,7 @@ public class Level {
      *      altura de Candil. Después del tramo 3 Candil cae en D más a la izquierda y la cruza
      *      caminando hacia el tramo 4: lo toma sin desviarse.
      *   1. El escondido, en lo alto sobre la losa del puente, en (350, 200). Usa esa losa de otra
-     *      forma: con Logi fija abajo de ella, en el foso, en (350, 650), la sombra sube como un
+     *      forma: con Logi fijo abajo de ella, en el foso, en (350, 650), la sombra sube como un
      *      abanico desde la losa. Candil salta de A a la sombra, sube nadando (W) y lo toma con
      *      la vida llena. Sin sombra no se alcanza: el salto más alto, desde la losa, deja
      *      la cabeza de Candil en y = 383. Para volver, flota a la izquierda, sale del abanico y
@@ -290,7 +290,7 @@ public class Level {
      *      hacia el pasillo bajo: lo toma sin desviarse.
      *   3. El escondido, colgado en el vacío bajo la segunda losa del puente, en (985, 680). Usa esa
      *      losa de otra forma: como piso y como carpa. Candil cruza medio puente como siempre y se
-     *      para sobre la segunda losa; con Logi fija arriba de ella, en (935, 270), la sombra de la
+     *      para sobre la segunda losa; con Logi fijo arriba de ella, en (935, 270), la sombra de la
      *      losa baja como una carpa y se abre hacia el fondo. Candil camina fuera de la losa, cae en
      *      la carpa, baja nadando (S) y lo toma con la vida llena. Sin sombra no se alcanza: quien
      *      cae desde las losas o las repisas se aleja de la losa o pasa muy abajo, y con la Logi del

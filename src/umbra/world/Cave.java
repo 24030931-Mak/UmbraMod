@@ -52,7 +52,7 @@ public final class Cave {
      *
      *   1. El freno: el tiro izquierdo (x 100 a 300) baja desde la entrada hasta el vacío; el camino
      *      sigue por una abertura en su pared derecha, a 1340 px de la entrada (y 1480 a 1600). Con
-     *      Logi fija arriba a la izquierda de las tres losas del tiro, en (110, 150), sus sombras
+     *      Logi fijo arriba a la izquierda de las tres losas del tiro, en (110, 150), sus sombras
      *      forman una columna inclinada pegada a la pared: Candil pasa a la primera losa, se deja
      *      caer a la sombra por su orilla, baja flotando (S), se detiene a la altura de la abertura
      *      y sale por ella. Cayendo en la luz no se puede: la repisa de la abertura está 45 px
@@ -78,18 +78,18 @@ public final class Cave {
      *      a Candil, esa ruta queda a 40 px o más de los bordes de la pantalla, y también funciona
      *      movida 15 px a cualquier lado o más despacio.
      *   4. La chimenea al revés: del piso derecho (y = 1030) a la repisa del hueco (y = 300), por
-     *      tres losas escalonadas que suben hacia la derecha. Con Logi fija abajo, en el aire sobre
+     *      tres losas escalonadas que suben hacia la derecha. Con Logi fijo abajo, en el aire sobre
      *      el vacío a la izquierda del piso, en (1240, 1250), 290 px más abajo que la losa más baja,
      *      las sombras suben un poco inclinadas a la derecha. Cada losa queda en la parte izquierda
      *      de la sombra de la de abajo: Candil sube a la primera (o salta junto a ella) y ya está en
      *      su sombra, nada hacia arriba (W) por el lado derecho de la siguiente losa, entra a su
      *      sombra arriba de ella, y así hasta la de arriba, de donde sale de un salto a la repisa.
      *      Sin sombras no se sube: desde el piso solo se alcanza la primera losa (100 px arriba), y
-     *      la segunda está 240 px más arriba que ella. También funciona con Logi movida 15 px.
+     *      la segunda está 240 px más arriba que ella. También funciona con Logi movido 15 px.
      *   5. El hueco del techo: el techo del tiro derecho es roca de 200 px de grueso, con un hueco
      *      angosto (x 1920 a 2000) y una losa chica justo debajo (x 1940 a 1980, y = 270). Sin
      *      sombras ningún salto llega arriba: lo más alto que sube Candil es y = 138, desde la losa.
-     *      Con Logi fija bien alineada abajo de la losa, en (1960, 350), la sombra sube recta por el
+     *      Con Logi fijo bien alineada abajo de la losa, en (1960, 350), la sombra sube recta por el
      *      hueco: Candil salta desde la punta de la repisa del hueco a la sombra, arriba de la losa,
      *      y sube nadando hasta la Cúpula. Pasa con Logi a ±25 px de ahí (hasta unos ±40); a más de
      *      60 px la sombra sale chueca, pega en la roca del techo y no hay camino. Quien baje de la
@@ -100,7 +100,7 @@ public final class Cave {
      *     de Candil, donde cae al terminar el columpio y por donde camina para empezar la chimenea.
      *     Es la mitad de la zona (a lo ancho y a lo alto) y de la ruta (tres tramos de cinco).
      *   - El escondido (5), en (2250, 285): en el aire, 270 px a la derecha de la losa del hueco y a
-     *     su altura, bajo el techo del tiro derecho. Usa esa losa de otra forma: con Logi fija a su
+     *     su altura, bajo el techo del tiro derecho. Usa esa losa de otra forma: con Logi fijo a su
      *     izquierda y a su altura, en (1620, 285) (sobre el vacío entre la chimenea y la repisa del
      *     hueco), su sombra sale de lado, una franja casi horizontal hacia la derecha (y 255 a 315
      *     ahí). Candil salta de la repisa del hueco a la losa, se deja caer por su orilla derecha a la
@@ -115,7 +115,7 @@ public final class Cave {
      * abertura, la orilla baja, el piso derecho y la repisa del hueco): si Candil cae, reaparece en
      * una de ellas y puede seguir. Las paredes y techos suben hasta el techo del mundo y no se
      * pueden pisar. La prueba (PruebaPozos) lo comprueba todo con todos los saltos y caídas
-     * posibles, cada medio píxel; en el columpio también con Logi fija en cada punto de una malla
+     * posibles, cada medio píxel; en el columpio también con Logi fijo en cada punto de una malla
      * de 20 px, y en el hueco del techo barriendo a Logi de lado a lado cada 5 px.
      */
     public static Level createPozos() {
@@ -187,26 +187,26 @@ public final class Cave {
      *   el techo no puede bajar más que la cabeza de Candil. PruebaCupula la cuenta y la avisa.
      *   La etapa 1 empieza con Candil en la luz del piso mientras Logi llega al hueco: es lo que más
      *   vida cuesta del relevo (peor caso con Logi corrida 15 px: 62 %).
-     *   1. Etapa 1, del piso al descanso 1 (izquierda, y = 1640): Logi fija en el hueco del piso,
+     *   1. Etapa 1, del piso al descanso 1 (izquierda, y = 1640): Logi fijo en el hueco del piso,
      *      en (670, 2100), abajo a la derecha de la primera losa. Candil salta del piso a la losa
      *      y sube nadando en su sombra, que va hacia arriba a la izquierda, hasta la punta del
      *      descanso; sale de un salto y camina al fondo.
-     *   2. Etapa 2, del descanso 1 al descanso 2 (derecha, y = 1200): Logi fija abajo a la
+     *   2. Etapa 2, del descanso 1 al descanso 2 (derecha, y = 1200): Logi fijo abajo a la
      *      izquierda, debajo del descanso 1, en (309, 1756). Las sombras del techo del descanso 1 y
      *      de una losa de en medio suben a la derecha hasta la punta del descanso 2.
-     *   3. Etapa 3, del descanso 2 a la cima (izquierda, y = 800): Logi fija abajo a la derecha,
+     *   3. Etapa 3, del descanso 2 a la cima (izquierda, y = 800): Logi fijo abajo a la derecha,
      *      debajo del descanso 2, en (976, 1311). La sombra del techo del descanso 2 sube a la
      *      izquierda hasta la punta de la cima.
      * El domo: las paredes se cierran en escalones hacia arriba y de ellas salen repisas cada vez
      * más cortas (la cima 220 px, luego 160, 130 y 100), una a cada lado. Ningún salto llega de una
-     * a la siguiente (150 px o más de alto); en medio hay una losa pequeña, y con Logi fija abajo
+     * a la siguiente (150 px o más de alto); en medio hay una losa pequeña, y con Logi fijo abajo
      * de ella su sombra sube inclinada hasta la punta de la repisa siguiente:
      *   4. De la cima a la repisa 1 (derecha, y = 650): Logi en (440, 915).
      *   5. De la repisa 1 a la repisa 2 (izquierda, y = 500): Logi en (760, 770).
      *   6. De la repisa 2 a la repisa 3 (derecha, y = 360): Logi en (560, 640).
      *   7. Las losas colgantes, de la repisa 3 a la repisa del Farol (y = 90): dos losas cuelgan
      *      del techo, más alto de lo que alcanza un salto desde la repisa 3 (135 y 220 px). Con
-     *      Logi fija abajo a la izquierda de ellas, en (560, 300), sus sombras salen hacia arriba a
+     *      Logi fijo abajo a la izquierda de ellas, en (560, 300), sus sombras salen hacia arriba a
      *      la derecha: Candil salta de la repisa 3 a la sombra de la losa de la derecha, de ahí
      *      salta a la sombra de la de la izquierda (o se para en ella) y de ahí a la repisa del
      *      Farol, donde lo toca. Hacen falta las dos: desde la sombra de la de la derecha un salto
@@ -215,7 +215,7 @@ public final class Cave {
      * Las únicas repisas que se pisan son el inicio o el fin de algún tramo (el piso, a los dos
      * lados del hueco, los descansos, la cima, las del domo y la del Farol); las paredes suben
      * hasta el techo del mundo. La prueba (PruebaCupula) lo comprueba todo con todos los saltos y
-     * caídas posibles, cada medio píxel; la chimenea, también con Logi fija en cada punto de una
+     * caídas posibles, cada medio píxel; la chimenea, también con Logi fijo en cada punto de una
      * malla de 40 px.
      *
      * [v0.9.5] La sala del trono. Ya con las medidas del código: lo que era el techo del mundo

@@ -132,7 +132,7 @@ public class LightSource {
 
     /**
      * [v1.0] La forma que domina ahora, de mayor a menor prioridad:
-     *   ETHEREAL (menú y final) > AGITATED (Candil a menos de 150 px) > SPARKING (fija)
+     *   ETHEREAL (menú y final) > AGITATED (Candil a menos de 150 px) > SPARKING (Logi fijo)
      *   > RISING (rápida y subiendo) > CHASE (rápida) > CALM.
      * Rápida es más de 380 px/s. Subiendo es vy < -0.7 · rapidez: el eje y crece hacia abajo,
      * así que subir es vy negativa, y -vy / rapidez es el seno del ángulo sobre la horizontal:

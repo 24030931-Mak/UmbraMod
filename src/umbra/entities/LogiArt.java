@@ -45,7 +45,7 @@ final class LogiArt {
     private static final Color DARK_OUTER = new Color(150, 34, 40);
     private static final Color DARK_MIDDLE = new Color(226, 96, 52);
     private static final Color DARK_CORE = new Color(255, 190, 130);
-    // Paleta fría cuando Logi está fija (pinned) y paleta roja de advertencia (agitation)
+    // Paleta fría cuando Logi está fijo (pinned) y paleta roja de advertencia (agitation)
     private static final Color PIN_OUTER = new Color(60, 165, 255);
     private static final Color PIN_MIDDLE = new Color(135, 215, 255);
     private static final Color PIN_CORE = new Color(235, 250, 255);
@@ -55,7 +55,7 @@ final class LogiArt {
     private static final Color DANGER_HALO = new Color(255, 75, 55);
 
     /**
-     * Halo de luz: degradado radial que se desvanece hacia afuera; cambia de color (azul fija,
+     * Halo de luz: degradado radial que se desvanece hacia afuera; cambia de color (azul si está fijo,
      * rojo agitada) y late un poco: su radio sigue un seno lento, y agitada tiembla con el parpadeo.
      */
     static void drawGlow(Graphics2D g, LightSource l) {
@@ -89,7 +89,7 @@ final class LogiArt {
      *      M = T(x, y + flote) · R(ángulo de la cola) las lleva a su lugar. El ángulo es
      *      atan2 del vector de la cola, y su largo dice qué tanto se estira la cola;
      *   4. los ojos, derechos aunque la cola gire;
-     *   5. el anillo si está fija.
+     *   5. el anillo si está fijo.
      * Flota con un vaivén suave, pero solo el dibujo: la luz sigue en (x, y).
      */
     static void drawCore(Graphics2D g, LightSource l) {
@@ -114,7 +114,7 @@ final class LogiArt {
                 + 0.08 * Math.sin(time * 1.9) * (1 - motion)          // vaivén en calma
                 + 0.25 * agitation * Math.sin(flickerPhase * 0.55);   // agitada: se sacude
 
-        // Colores de la llama: normal -> azul si está fija -> rojo si Candil está cerca -> más oscuro con los ojos oscuros
+        // Colores de la llama: normal -> azul si está fijo -> rojo si Candil está cerca -> más oscuro con los ojos oscuros
         double pinMix = l.getPinMix();
         double d = 0.5 * eyeDarkness;   // [v0.8.6] la llama se enfría solo a medias: lo que cambia son los ojos
         Color cOuter = mix(mix(mix(OUTER, PIN_OUTER, pinMix), DANGER_OUTER, agitation * 0.85), DARK_OUTER, d);
@@ -122,7 +122,7 @@ final class LogiArt {
         Color cCore = mix(mix(CORE, PIN_CORE, pinMix), DARK_CORE, d);
         Color cHalo = mix(mix(HALO, PIN_HALO, pinMix), DANGER_HALO, agitation * 0.85);
 
-        // 1. Halo cálido (con el color de la llama: azul fija, rojo agitada)
+        // 1. Halo cálido (con el color de la llama: azul si está fijo, rojo agitada)
         float hr = (float) (HEAD * (2.6 + 2 * e));
         g.setPaint(new RadialGradientPaint(new Point2D.Double(cx, cy), hr, new float[] { 0f, 1f },
                 new Color[] { withAlpha(cHalo, (80 + 40 * e) * (1 - 0.4 * eyeDarkness)), withAlpha(cHalo, 0) }));
@@ -146,7 +146,7 @@ final class LogiArt {
         // 4. Ojos
         drawEyes(g, l, cx, cy, (235 + 20 * eyeDarkness) * (1 - 0.35 * e));
 
-        // 5. Un anillo indica que está fija
+        // 5. Un anillo indica que está fijo
         if (l.isPinned()) {
             g.setColor(RING);
             g.draw(new Ellipse2D.Double(x - 19, y - 19, 38, 38));
