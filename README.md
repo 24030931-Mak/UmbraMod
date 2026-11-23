@@ -44,6 +44,9 @@ Los Pozos: columnas y tiros profundos, con la sombra de Logi como único camino.
 ![El mapa grande](capturas/mundo-4-mapa.png)
 El mapa grande (Tab): las zonas recorridas se iluminan, lo demás sigue en neblina y los fragmentos tomados quedan marcados.
 
+![El mapa grande, con toda la cueva](capturas/mundo-4b-mapa-completo.png)
+Toda la cueva: las cuatro zonas reveladas, la Cúpula incluida, y los 6 fragmentos tomados.
+
 ![Un fragmento vuela hacia Candil](capturas/mundo-5-fragmento.png)
 Al tomar un fragmento, vuela hacia Candil y aparece una línea de la historia; el contador sube.
 
@@ -53,7 +56,7 @@ Al tomar un fragmento, vuela hacia Candil y aparece una línea de la historia; e
 Con 3 fragmentos (izquierda) Logi se pone rojo; con 6 (derecha), de un rojo muy oscuro y con los ojos claros.
 
 ![Un arrebato: Logi tira hacia Candil](capturas/logi-2-arrebato.png)
-Un arrebato: Logi se suelta del ratón y tira hacia Candil, y la luz le quita vida.
+En pleno arrebato: Logi, rojo, ha tirado hasta quedar junto a Candil. Ya no hay sombra que lo cubra, y la barra de vida baja con la luz.
 
 **La sala del trono**
 
@@ -102,7 +105,7 @@ Proyecto final de **Graficación**.
 
 **Guardar la partida.** El menú tiene 3 espacios de partida. Elige uno con **W/S** o con el ratón y pulsa **Enter**: si está vacío empieza una partida nueva, y si no, sigue donde la dejaste. **Supr** borra una partida, siempre preguntando antes. El juego guarda solo al cruzar a otra zona, al volver al menú con **Esc** y al cerrar la ventana. Al continuar, Candil aparece en la última repisa firme que pisó. Después del final, la partida queda frente a la Cúpula. Los archivos van en `%APPDATA%\Umbra\`.
 
-**Logi se resiste.** Con cada fragmento que juntas, Logi te sigue más despacio y se oscurece: de naranja a rojo y, con los 6, a un rojo muy oscuro; el negro total de la llama queda para el final. Si dejas el ratón quieto un momento, se acerca solo a Candil. Y a ratos tiene un arrebato: la llama parpadea en rojo para avisar, se queda en su sitio un instante (el clic no lo fija) y luego tira hacia Candil. Con más fragmentos los arrebatos son más seguidos y más largos. Fijar a Logi con un clic te protege: mientras esté fijo no hay arrebato, y al soltarlo tienes un momento antes del siguiente. Sin fragmentos, Logi se comporta como siempre.
+**Logi se resiste.** Con cada fragmento que juntas, Logi te sigue más despacio y se oscurece: de naranja a rojo y, con los 6, a un rojo muy oscuro; el negro total de la llama queda para el final. Si dejas el ratón quieto un momento, se acerca solo a Candil. Y a ratos tiene un arrebato: la llama parpadea en rojo para avisar, se queda quieto un instante (el clic no lo fija) y luego tira hacia Candil: te deja sin sombra y su luz te quita vida poco a poco. Si Candil flotaba en una sombra sobre un hueco, puede caer. Logi se detiene a unos pasos, sin llegar a tocarlo: lo que daña es la luz, no el tirón. Con más fragmentos los arrebatos son más seguidos y más largos. Fijar a Logi con un clic te protege: mientras esté fijo no hay arrebato, y al soltarlo tienes un momento antes del siguiente. Sin fragmentos, Logi se comporta como siempre.
 
 **Candil y Logi cambian de forma.** Candil es un fantasma encapuchado y tiene una forma para cada acción: descansa, corre, salta, cae y flota. Logi también cambia: se estira como cometa cuando lo mueves rápido, se enrosca en espiral al subir y se calma cuando está quieto.
 
