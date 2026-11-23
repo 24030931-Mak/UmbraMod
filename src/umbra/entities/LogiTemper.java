@@ -65,9 +65,12 @@ public final class LogiTemper {
         reset();
     }
 
-    /** n / 6, entre 0 y 1. */
+    /** Oscuridad máxima jugando (6 fragmentos): rojo muy oscuro con los ojos ya claros. El negro total (1) queda para el final. */
+    public static final double PLAY_DARKNESS_MAX = 5.0 / 6.0;
+
+    /** (n / 6) · (5 / 6): entre 0 y 5/6. La animación final lleva a Logi de ahí hasta 1. */
     public static double darknessFor(int fragments) {
-        return clampFragments(fragments) / (double) MAX_FRAGMENTS;
+        return clampFragments(fragments) / (double) MAX_FRAGMENTS * PLAY_DARKNESS_MAX;
     }
 
     /** 1 con 0 fragmentos; baja hasta 0.5 con 6 (Logi tarda más en seguir al ratón). */

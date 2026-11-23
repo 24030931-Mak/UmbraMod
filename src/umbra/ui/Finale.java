@@ -58,7 +58,7 @@ import umbra.world.Level;
  *   LUZ        Logi vuela a su lugar junto a la luz, abajo a la izquierda del candelabro. Los brazos con
  *              fragmento se apagan un instante y se encienden uno por uno, en el orden fijo
  *              (CandelabraState.lightOrder); cada pétalo del rosetón responde con su brazo.
- *   OSCURECE   Logi tiembla y pasa de naranja a rojo y a negro (de su oscuridad de partida, n/6, a 1), y crece.
+ *   OSCURECE   Logi tiembla y pasa de naranja a rojo y a negro (de su oscuridad de partida, n/6 · 5/6, a 1), y crece.
  *   SE ABALANZA La llama negra se lanza hacia Candil y rebota; Candil corre bajo la punta del
  *              candelabro, donde aparece su sombra (un cono oscuro hasta el estrado).
  *   EL TRONO   Logi sube en curva hasta el corazón de vidrio y los 6 brazos se cierran sobre él.
@@ -188,7 +188,7 @@ public final class Finale {
      */
     public void start(int fragments, Level cupula, double candilX, double candilY, double logiX, double logiY) {
         this.fragments = Math.max(0, Math.min(CandelabraState.ARMS, fragments));
-        startDark = LogiTemper.darknessFor(this.fragments);   // [B5] Logi llega tan oscuro como venía jugando (6 fragmentos: ya negro)
+        startDark = LogiTemper.darknessFor(this.fragments);   // [B5] Logi llega tan oscuro como venía jugando (6 fragmentos: 5/6, rojo muy oscuro)
         level = cupula;
         state = cupula.getCandelabra();
         Rectangle2D exit = cupula.getExit();

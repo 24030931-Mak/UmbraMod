@@ -164,6 +164,10 @@ public class GamePanel extends JPanel {
     private int waitMouseX, waitMouseY;   // dónde estaba el ratón (pantalla) cuando empezó la espera
     /** [B5] El carácter de Logi: arrebatos, lentitud y oscuridad según los fragmentos (semilla al azar en cada ejecución). */
     private final LogiTemper temper = new LogiTemper(System.nanoTime());
+    // [B5] Color de Logi: al juntar un fragmento pasa del tono anterior al nuevo en DARK_FADE_TIME s, en línea recta
+    private static final double DARK_FADE_TIME = 1.0;
+    private double shownDark, darkFrom, darkTo, darkFade = DARK_FADE_TIME;
+    private boolean snapDark = true;   // true: el próximo cuadro pone el color de golpe (nueva partida, continuar, reaparecer, cruzar de zona)
     private int prevMouseX, prevMouseY;   // el ratón (pantalla) del cuadro anterior, para saber si se movió
     private Background background;
     private LevelArt levelArt;
@@ -684,6 +688,7 @@ public class GamePanel extends JPanel {
      */
     private void placeLogiAbove() {
         light.setPinned(false);
+        snapDark = true;
         temper.reset();   // [B5] otro lugar, otro arrebato: la fase vuelve a CALM y el reloj empieza de nuevo
         // Cerca del techo de la zona, 220 px arriba quedarían fuera de ella: se recorta a y >= 20.
         // Si así queda a menos de 140 px de Candil lo desmoronaría al llegar: se corre de lado
@@ -712,6 +717,7 @@ public class GamePanel extends JPanel {
      * misma regla que al cruzar de nivel. Si todo está lejos no se toca nada.
      */
     private void keepLogiAwayFromCandil() {
+        snapDark = true;
         temper.reset();   // [B5] al reaparecer o reiniciar, Logi vuelve a obedecer en el acto (sin arrebato en curso)
         Vec2 mouse = camera.screenToWorld(input.getMouseX(), input.getMouseY());
         double min2 = ARRIVAL_SAFE_DISTANCE * ARRIVAL_SAFE_DISTANCE;
@@ -807,7 +813,21 @@ public class GamePanel extends JPanel {
         prevMouseY = input.getMouseY();
         // La oscuridad sigue a los fragmentos aun en la espera; lo demás lo trae el temper (con 0 fragmentos: factor 1, oscuridad 0, sin aviso)
         light.setSmoothingFactor(temper.getSmoothingFactor());
-        light.setDarkness(LogiTemper.darknessFor(world.takenCount()));
+        double darkNow = LogiTemper.darknessFor(world.takenCount());
+        if (snapDark) {
+            shownDark = darkFrom = darkTo = darkNow;
+            darkFade = DARK_FADE_TIME;
+            snapDark = false;
+        } else {
+            if (darkNow != darkTo) { darkFrom = shownDark; darkTo = darkNow; darkFade = 0; }
+            if (darkFade < DARK_FADE_TIME) {
+                darkFade = Math.min(DARK_FADE_TIME, darkFade + dt);
+                shownDark = darkFrom + (darkTo - darkFrom) * (darkFade / DARK_FADE_TIME);
+            } else {
+                shownDark = darkTo;
+            }
+        }
+        light.setDarkness(shownDark);
         light.setWarning(temper.getWarning());
         light.update(dt);
         emitLogiEffects(dt);   // chispas si Logi se queda en su sitio; ceniza si va rápido
