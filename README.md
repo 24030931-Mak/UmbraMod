@@ -260,10 +260,10 @@ src/umbra/
 - [x] Sonido del peligro y del desmoronarse sintetizado por código (aporte de Maria Magdalena)
 
 ### v0.9.5 — La sala del trono y el final
-- [ ] La Cúpula crece hacia arriba y termina en la sala del trono, con el Gran Farol como candelabro de seis brazos
-- [ ] La animación final con voz: la llama negra de Logi, que el candelabro encierra (o que escapa si faltan fragmentos); se salta con Enter
-- [ ] La intro usa el mismo candelabro
-- [ ] Las partidas de la v0.9 salen todas dañadas (se borran desde el menú con Supr)
+- [x] La Cúpula crece hacia arriba y termina en la sala del trono, con el Gran Farol como candelabro de seis brazos
+- [x] La animación final con voz: la llama negra de Logi, que el candelabro encierra (o que escapa si faltan fragmentos); se salta con Enter
+- [x] La intro usa el mismo candelabro
+- [x] Las partidas de la v0.9 salen todas dañadas (se borran desde el menú con Supr)
 
 ### Después
 Las versiones siguen: el juego todavía puede crecer.
