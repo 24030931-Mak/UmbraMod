@@ -2,6 +2,8 @@ package umbra.entities;
 
 import java.util.Random;
 
+import umbra.core.Config;
+
 /**
  * El carácter de Logi: cuantos más fragmentos lleva el jugador, más se resiste Logi.
  * Es lógica pura (sin dibujo ni ventana): cada cuadro recibe lo que pasa y dice a dónde
@@ -27,11 +29,15 @@ public final class LogiTemper {
 
     public enum Phase { CALM, WARN, FROZEN, PULL }
 
-    public static final double WARN_TIME = 0.8, UNPIN_GRACE = 1.5, IDLE_DELAY = 2.0, IDLE_STOP = 60;
+    /**
+     * Distancia a la que Logi se detiene de Candil, tanto al acercarse solo como al tirar (px).
+     * Queda fuera del radio en que Candil se desmorona: Logi quita la sombra y la vida, no desmorona.
+     */
+    public static final double SAFE_DISTANCE = Config.CRUMBLE_RADIUS + 35;
+
+    public static final double WARN_TIME = 0.8, UNPIN_GRACE = 1.5, IDLE_DELAY = 2.0, IDLE_STOP = SAFE_DISTANCE;
 
     private static final int MAX_FRAGMENTS = 6;
-    /** Altura sobre Candil a la que apunta el tirón (px). */
-    private static final double PULL_ABOVE = 30;
 
     // Por tramo (1-2, 3-4, 5-6): espera mínima y máxima, tiempo quieto y tiempo que tira.
     private static final double[] WAIT_MIN = { 25, 18, 12 };
@@ -51,6 +57,7 @@ public final class LogiTemper {
     private double frozenTime, pullTime; // duraciones del arrebato en curso
     private boolean deferred;        // la espera se cumplió con Logi fijo: esperando soltarlo
     private double graceLeft;
+    private double sinceUnpin;       // tiempo desde que se soltó a Logi (0 mientras está fijo)
 
     private double targetX, targetY;
     private double frozenX, frozenY;
@@ -94,6 +101,7 @@ public final class LogiTemper {
         tier = -1; // la espera se elige en el primer update con fragmentos
         deferred = false;
         graceLeft = 0;
+        sinceUnpin = UNPIN_GRACE;
         idleTime = 0;
         drifting = false;
         smoothing = 1;
@@ -129,7 +137,13 @@ public final class LogiTemper {
 
         // Si cambia el tramo de fragmentos en CALM, la espera se vuelve a elegir con la tabla nueva
         // (se conserva el tiempo ya esperado).
-        if (tier < 0 || (phase == Phase.CALM && tierFor(n) != tier)) newWait(n);
+        // Si ya esperó más de la cuenta, quedan al menos 3 s: el aviso no sale justo con la recompensa.
+        if (tier < 0 || (phase == Phase.CALM && tierFor(n) != tier)) {
+            newWait(n);
+            waitTimer = Math.min(waitTimer, waitTarget - 3);
+        }
+
+        if (pinned) sinceUnpin = 0; else sinceUnpin += dt;
 
         switch (phase) {
             case CALM:
@@ -140,7 +154,12 @@ public final class LogiTemper {
                         deferred = true;
                         graceLeft = UNPIN_GRACE;
                     } else if (!deferred) {
-                        startWarn(n);
+                        if (sinceUnpin < UNPIN_GRACE) { // soltado hace poco: se respeta lo que falta de la gracia
+                            deferred = true;
+                            graceLeft = UNPIN_GRACE - sinceUnpin;
+                        } else {
+                            startWarn(n);
+                        }
                     }
                 }
                 if (deferred && !pinned) {
@@ -196,7 +215,12 @@ public final class LogiTemper {
                 smoothing = smoothingFactorFor(n);
                 break;
             case PULL:
-                moveToward(candilX, candilY - PULL_ABOVE, pullSpeed * dt);
+                // Avanza hacia Candil pero se detiene a SAFE_DISTANCE, en la recta que lo une con Logi
+                // (si Logi está justo encima de Candil, por arriba).
+                double ux = targetX - candilX, uy = targetY - candilY;
+                double ul = Math.sqrt(ux * ux + uy * uy);
+                if (ul < 1e-6) { ux = 0; uy = -1; ul = 1; }
+                moveToward(candilX + ux / ul * SAFE_DISTANCE, candilY + uy / ul * SAFE_DISTANCE, pullSpeed * dt);
                 smoothing = 1;
                 break;
             default:

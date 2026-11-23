@@ -63,7 +63,7 @@ final class LogiArt {
 
     /**
      * Halo de luz: degradado radial que se desvanece hacia afuera; cambia de color (azul si está fijo,
-     * rojo agitada) y late un poco: su radio sigue un seno lento, y agitada tiembla con el parpadeo.
+     * rojo en arrebato) y late un poco: su radio sigue un seno lento, y con agitación tiembla con el parpadeo.
      */
     static void drawGlow(Graphics2D g, LightSource l) {
         double x = l.getX(), y = l.getY();
@@ -112,14 +112,14 @@ final class LogiArt {
         double cx = x, cy = y + BOB * Math.sin(time * BOB_SPEED);   // flota
         double e = l.getEtherealMix();
         double tail = Math.hypot(tailX, tailY);   // 1 = cola bien definida; 0 = llama redonda
-        double flick = 1 - 0.4 * agitation * (0.5 + 0.5 * Math.sin(flickerPhase));   // agitada: parpadea
-        double r = HEAD * (1 - 0.15 * agitation);                                    // agitada: más delgada
+        double flick = 1 - 0.4 * agitation * (0.5 + 0.5 * Math.sin(flickerPhase));   // agitación: parpadea
+        double r = HEAD * (1 - 0.15 * agitation);                                    // agitación: más delgada
         double len = Math.max(HEAD, HEAD * CALM_LENGTH * (1 + 2 * motion) * tail)    // rápida: cometa
-                * (1 + 0.9 * agitation);                                             // agitada: se estira
+                * (1 + 0.9 * agitation);                                             // agitación: se estira
         double amp = HEAD * (0.12 + 0.25 * agitation + 0.5 * rise + 0.15 * e);      // cuánto ondula
         double angle = Math.atan2(tailY, tailX)
                 + 0.08 * Math.sin(time * 1.9) * (1 - motion)          // vaivén en calma
-                + 0.25 * agitation * Math.sin(flickerPhase * 0.55);   // agitada: se sacude
+                + 0.25 * agitation * Math.sin(flickerPhase * 0.55);   // agitación: se sacude
 
         // Colores de la llama: la paleta de su oscuridad [B5] -> azul si está fijo -> rojo si Candil
         // está cerca -> más oscuro con los ojos oscuros (intro) -> rojo vivo si avisa un arrebato [B5].
