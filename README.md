@@ -336,10 +336,15 @@ src/umbra/
 - [x] La intro usa el mismo candelabro
 - [x] Las partidas de la v0.9 salen todas dañadas (se borran desde el menú con Supr)
 
+### v0.9.6 — Logi se resiste
+- [x] Antes del final, una espera de 2 s con un destello del candelabro
+- [x] Con cada fragmento, Logi sigue al ratón más lento y se oscurece (naranja → rojo → casi negro); el negro total queda para el final
+- [x] Arrebatos con aviso: Logi se queda quieto y luego tira hacia Candil, lo deja sin sombra y puede hacerlo caer; fijarlo lo protege
+- [x] Capturas de pantalla en este README
+
 ### Después
 Las versiones siguen: el juego todavía puede crecer.
 - [ ] La persecución: la llama negra, luces que se mueven solas y obstáculos nuevos
-- [x] Capturas de pantalla en este README
 
 ## Técnicas de graficación
 
