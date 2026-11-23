@@ -114,14 +114,18 @@ Una zona de dos tiros: uno baja por la izquierda, el fondo cruza la cueva y otro
 
 ## Cómo pasar la Cúpula
 
-Tres pantallas de alto, con paredes que se cierran como un domo. El Gran Farol cuelga arriba, al centro.
+Cuatro pantallas de alto, con paredes que se cierran como un domo. Arriba de todo está la sala del trono, y en ella cuelga el Gran Farol, un candelabro de seis brazos.
 
 | Tramo | Obstáculo | Dónde va la luz | Cómo avanzar |
 |---|---|---|---|
 | 1. La subida por relevos | Chimenea de losas de unos 1400 px | Por etapas: súbela al siguiente tramo mientras Candil espera | Entre etapas, Candil descansa en nichos con una losa encima, que quedan en sombra |
 | 2. Las repisas del domo | Repisas cada vez más cortas | Junto a las losas pequeñas, para que sus sombras unan las repisas | Sube en zigzag |
 | 3. Las losas colgantes | El último paso hasta la repisa del Farol | Que las sombras de las dos losas que cuelgan del techo lleguen a la repisa | Cruza por sus sombras |
-| 4. El Gran Farol | Nada: es el final | — | Tócalo |
+| 4. La sala del trono | Nada: es el final | — | Sube al estrado, bajo el candelabro, y tócalo |
+
+**El final.** Al tocar el candelabro corre una animación con voz y subtítulos: los brazos se encienden, la luz de Logi se vuelve una llama negra y se abalanza sobre Candil, que se refugia en su sombra. Con los 6 fragmentos, los brazos se cierran sobre la llama y la encierran en el corazón de vidrio; con menos, queda un hueco y la llama escapa por lo alto del domo. Después sale la pantalla final. Se puede saltar con **Enter** (también Esc, Espacio o clic, medio segundo después de empezar).
+
+Las partidas guardadas con la v0.9 que estaban en la Cúpula salen como «dañadas», porque la Cúpula creció hacia arriba: hay que empezar una nueva.
 
 ## Estructura del proyecto
 
@@ -132,7 +136,8 @@ src/umbra/
 │   ├── Music.java            Música de ambiente en bucle (entrada suave, tecla M; baja mientras habla la narración)
 │   ├── VoiceOver.java        Narración de la intro: un clip a la vez, cargados de antemano, con reloj real
 │   ├── DangerAudio.java      Sonido del peligro y del desmoronarse, sintetizado por código
-│   └── FragmentAudio.java    Tono de campana al tomar un fragmento, sintetizado por código
+│   ├── FragmentAudio.java    Tono de campana al tomar un fragmento, sintetizado por código
+│   └── FinaleAudio.java      El rugido y los golpes de la llama negra en el final, sintetizados
 ├── core/
 │   ├── Config.java           Constantes: física, vida, música, versión
 │   ├── GamePanel.java        Game loop, update y render
@@ -150,7 +155,9 @@ src/umbra/
 │   ├── Camera.java           Cámara que sigue a Candil en los dos ejes (matriz de vista)
 │   ├── CaveShapes.java       Formas de la cueva que comparten el juego y la intro (estalactitas, crestas)
 │   ├── LevelArt.java         Roca, musgo, plantas que se mecen, hongos, losas con runas
-│   ├── LanternArt.java       El Gran Farol: cuelga en la Cúpula y se enciende con los fragmentos
+│   ├── CandelabraArt.java    El Gran Farol: el candelabro de seis brazos, con corazón de vidrio, para el juego, la intro y el final
+│   ├── CandelabraState.java  Qué brazos están encendidos y cerrados, el brillo y la sacudida del candelabro
+│   ├── ThroneHallArt.java    La sala del trono de la Cúpula: estrado, columnas y braseros
 │   ├── FragmentArt.java      Un fragmento del Gran Farol: vidrio dorado con facetas que brilla
 │   ├── FragmentFlights.java  El vuelo del fragmento hacia Candil al tomarlo
 │   ├── ParticleSystem.java   Rastro de luz, chispas, polvo, niebla y ceniza
@@ -160,9 +167,10 @@ src/umbra/
 │   └── Mat3.java             Matriz 3x3 (traslación, rotación, escala)
 ├── res/
 │   ├── ambiente.wav          Música
-│   ├── voz_1.wav … voz_6.wav Narración de la intro, una por escena; voz_7 … voz_12: la voz de cada línea de fragmentos.txt
+│   ├── voz_1.wav … voz_6.wav Narración de la intro, una por escena; voz_7 … voz_12: la voz de cada línea de fragmentos.txt; voz_13 … voz_20: la voz del final
 │   ├── intro.txt             Texto de respaldo de la intro: sale solo si la voz no puede sonar
 │   ├── fragmentos.txt        Las líneas de historia que salen al tomar cada fragmento
+│   ├── final_animacion.txt   Los subtítulos de la animación final, con la voz de cada línea
 │   └── final.txt             Texto de la pantalla final (algunas líneas dependen de los fragmentos)
 ├── ui/
 │   ├── Intro.java            La intro: línea de tiempo de las seis escenas, fundidos y narración
@@ -173,6 +181,7 @@ src/umbra/
 │   ├── Menu.java             Menú de inicio: el título y los 3 espacios de partida
 │   ├── LevelTitle.java       Título de la zona al empezar o al cruzar
 │   ├── StoryLine.java        La línea de historia al tomar un fragmento
+│   ├── Finale.java           La animación final: el guion por pasos con la voz, la llama negra y el candelabro que se cierra
 │   ├── Victory.java          Pantalla final
 │   ├── Text.java             Ayudantes para dibujar texto
 │   ├── MapView.java          Mapa grande (Tab): toda la cueva y lo recorrido
@@ -250,10 +259,15 @@ src/umbra/
 - [x] 3 espacios de partida en el menú: continuar, empezar y borrar; se guarda solo al cruzar de zona, al salir con Esc y al cerrar
 - [x] Sonido del peligro y del desmoronarse sintetizado por código (aporte de Maria Magdalena)
 
+### v0.9.5 — La sala del trono y el final
+- [ ] La Cúpula crece hacia arriba y termina en la sala del trono, con el Gran Farol como candelabro de seis brazos
+- [ ] La animación final con voz: la llama negra de Logi, que el candelabro encierra (o que escapa si faltan fragmentos); se salta con Enter
+- [ ] La intro usa el mismo candelabro
+- [ ] Las partidas de la v0.9 en la Cúpula salen dañadas
+
 ### Después
 Las versiones siguen: el juego todavía puede crecer.
 - [ ] v0.9.5 — La persecución: la llama negra, luces que se mueven solas y obstáculos nuevos
-- [ ] El final: reparar el Gran Farol
 - [ ] Capturas de pantalla en este README
 
 ## Técnicas de graficación
@@ -288,8 +302,12 @@ Las versiones siguen: el juego todavía puede crecer.
 | Cámara en dos ejes: matriz de vista `T(−x, −y)` con seguimiento suavizado | `Camera.follow()`, `Camera.getViewMatrix()` |
 | Mundo en un plano: cada zona con su traslación, y pasos entre orillas | `Cave`, `Passage`, `MapView` |
 | Interpolación lineal hacia un blanco que se mueve, con escala que se encoge | `FragmentFlights` |
-| Degradado radial y facetas con bisel de luz (iluminación falsa) | `FragmentArt`, `LanternArt.draw()` |
-| Síntesis de audio por código (ondas senoidales con envolvente) | `FragmentAudio`, `DangerAudio` |
+| Degradado radial y facetas con bisel de luz (iluminación falsa) | `FragmentArt`, `CandelabraArt` |
+| Síntesis de audio por código (ondas senoidales con envolvente) | `FragmentAudio`, `DangerAudio`, `FinaleAudio` |
+| Guion por pasos sincronizado con la voz: cada paso avanza cuando acaba su audio | `Finale` |
+| Interpolación por brazo al cerrarse: cada brazo gira de su posición abierta a la cerrada con su propio avance | `CandelabraArt`, `CandelabraState` |
+| Sacudida con amortiguación (golpes que se apagan) | `Finale`, `CandelabraState` |
+| Cambio de color de la llama negra por interpolación (naranja, rojo, negro) | `LogiArt`, `Finale` |
 
 ## Música
 
@@ -298,3 +316,18 @@ La música está en `src/umbra/res/ambiente.wav` y se repite sin fin (**M** la s
 La narración de la intro está en `src/umbra/res/voz_1.wav` … `voz_6.wav`, una por escena (WAV PCM de 16 bits, 44 100 Hz, estéreo). Mientras habla, la música baja un poco; **M** silencia las dos. Si una voz falta o no hay tarjeta de sonido, la intro muestra el texto de `intro.txt` en su lugar.
 
 `voz_7.wav` a `voz_12.wav` son las voces de las líneas de los fragmentos, una por línea de `fragmentos.txt` en orden, con el mismo formato que las de la intro: la línea n suena al tomar el fragmento número n. Si falta una, solo sale el texto.
+
+`voz_13.wav` a `voz_20.wav` son las voces de la animación final, en el mismo formato; sus subtítulos están en `final_animacion.txt`:
+
+| Archivo | Quién | Línea |
+|---|---|---|
+| `voz_13` | Narrador | «Por primera vez en mucho tiempo, la Cúpula se llenó de luz.» |
+| `voz_14` | Narrador | «Pero Logi no buscaba encender el Farol. Buscaba volver a él.» |
+| `voz_15` | Narrador | «Y el trono que una vez fue suyo se volvió su prisión.» |
+| `voz_16` | Logi | «Me encerraste en mi propio trono, Candil. Pero la luz siempre vuelve a su dueño.» |
+| `voz_17` | Narrador | «Desde entonces, en la cueva hay luz… y también sombra donde descansar.» |
+| `voz_18` | Narrador | «El Gran Farol volvió a arder… pero no del todo.» |
+| `voz_19` | Logi | «Te faltó un pedazo, pequeño. La oscuridad es mía otra vez.» |
+| `voz_20` | Narrador | «Los pedazos que faltan siguen perdidos en algún lugar de la cueva.» |
+
+`voz_13` a `voz_17` son el final con los 6 fragmentos; el que falla usa `voz_18`, `voz_14`, `voz_19` y `voz_20`. Si una falta, solo salen los subtítulos.
