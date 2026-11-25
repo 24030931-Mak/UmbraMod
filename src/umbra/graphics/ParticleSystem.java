@@ -263,7 +263,8 @@ public class ParticleSystem {
             if (p.halo || lightBoost > 0.15) {
                 double haloScale = 2.4 + lightBoost * 1.4;
                 double h = p.size * haloScale;
-                int haloAlpha = (int) Math.min(255, (alpha / 4.0) + lightBoost * 75);
+                double lifeRatio = alpha / 255.0;
+                int haloAlpha = (int) Math.min(255, (alpha / 4.0) + (lightBoost * 75.0 * lifeRatio));
                 g.setColor(withAlpha(renderColor, haloAlpha));
                 g.fill(new Ellipse2D.Double(p.x - h, p.y - h, h * 2, h * 2));
             }
